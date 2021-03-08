@@ -73,7 +73,7 @@ This indicates that a two-tone dispatch was detected with tones 919Hz, 2940Hz. E
 :bulb: You can run FD Tone Notify in `--tone-detector` mode and normal "notification" mode at the same time. This is recommended
 when you are building out and fine tuning your configuration.
     
-#### Running FD Tone Notify
+#### Running FD Tone Notify and Using the Web Monitor for Live Streaming Audio
 Running FD Tone Notiy is simple. Just run
 
     fd-tone-notify.exe --web-server --port 3000
@@ -81,7 +81,7 @@ This will start FD Tone Notify with the webserver option. The monitoring & Audio
 on [http://localhost:3000](http://localhost:3000). FD Tone Notify will print a list of all of the 
 configured detectors during the startup process. This is a perfect opportunity to verify your configuration.
 
-#### Notification Basics
+#### Running FD Tone Notify
 The easiest way to get started with notifications is by setting up [Pushbullet](https://pushbullet.com).
 Create a new account (or signin). Once logged in [Create A New Channel](https://www.pushbullet.com/my-channel). 
 The channel tag (unique) is what is needed in the notifications config as `channelTag`. The channel name can be anything.
@@ -91,6 +91,19 @@ on creating and saving your Pushbullet API Key.
 
 Download the Pushbullet iOs/Android application and Login. You will now receive push notifications from FD Tone Notify.
 Other users can subscribe to channel tag and also receive notifications.
+
+#### Testing Your Setup
+If testing on Windows you can install software called [VB-Cable](https://vb-audio.com/Cable/) which is a virtual audio loopback.
+This allows you to play a recording of the tone(s) you are monitoring and pipe that audio into FD Tone Notify. This will
+allow you to test detection and recording. This method can also be used with the `all-tone-detector` option.
+
+On the Raspberry Pi a physical loopback cable can be used or the input can be conected to another computer's headphone 
+jack.
+
+:bulb: Use the `--silly` option to print a "Silly" amount of debug logs to the console. This will print data whenever 
+audio above the `silenceAmplitude` is detected allowing you to verify your setup is working. Most radios/scanners
+"beep" when you press a button. If everything is working correctly this "beep" should be printed to the console while
+running with '--silly'.
 
 ## Configuration
 FD Tone Notify is configured via configuration files in the `config/` directory and environment variables. 
