@@ -1,0 +1,6 @@
+.tail {
+    border: 1px solid blue;
+    height: 500px;
+    width: 500px;
+    overflow: scroll;
+}

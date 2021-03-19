@@ -1,0 +1,8 @@
+.eslintrc
+.babelrc
+.travis.yml
+src
+test
+npm-debug.log
+
+build/*

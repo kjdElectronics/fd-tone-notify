@@ -1,0 +1,104 @@
+{
+  "audio": {
+    "inputDevice": "hw:1,0",
+    "sampleRate": 44100,
+    "frequencyScaleFactor": 1,
+    "recordingScaleFactor": 2,
+    "silenceAmplitude": 0.05,
+    "channels": 1
+  },
+  "detection":
+    {
+      "minRecordingLengthSec": 30,
+      "defaultMatchThreshold": 6,
+      "defaultTolerancePercent": 0.05,
+      "detectors": [
+        {
+          "name": "Test Fire Department",
+          "tones": [911, 3000],
+          "matchThreshold": 6,
+          "tolerancePercent": 0.02,
+          "notifications": {
+            "preRecording": {
+              "pushbullet": [
+                {
+                  "title": "Test Fire Department Tone Received",
+                  "channelTag": "test-tag",
+                  "body": "Tone Received %d"
+                }
+              ],
+              "webhooks": [
+                {
+                  "address": "http://localhost:8500/endpoint",
+                  "headers": {"custom-header": "value", "from-env-var": "CUSTOM_ENV_VAR_AUTH_HEADER", "note":  "from-env-var set to value of 'AUTH_HEADER' environment var or null if the variable is not set"},
+                  "custom": {
+                    "anyObject": true
+                  }
+                }
+              ],
+              "externalCommands": [
+                {
+                  "command": "node ./rel/path/main.js [timestamp] \"[detectorName]\" \"[description]\" [tones] [matchAverages] [recordingRelPath] [custom]",
+                  "description": "fancy description for the logs",
+                  "custom": {
+                    "anyObject": true,
+                    "notes": "This object will be stringified to JSON and passed as a command line argument"
+                  }
+                }
+              ],
+              "emails": [
+                {
+                  "to": "test@example.com,user@domain.com",
+                  "bcc": "person@example.com,name@domain.com",
+                  "subject": "Test Fire Department Tone Received",
+                  "text": "Tone Received %d"
+                }
+              ]
+            },
+            "postRecording": {
+              "pushbullet": [
+                {
+                  "title": "Test Fire Department Tone Received",
+                  "channelTag": "test-tag",
+                  "body": "Tone Received %d"
+                }
+              ],
+              "webhooks": [],
+              "externalCommands": [],
+              "emails": []
+            }
+          }
+        },
+        {
+          "name": "Second Test Fire Department",
+          "tones": [1000, 540],
+          "matchThreshold": 6,
+          "tolerancePercent": 0.02,
+          "notifications": {
+            "preRecording": {
+              "pushbullet": [],
+              "webhooks": [],
+              "externalCommands": [],
+              "emails": []
+            },
+            "postRecording": {
+              "pushbullet": [],
+              "webhooks": [],
+              "externalCommands": [],
+              "emails": []
+            }
+          }
+        }
+      ]
+    },
+  "coralogix": {
+    "applicationName": "FD-Tone-Notify",
+    "subsystemName": "Test"
+  },
+  "email": {
+    "from": "test@example.com",
+    "host": "smtp.sendgrid.net",
+    "port": 465,
+    "secure": true
+  }
+}

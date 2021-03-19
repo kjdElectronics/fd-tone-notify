@@ -8,7 +8,6 @@ FD Tone Notify is Dispatch Tone Notification Software for Fire Departments and E
   
 :triangular_flag_on_post::triangular_flag_on_post:
 
-
 **Getting Started**
  1. [Setup: Installing Necessary Software](#setup-installing-necessary-software) 
  2. [Getting Started, Usage, and Examples](#getting-started-usage-and-examples) to determine the tones for your
@@ -41,6 +40,12 @@ Before using FD Tone Notify certain software needs to be installed so FD Tone No
      > **:warning: When setting the `inputDevice` in the config file it is critical to change the value to `dsnoop`
      on Linux/Raspberry Pi. If the default value of `hw:1,0` is not changed recording will fail and post recording 
      notifications will not be sent**
+     
+### Running From Source
+Running from source is optimal for the best performance and has also been more thoroughly tested than the packaged binaries.
+To run from source install node v12 (should also work with greater than v12). [Node Download](https://nodejs.org/en/download/)
+
+To run `cd` to the source directory and type `node index.js` followed by your command line options as documented below.
 
 ## Getting Started, Usage, and Examples
 FD Tone Notify is a command line application.
@@ -300,18 +305,20 @@ See [Environment Variables and Secrets](#Environment-Variables-and-Secrets)
 Usage: fd-tone-notify [options]
 
 Options:
-  --tone-detector        Secondary functionality: Instead of reading the config file and sending notifications when specific tones are detected this option activates multi tone detector mode. In this mode the
-                         frequency spectrum from 300Hz to 4000Hz is monitored. When a multi tone is detected the result is logged to the console. Use this mode to determine the frequencies to monitor and
-                         enter the results in the "tones" parameter for the corresponding department.
+  --all-tone-detector    Secondary functionality: Instead of reading the config file and sending notifications when specific tones are detected this option activates multi
+                         tone detector mode. In this mode the frequency spectrum from 300Hz to 4000Hz is monitored. When a multi tone is detected the result is logged to the
+                         console. Use this mode to determine the frequencies to monitor and enter the results in the "tones" parameter for the corresponding department.
+  --test-notifications   Send test notifications
   --debug                Overrides FD_LOG_LEVEL environment var forcing the log level to debug
   --silly                Overrides FD_LOG_LEVEL environment var forcing the log level to silly
-  --instance-name        Overrides NODE_APP_INSTANCE environment allowing different config files for different instances running on the same machine. Example: "--instance-name my-fd" will load config files
-                         default-my-fd.json and local-my-fd.json
+  --instance-name        Overrides NODE_APP_INSTANCE environment allowing different config files for different instances running on the same machine. Example:
+                         "--instance-name my-fd" will load config files default-my-fd.json and local-my-fd.json
   --web-server           Starts the webserver. The webserver provides remote monitoring capability and ability to listen to live audio
   --port <port>          Overrides FD_PORT environment var setting the port for the web server. Has no effect without --web-server option. Default port 3000
   --secrets-file <path>  Path to secrets file. By default secrets will be loaded from config/secrets.json. Use this option to specify a different path
-  --force-secrets-file   Using this option forces all secrets to be read from the secrets file (Either the default or the path specified by --secrets-path). Values from environment variables will be
-                         disregarded. If the file cannot be loaded or parsed the application will exit with code 99 indicating an invalid secrets configuration.
+  --force-secrets-file   Using this option forces all secrets to be read from the secrets file (Either the default or the path specified by --secrets-path). Values from
+                         environment variables will be disregarded. If the file cannot be loaded or parsed the application will exit with code 99 indicating an invalid
+                         secrets configuration.
   -h, --help             display help for command
 ```  
 
@@ -337,4 +344,17 @@ are used as environment and in the `secrets.json`. :information_source: Remember
 :bulb: To help debug the secrets that are loaded use the `--silly` option. When starting FD Tone Notify the source of each
 secret will be logged to the console.
 
+#### List of Environment Variables
+  - FD_INPUT_DEVICE: Overrides `config.audio.inputDevice`
+  - FD_SAMPLE_RATE: Overrides `config.audio.sampleRate`
+  - FD_FREQ_SCALE_FACTOR: Overrides `config.audio.frequencyScaleFactor`
+  - FD_CHANNELS: Overrides `config.audio.channels`
+  - FD_SILENCE_AMPLITUDE: Overrides `config.audio.silenceAmplitude`
+  - FD_MIN_RECORDING_LENGTH_SEC: Overrides `config.detection.minRecordingLengthSec`
+  - FD_CORALOGIX_APPLICATION_NAME: Set the input device. Overrides `config.coralogix.applicationName`
+  - FD_CORALOGIX_SUBSYSTEM_NAME: Set the input device. Overrides `config.coralogix.subsystemName`
+  - FD_CORALOGIX_PRIVATE_KEY: Set the private key for coralogix. Overrides `secrets.FD_CORALOGIX_PRIVATE_KEY`
+  - FD_PUSHBULLET_API_KEY: Api key for Pushbullet. Overrides `secrets.FD_PUSHBULLET_API_KEY`
+  - FD_SMTP_USERNAME: Overrides `secrets.FD_PUSHBULLET_API_KEY`
+  - FD_SMTP_PASSWORD: Overrides `secrets.FD_PUSHBULLET_API_KEY`
   
