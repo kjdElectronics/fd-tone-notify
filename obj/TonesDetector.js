@@ -47,13 +47,13 @@ class TonesDetector extends EventEmitter{
     processValue(value){
         for (let i = 0; i < this._detectors.length; i++) {
             const detector = this._detectors[i];
-            if(detector.state === MATCH_STATES.MATCH) {
-                this._setFullResetTimeout(); //Once match starts there is only a certain time window it can complete
+            if(detector.state === MATCH_STATES.MATCH)
                 continue; //Tone already detected on this detector
-            }
             detector.processValue(value);
             if(detector.state !== MATCH_STATES.MATCH)
                 break;
+            //The processed value just triggered a match
+            this._resetAndStartFullResetTimeout(); //Timeout after specified period without matching next tone in sequence
             if(i === this._detectors.length - 1)
                 this.toneDetected(); //All detectors have matched
         }
@@ -93,15 +93,20 @@ class TonesDetector extends EventEmitter{
         return `${this.name ? this.name : ""} ${this.tones.map(f => `${f}Hz`).join(',')}`;
     }
 
-    _setFullResetTimeout(){
-        if(!this._fullResetTimeout)
-            this._fullResetTimeout = setTimeout(() => this._fullReset(), this.resetTimeoutMs)
+    _resetAndStartFullResetTimeout(){
+        if(this._fullResetTimeout) {
+            log.debug(`Detector ${this.fullName} has matched a tone. Restarting the full reset timeout`);
+            clearTimeout(this._fullResetTimeout);
+        }
+        this._fullResetTimeout = setTimeout(() => this._fullReset(), this.resetTimeoutMs)
     }
 
     _fullReset(){
-        if(this.tones.length > 1)
-            log.warning(`Detector ${this.fullName} reset after matching first tone ` +
-                 `without getting full match. Time allowed for full match ${this.resetTimeoutMs}ms`);
+        if(this.tones.length > 1) {
+            const matchCount = this._detectors.filter(d => d.state === MATCH_STATES.MATCH).length;
+            log.warning(`Detector ${this.fullName} reset after matching ${matchCount} tone${matchCount !== 1 ? 's': ''} ` +
+                `without getting full match. Time allowed for full match ${this.resetTimeoutMs}ms`);
+        }
         this.__buildToneDetectors();
         this._isLockedOut = false;
         clearTimeout(this._unLockoutTimeout);
