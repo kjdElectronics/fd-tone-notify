@@ -63,4 +63,41 @@ describe("TonesDetector", function() {
             tonesDetector.processValues({pitchValues: PITCH_VALUES, raw: new Array(PITCH_VALUES.length).fill(0.5)});
         });
     });
+
+    it("should be able detect a long multi tone sequence lasting 15 seconds", async function() {
+        this.timeout(22000);
+        const PITCH_VALUES = [
+            400, 600,
+            800, 900,
+            1100, 1300,
+            600, 400,
+        ];
+        const tonesDetector = new TonesDetector({
+            name: "Test",
+            tones: PITCH_VALUES,
+            tolerancePercent: 0.02,
+            matchThreshold: 1
+        });
+        return new Promise(async (resolve, reject) => {
+            const failTimeout = setTimeout(() => {
+                reject(new Error("Test Failed Timeout"));
+            } , 21000);
+            tonesDetector.on("toneDetected", () => {
+                clearTimeout(failTimeout);
+                console.log("PASS");
+                resolve();
+            });
+
+            for (let i = 0; i < PITCH_VALUES.length; i++) {
+                tonesDetector.processValue(PITCH_VALUES[i]);
+                await sleep(2500);
+            }
+        });
+    });
 });
+
+async function sleep(ms) {
+    return new Promise(resolve => {
+        setTimeout(resolve, ms);
+    })
+}

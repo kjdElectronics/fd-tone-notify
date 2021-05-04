@@ -71,7 +71,7 @@
         },
         {
           "name": "Second Test Fire Department",
-          "tones": [1000, 540],
+          "tones": [602, 926, 602, 636, 636, 602],
           "matchThreshold": 6,
           "tolerancePercent": 0.02,
           "notifications": {
