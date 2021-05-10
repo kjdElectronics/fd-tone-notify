@@ -72,11 +72,11 @@ function defaultConfig(){
 
         // javascript-obfuscator:disable
         const defaultConfig = require('./config/default.json');
-        fs.writeFileSync('./config/default.json', JSON.stringify(defaultConfig));
+        fs.writeFileSync('./config/default.json', JSON.stringify(defaultConfig, null, 2));
 
         // javascript-obfuscator:disable
         const secretsTemplate = require('./config/secrets.template.json');
-        fs.writeFileSync('./config/secrets.template.json', JSON.stringify(secretsTemplate));
+        fs.writeFileSync('./config/secrets.template.json', JSON.stringify(secretsTemplate, null, 2));
 
         //For Packing
         // javascript-obfuscator:disable
