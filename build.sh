@@ -10,7 +10,7 @@ rm -Rf build
 mkdir build
 cd build
 
-git clone git@github.com:kdolan/fd-tone-notify.git code
+git clone git@github.com:kjdElectronics/fd-tone-notify.git code
 cd code
 npm install --production
 
