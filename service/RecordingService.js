@@ -61,7 +61,7 @@ class RecordingService{
 
     _finishedRecordingCb({resolve, reject, micInstance, notificationParams, failSafeTimeout}){
         clearTimeout(failSafeTimeout);
-        log.info("Silence - Stopping Recording");
+        log.info("Stopping Recording"...);
         micInstance.stop();
         log.info("Finished Recording");
         resolve(notificationParams.filename);
