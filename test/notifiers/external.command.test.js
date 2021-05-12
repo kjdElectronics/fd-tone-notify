@@ -41,4 +41,23 @@ describe("External Command", function() {
             expect(exitCode).equals(1);
         })
     });
+
+    it(`should be able to run external bat command`, async function () {
+        const timestamp = new Date().getTime();
+        const results = await runExternalCommand({
+            command: `${path.resolve("test/notifiers/bin/test.bat")} [timestamp] "[detectorName]" "[description]" [tones] [matchAverages] [recordingRelPath] [custom]`,
+            commandName: "Some External Task",
+            timestamp,
+            tones: [1000, 2000],
+            matchAverages: [1001, 2001],
+            filename: null,
+            detectorName: "Test FD",
+            description: "Tone Detected",
+            custom: {obj: true}
+        });
+
+        expect(results[1]).to.equals("\"Test Bat\"");
+        expect(results[3]).to.includes('"\\"Tone Detected\\"" 1000,2000 1001,2001 null "{\\"obj\\":true}"');
+
+    });
 });
