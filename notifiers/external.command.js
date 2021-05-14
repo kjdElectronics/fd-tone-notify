@@ -2,37 +2,48 @@ const spawn = require('child_process').spawn;
 const chalk = require('chalk');
 const log = require('../util/logger');
 
-async function runExternalCommand({command, description, timestamp, tones, matchAverages, recordingRelPath=null, detectorName, custom}){
+async function runExternalCommand({command, description="[Write a description for the command in the config file to display here]",
+                                      timestamp, tones, matchAverages, recordingRelPath=null, detectorName, custom}){
     command = _formatCommand({command, description, timestamp, tones, matchAverages, recordingRelPath, detectorName, custom});
     const commandArray = command.match(/(".*?"|[^"\s]+)+(?=\s*|\s*$)/g);
     const args = commandArray.slice(1);
     return new Promise((resolve, reject) => {
-        const child = spawn(commandArray[0], args);
-        const outputLines = [];
+            const child = spawn(commandArray[0], args);
+            const outputLines = [];
 
-        if(timestamp === 0)
-            reject(1);
+            if (timestamp === 0)
+                reject(1);
 
-        child.stdout.on('data', function (data) {
-            const str = data.toString();
-            const lines = str.split(/(\r?\n)/g).filter(line => line !== "" && line !== "\r\n" && line !== "\n");
-            lines.forEach(line => {
-                outputLines.push(line);
-                log.info(chalk.magenta(`  EXTERN ${description}: ${line}`));
+            child.stdout.on('data', function (data) {
+                const str = data.toString();
+                const lines = str.split(/(\r?\n)/g).filter(line => line !== "" && line !== "\r\n" && line !== "\n");
+                lines.forEach(line => {
+                    outputLines.push(line);
+                    log.info(chalk.magenta(`  EXTERN ${description}: ${line}`));
+                });
             });
-        });
 
-        child.on('close', function (code) {
-            let logLevel = "debug";
-            if(code === 0)
-                resolve(outputLines);
-            else {
-                reject(code);
-                logLevel = "error";
-            }
-            log[logLevel]("  " + chalk.underline.magenta(`EXTERN ${description}: Exit Code ${code}`));
+            child.on('close', function (code) {
+                let logLevel = "debug";
+                if (code === 0)
+                    resolve(outputLines);
+                else {
+                    reject(code);
+                    logLevel = "error";
+                }
+                log[logLevel]("  " + chalk.underline.magenta(`EXTERN ${description}: Exit Code ${code}`));
+            });
 
-        });
+            child.on('error', function (err){
+                log.error("  " + chalk.underline.magenta(
+                    `EXTERN ${description}: Error running External Command command. Error: ${err.message}`));
+                if(err.message.includes("ENOENT"))
+                    log.error("  " + chalk.underline.bold.red(
+                        `EXTERN ${description}: This is an ENOENT error. Typically that means the command is ` +
+                        `invalid or the path to the command is invalid. Check your path and make sure you can run the command ` +
+                        `in CMD/Terminal exactly as it appears in the config file.`));
+                reject(err);
+            });
     })
 }
 
