@@ -38,7 +38,7 @@
               ],
               "externalCommands": [
                 {
-                  "command": "node ./rel/path/main.js [timestamp] \"[detectorName]\" \"[description]\" [tones] [matchAverages] [recordingRelPath] [custom]",
+                  "command": "node ./rel/path/main.js [timestamp] \"[detectorName]\" \"[filename]\" \"[description]\" [tones] [matchAverages] [recordingRelPath] [custom]",
                   "description": "fancy description for the logs",
                   "custom": {
                     "anyObject": true,

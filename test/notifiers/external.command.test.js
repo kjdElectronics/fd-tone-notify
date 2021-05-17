@@ -6,12 +6,12 @@ describe("External Command", function() {
     it(`should be able to run external command`, async function () {
         const timestamp = new Date().getTime();
         const results = await runExternalCommand({
-            command: `node ${path.resolve("test/notifiers/bin/test.external.js")} [timestamp] "[detectorName]" "[description]" [tones] [matchAverages] [recordingRelPath] [custom]`,
+            command: `node ${path.resolve("test/notifiers/bin/test.external.js")} [timestamp] "[detectorName]" "[filename]" "[description]" [tones] [matchAverages] [recordingRelPath] [custom]`,
             commandName: "Some External Task",
             timestamp,
             tones: [1000, 2000],
             matchAverages: [1001, 2001],
-            filename: null,
+            filename: "testFileName.wav",
             detectorName: "Test FD",
             description: "Tone Detected",
             custom: {obj: true}
@@ -21,6 +21,7 @@ describe("External Command", function() {
             "myArgs:  [",
             `  '${timestamp}',`,
             "  '\"Test FD\"',",
+            "  '\"testFileName.wav\"',",
             "  '\"Tone Detected\"',",
             "  '1000,2000',",
             "  '1001,2001',",
@@ -45,12 +46,12 @@ describe("External Command", function() {
     it(`should be able to run external bat command`, async function () {
         const timestamp = new Date().getTime();
         const results = await runExternalCommand({
-            command: `${path.resolve("test/notifiers/bin/test.bat")} [timestamp] "[detectorName]" "[description]" [tones] [matchAverages] [recordingRelPath] [custom]`,
+            command: `${path.resolve("test/notifiers/bin/test.bat")} [timestamp] "[detectorName]" "[filename]" "[description]" [tones] [matchAverages] [recordingRelPath] [custom]`,
             commandName: "Some External Task",
             timestamp,
             tones: [1000, 2000],
             matchAverages: [1001, 2001],
-            filename: null,
+            filename: "testFileName.wav",
             detectorName: "Test FD",
             description: "Tone Detected",
             custom: {obj: true}

@@ -3,8 +3,8 @@ const chalk = require('chalk');
 const log = require('../util/logger');
 
 async function runExternalCommand({command, description="[Write a description for the command in the config file to display here]",
-                                      timestamp, tones, matchAverages, recordingRelPath=null, detectorName, custom}){
-    command = _formatCommand({command, description, timestamp, tones, matchAverages, recordingRelPath, detectorName, custom});
+                                      timestamp, tones, matchAverages, filename, recordingRelPath=null, detectorName, custom}){
+    command = _formatCommand({command, description, timestamp, tones, matchAverages, filename, recordingRelPath, detectorName, custom});
     const commandArray = command.match(/(".*?"|[^"\s]+)+(?=\s*|\s*$)/g);
     const args = commandArray.slice(1);
     return new Promise((resolve, reject) => {
@@ -53,6 +53,7 @@ function _formatCommand(options){
     options.command = options.command.replace("[tones]", _removeQuites(options.tones));
     options.command = options.command.replace("[matchAverages]", _removeQuites(options.matchAverages));
     options.command = options.command.replace("[recordingRelPath]", _removeQuites(options.recordingRelPath));
+    options.command = options.command.replace("[filename]", _removeQuites(options.filename));
     options.command = options.command.replace("[detectorName]", _removeQuites(options.detectorName));
     options.command = options.command.replace("[custom]", JSON.stringify(options.custom));
     return options.command;

@@ -218,7 +218,7 @@ command could be configured to utilize the hardware GPIO pins to interact with t
 station alerting systems.
 
   - `command`: The full command to run. The following values can be used to add arguments. `[timestamp]`, `[detectorName]`,
-  `[description]`, `[tones]`, `[matchAverages]`, `[recordingRelPath]` amd `[custom]`. Example:
+  `[description]`, `[tones]`, `[matchAverages]`, `[filename]` `[recordingRelPath]` amd `[custom]`. Example:
   
             node ./rel/path/main.js [timestamp] \"[detectorName]\" \"[description]\" [tones] [matchAverages] [recordingRelPath] [custom]
   - `description`: A description that will be used while logging
