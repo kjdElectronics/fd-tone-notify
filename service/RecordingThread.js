@@ -13,7 +13,8 @@ const FORK_OPTIONS = {
 
 
 class RecordingThread{
-    constructor() {
+    constructor({threadId}) {
+        this.threadId = threadId;
         this.__initThread();
     }
 
@@ -29,10 +30,10 @@ class RecordingThread{
 
     __startWorkerThread(){
         this._recordingWorker = new Worker(RECORD_NOTIFY_PATH, {env: SHARE_ENV, workerData: {worker: true}});
-        this._recordingWorker.on("message", incoming => log.debug(`Message from Recording Worker: ${incoming}`));
-        this._recordingWorker.on("error", code => new Error(`Recording Worker error with exit code ${code}`));
+        this._recordingWorker.on("message", incoming => log.debug(`Message from Recording Worker ${this.threadId}: ${incoming}`));
+        this._recordingWorker.on("error", code => new Error(`Recording Worker ${this.threadId} error with exit code ${code}`));
         this._recordingWorker.on("exit", code => {
-                log.debug(`Worker stopped with exit code ${code}. Restarting`);
+                log.debug(`Worker ${this.threadId} stopped with exit code ${code}. Restarting`);
                 this.__initThread();
             }
         );
@@ -40,11 +41,11 @@ class RecordingThread{
 
     __startedForkedThread(){
         this._child = fork(RECORD_NOTIFY_PATH, [], FORK_OPTIONS);
-        this._child.on("message", incoming => log.debug(`Message from Recording Fork: ${incoming}`));
+        this._child.on("message", incoming => log.debug(`Message from Recording Fork ${this.threadId}: ${incoming}`));
         this._child.stdout.on("data", data => console.log(data.toString().replace(/(\r\n|\n|\r)/gm, "")));
-        this._child.on("error", code => new Error(`Recording Worker error with exit code ${code}`));
+        this._child.on("error", code => new Error(`Recording Worker ${this.threadId} error with exit code ${code}`));
         this._child.on("exit", code => {
-                log.debug(`Worker stopped with exit code ${code}. Restarting`);
+                log.debug(`Worker ${this.threadId} stopped with exit code ${code}. Restarting`);
                 this.__initThread();
             }
         );

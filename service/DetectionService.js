@@ -38,7 +38,7 @@ class DetectionService extends EventEmitter{
         this.areNotificationsEnabled = areNotificationsEnabled;
 
         this.toneDetectors = [];
-        this._recordingThread = new RecordingThread();
+        this._recordingThread = new RecordingThread({threadId: 0});
     }
 
     __processData(decodedData){
@@ -70,6 +70,9 @@ class DetectionService extends EventEmitter{
             log[logLevel](message);
 
         tonesDetector.on('toneDetected', async (result) =>{
+            const recordingThread = this._recordingThread;
+            this._recordingThread = new RecordingThread({threadId: recordingThread.threadId + 1});
+
             log.debug(`Processing toneDetected event for ${name}`);
             const {matchAverages, message} = result;
             const timestamp = new Date().getTime();
@@ -94,8 +97,8 @@ class DetectionService extends EventEmitter{
 
                 if(this.isRecordingEnabled) {
                     //Start recording in new thread. Post recording notifications sent from new thread
-                    log.debug(`Starting recorder & post recording notification processing`);
-                    this._recordingThread.sendMessage(notificationParams.toObj());
+                    log.debug(`Starting recorder & post recording notification processing. Thread Id: ${recordingThread.threadId}`);
+                    recordingThread.sendMessage(notificationParams.toObj());
                 }
             }
 
