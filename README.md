@@ -43,7 +43,7 @@ Before using FD Tone Notify certain software needs to be installed so FD Tone No
      notifications will not be sent**
      
  ### Configuring Pulse Audio
-KN4GRO over on Radio Reference did all the hard work to figure this out and wrote a great tutorial in the Radio Reference thread. Find the guide <a href="http://forums.radioreference.com/threads/fd-tone-notify-new-tone-detection-software-released.423600/post-3579310" target="_blank">here</a>.
+KN4GRO over on Radio Reference did all the hard work to figure this out and wrote a great tutorial in the Radio Reference thread. Find the guide [here](http://forums.radioreference.com/threads/fd-tone-notify-new-tone-detection-software-released.423600/post-3579310).
      
 ### Running From Source
 Running from source is optimal for the best performance and has also been more thoroughly tested than the packaged binaries.
