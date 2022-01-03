@@ -63,20 +63,14 @@ class RecordingService{
     _finishedRecordingCb({resolve, reject, micInstance, notificationParams, failSafeTimeout}){
         clearTimeout(failSafeTimeout);
         log.info("Stopping Recording...");
-        micInstance.stop();
-        log.info("Finished Recording");
+        const audioStream = micInstance.getAudioStream();
 
-        const mp3Path = notificationParams.filename.replace('.wav', '.mp3');
-        WavToMp3Service.convertWavToMp3({inputPath: notificationParams.filename, outputPath: notificationParams})
-            .then(savedPath =>{
-                resolve(savedPath);
-                notificationParams.filename = mp3Path;
-            })
-            .catch(err => {
-                log.warning(`MP3 Conversion Failed. Using wav file (this may lead to larger than expected recordings since wav files have no compression)`);
-                log.debug(err.stack);
-                resolve(notificationParams.filename);
-            });
+        audioStream.on("stopComplete", () => {
+            log.info("Finished Recording");
+            _mp3Conversion({notificationParams, resolve, reject});
+        });
+
+        micInstance.stop();
     }
 
     _setupMic(){
@@ -93,6 +87,20 @@ class RecordingService{
     listenForMicInputEvents(){
         listenForMicInputEvents(this._micInputStream);
     }
+}
+
+function  _mp3Conversion({notificationParams, resolve, reject}){
+    const mp3Path = notificationParams.filename.replace('.wav', '.mp3');
+    WavToMp3Service.convertWavToMp3({inputPath: notificationParams.filename, outputPath: mp3Path})
+        .then(savedPath =>{
+            resolve(savedPath);
+            notificationParams.filename = mp3Path;
+        })
+        .catch(err => {
+            log.warning(`MP3 Conversion Failed. Using wav file (this may lead to larger than expected recordings since wav files have no compression)`);
+            log.debug(err.stack);
+            resolve(notificationParams.filename);
+        });
 }
 
 

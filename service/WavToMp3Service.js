@@ -16,7 +16,7 @@ class WavToMp3Service{
                     log.debug('MP3 Conversion Processing: ' + progress.targetSize + ' KB converted');
                 })
                 .on('end', () => {
-                    log.info('MP3 Processing finished !');
+                    log.info(`MP3 Processing finished. Saving ${outputPath}`);
                     resolve(outputPath);
                 })
                 .save(outputPath);//path where you want to save your file
