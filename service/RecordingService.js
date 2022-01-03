@@ -5,6 +5,7 @@ const {listenForMicInputEvents} = require("./AudioService");
 const {decodeRawAudioBuffer} = require("../util/util");
 const FileWriter = require('wav').FileWriter;
 const {SilenceDetector} = require('../obj/SilenceDetector');
+const {WavToMp3Service} = require('../service/WavToMp3Service');
 const {sendPostRecordingNotifications} = require('../notifiers');
 
 class RecordingService{
@@ -64,20 +65,17 @@ class RecordingService{
         log.info("Stopping Recording...");
         micInstance.stop();
         log.info("Finished Recording");
-        resolve(notificationParams.filename);
-        //return this.sendNotifications(notificationParams); //TODO Send notifications in exec
-    }
 
-    //TODO Do this another place
-    async sendNotifications(notificationParams) {
-        return await sendPostRecordingNotifications(notificationParams)
-            .then(result => {
-                log.info(`Finished sending post recording notifications for ${notificationParams.detector.name}`);
-                return result;
+        const mp3Path = notificationParams.filename.replace('.wav', '.mp3');
+        WavToMp3Service.convertWavToMp3({inputPath: notificationParams.filename, outputPath: notificationParams})
+            .then(savedPath =>{
+                resolve(savedPath);
+                notificationParams.filename = mp3Path;
             })
             .catch(err => {
-                log.error(`Error sending post recording notifications`);
+                log.warning(`MP3 Conversion Failed. Using wav file (this may lead to larger than expected recordings since wav files have no compression)`);
                 log.debug(err.stack);
+                resolve(notificationParams.filename);
             });
     }
 
