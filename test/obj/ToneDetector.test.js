@@ -23,7 +23,7 @@ describe("ToneDetector", function() {
     it("should be able process values and progress through proper states", async function() {
         const VALUES = [0, 1001, 1024, 985, 988, 985, 1004, 400, 400, 400, 988];
         const tolerance = DEFAULT_PARAMS.tone * DEFAULT_PARAMS.tolerancePercent ;
-        VALUES[0] = DEFAULT_PARAMS.tone - tolerance + 1;
+        VALUES[0] = DEFAULT_PARAMS.tone - tolerance - 1;
 
         const detector = new ToneDetector(DEFAULT_PARAMS);
 
