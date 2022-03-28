@@ -7,6 +7,7 @@ setupProgram();
 const {checkLicense} = require("./util/licence");
 
 const {toneDetector} = require('./bin/toneDetector');
+const {csvToConfig} = require('./bin/csvToConfig');
 const {fdToneNotify} = require('./bin/fdToneNotify');
 const {testNotifications} = require('./bin/testNotifications');
 const log = require('./util/logger');
@@ -21,6 +22,7 @@ function setupProgram(){
             'is monitored. When a multi tone is detected the result is logged to the console. Use this mode to determine the frequencies to monitor and ' +
             'enter the results in the "tones" parameter for the corresponding department.')
         .option('--test-notifications', 'Send test notifications')
+        .option('--csv-to-config', 'Send test notifications')
         .option('--debug', 'Overrides FD_LOG_LEVEL environment var forcing the log level to debug')
         .option('--silly', 'Overrides FD_LOG_LEVEL environment var forcing the log level to silly')
         .option('--instance-name', 'Overrides NODE_APP_INSTANCE environment allowing different config files for different instances running' +
@@ -44,7 +46,9 @@ async function main(){
     const options = program.opts();
     populateSecretsEnvVar({secretsPath: options.secretsFile, forceSecretsFile: options.forceSecretsFile});
 
-    if(options.allToneDetector)
+    if(options.csvToConfig)
+        csvToConfig();
+    else if(options.allToneDetector)
         toneDetector({webServer: options.webServer});
     else if(options.testNotifications)
         testNotifications();

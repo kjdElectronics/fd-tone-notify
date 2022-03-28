@@ -10,7 +10,13 @@ const {arrayAverage} = require("../util/util");
 
 class ToneDetector{
     constructor({tone, tolerancePercent, matchThreshold}) {
-        this.tone = tone;
+      const _tone = Number(tone);
+        if(isNaN(_tone)){
+            log.error(`The provided tone ${tone} is not a valid number.`);
+            throw new Error(`${tone} is not a valid number`);
+        }
+
+        this.tone = _tone;
         this.tolerancePercent = tolerancePercent;
         this.matchThreshold = matchThreshold;
 
@@ -46,7 +52,7 @@ class ToneDetector{
 
         if(this.__isMatch(value)){
             this._matches.push(value);
-            log[this.__matchLogLevel](chalk.yellow(`Detector ${this.tone}Hz ±${this.tolerancePercent * 100}% ` +
+            log[this.__matchLogLevel](chalk.yellow(`Detector ${this.tone}Hz ±${this.tolerancePercent * 100}% [${this.__lowerLimit}Hz - ${this.__upperLimit}Hz] ` +
                 `Matches @ ${value}Hz. Count ${this._matchCount}/${this.matchThreshold} `));
             return {match: true, warn: false};
         }
@@ -61,9 +67,17 @@ class ToneDetector{
     }
 
     __isMatch(value){
-        const upperLimit = this.tone + (this.tone * this.tolerancePercent);
-        const lowerLimit = this.tone - (this.tone * this.tolerancePercent);
-        return value >= lowerLimit && value <= upperLimit;
+        return value >= this.__lowerLimit && value <= this.__upperLimit;
+    }
+
+    get __lowerLimit(){
+        return this.tone - (this.tone * this.tolerancePercent);
+    }
+
+    get __upperLimit(){
+        const value = this.tone + (this.tone * this.tolerancePercent);
+        if(value > 5000)
+            console.log();
     }
 
     get __matchLogLevel(){
