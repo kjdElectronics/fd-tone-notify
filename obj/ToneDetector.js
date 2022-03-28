@@ -76,8 +76,7 @@ class ToneDetector{
 
     get __upperLimit(){
         const value = this.tone + (this.tone * this.tolerancePercent);
-        if(value > 5000)
-            console.log();
+        return value;
     }
 
     get __matchLogLevel(){
