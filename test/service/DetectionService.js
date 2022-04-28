@@ -15,7 +15,7 @@ const DYNAMIC_TEST_ARGS = [
     {filename: "raw.wav", tones: [911, 2934], sampleRate: 44100, frequencyScaleFactor: 1},
     {filename: "dispatch1.wav", tones: [567, 378], sampleRate: 44100, frequencyScaleFactor: 1},
     {filename: "six_tone.wav", tones: [602, 926, 602, 636, 636, 602], sampleRate: 32000, frequencyScaleFactor: 1},
-    {filename: "dispatch2.wav", tones: [820, 2461], sampleRate: 32000, frequencyScaleFactor: 1},
+    {filename: "dispatch2.wav", tones: [820, 2461], sampleRate: 32000, frequencyScaleFactor: 1}, //Note: According to Audacity this should be 823, 2385
 ];
 
 describe("DetectionService", function() {
