@@ -11,6 +11,7 @@ yarn-error.log
 
 secrets.json
 config/local*
+config/test*
 build/*
 *.wav
 license.txt

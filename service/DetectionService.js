@@ -11,8 +11,8 @@ const {NotificationParams} = require('../obj/NotificationParams');
 const NO_DATA_INTERVAL_SEC = 30;
 
 class DetectionService extends EventEmitter{
-    constructor({audioInterface, sampleRate, recording: isRecordingEnabled = true, areNotificationsEnabled=true,
-                    minRecordingLengthSec=30, frequencyScaleFactor=1,
+    constructor({audioInterface, sampleRate, recording: isRecordingEnabled, areNotificationsEnabled=true,
+                    minRecordingLengthSec=30, maxRecordingLengthSec, frequencyScaleFactor=1,
                     silenceAmplitude=0.05,
                 }) {
         super();
@@ -32,9 +32,16 @@ class DetectionService extends EventEmitter{
         this._audioProcessor.on('audio', data => this.emit('audio', data)); //Forward event
 
         this.frequencyScaleFactor = frequencyScaleFactor;
-        this.minRecordingLengthSec = minRecordingLengthSec;
 
-        this.isRecordingEnabled = isRecordingEnabled;
+        this.minRecordingLengthSec = minRecordingLengthSec;
+        this.maxRecordingLengthSec = maxRecordingLengthSec ? maxRecordingLengthSec : minRecordingLengthSec * 1.5;
+        if(this.maxRecordingLengthSec < this.minRecordingLengthSec){
+            log.alert(`The global minRecordingLengthSec is ${this.minRecordingLengthSec} and the maxRecordingLengthSec ` +
+                `is ${maxRecordingLengthSec}. This is invalid and maxRecordingLengthSec will default to 1.5x minRecordingLengthSec.`);
+            this.maxRecordingLengthSec = this.minRecordingLengthSec * 1.5;
+        }
+
+        this.isRecordingEnabled = isRecordingEnabled === undefined ? null : isRecordingEnabled ;
         this.areNotificationsEnabled = areNotificationsEnabled;
 
         this.toneDetectors = [];
@@ -51,19 +58,29 @@ class DetectionService extends EventEmitter{
         });
     }
 
-    addToneDetector({name, tones= [], tolerancePercent= 0.02,
-                        matchThreshold= 6, logLevel="debug", notifications, resetTimeoutMs=7000}){
+    addToneDetector({name, tones= [], tolerancePercent, isRecordingEnabled,
+                        matchThreshold, logLevel="debug", notifications, resetTimeoutMs, lockoutTimeoutMs, minRecordingLengthSec, maxRecordingLengthSec}){
         const tonesDetector = new TonesDetector({
             name,
             tones: tones,
-            matchThreshold: matchThreshold,
-            tolerancePercent: tolerancePercent,
+            matchThreshold,
+            tolerancePercent,
             notifications,
-            resetTimeoutMs
+            resetTimeoutMs,
+            lockoutTimeoutMs,
+            minRecordingLengthSec: minRecordingLengthSec ? minRecordingLengthSec : this.minRecordingLengthSec,
+            maxRecordingLengthSec: maxRecordingLengthSec ? maxRecordingLengthSec : this.maxRecordingLengthSec
         });
 
-        const message = `Creating detector for tone(s) ${tones.map(v => `${v}Hz`).join(", ")} ` +
-            `with tolerance ±${tolerancePercent}`;
+        if(isRecordingEnabled === undefined)
+            isRecordingEnabled = null;
+        const calculatedIsRecordingEnabled = this._isRecordingEnabled(isRecordingEnabled);
+
+        const message = `Creating detector for${tonesDetector.name ? ` ${tonesDetector.name}` : ""} tone(s) ${tones.map(v => `${v}Hz`).join(", ")} ` +
+            `with tolerance ±${tonesDetector.tolerancePercent}, match threshold ${tonesDetector.matchThreshold}, ` +
+            `reset timeout ${tonesDetector.resetTimeoutMs}ms, lockout timeout ${tonesDetector.lockoutTimeoutMs}ms, ` +
+            `minimum recording length ${tonesDetector.minRecordingLengthSec} seconds, max recording length ${tonesDetector.maxRecordingLengthSec} seconds, ` +
+            `and recoding is ${calculatedIsRecordingEnabled ? "enabled" : "disabled"}.`;
         if(!log[logLevel])
             log.debug(message);
         else
@@ -95,7 +112,7 @@ class DetectionService extends EventEmitter{
                         return results;
                     });
 
-                if(this.isRecordingEnabled) {
+                if(calculatedIsRecordingEnabled) {
                     //Start recording in new thread. Post recording notifications sent from new thread
                     log.debug(`Starting recorder & post recording notification processing. Thread Id: ${recordingThread.threadId}`);
                     recordingThread.sendMessage(notificationParams.toObj());
@@ -110,6 +127,16 @@ class DetectionService extends EventEmitter{
         this.toneDetectors.push(tonesDetector);
         return tonesDetector;
     }
+
+    _isRecordingEnabled(detectorLevelIsRecordingEnabled) {
+        if (detectorLevelIsRecordingEnabled === null) {
+            if (this.isRecordingEnabled === null) //If not specified globally return true
+                return true;
+            return this.isRecordingEnabled; //Use specified global value
+        } else
+            return detectorLevelIsRecordingEnabled; //use specified detector value
+    }
+
 }
 
 module.exports = {DetectionService};

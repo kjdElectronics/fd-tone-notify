@@ -7,10 +7,10 @@ const {SilenceDetector} = require("./SilenceDetector");
 class TonesDetector extends EventEmitter{
     constructor({name, tones= [], tolerancePercent= 0.02,
                     matchThreshold= 8, silenceAmplitude=0.05,
-                    notifications, lockoutTimeoutMs=5000, resetTimeoutMs=7000}) {
+                    notifications, lockoutTimeoutMs=5000, resetTimeoutMs=7000, minRecordingLengthSec=30, maxRecordingLengthSec}) {
         super();
 
-        this.name = name;
+        this.name = name ? name : ``;
         this.tones = tones;
         this.tolerancePercent = tolerancePercent;
         this.matchThreshold = matchThreshold;
@@ -27,6 +27,15 @@ class TonesDetector extends EventEmitter{
 
         this.resetTimeoutMs = resetTimeoutMs;
         this._fullResetTimeout = null;
+
+        //Not used here but accessed by the RecordingService
+        this.minRecordingLengthSec = minRecordingLengthSec;
+        this.maxRecordingLengthSec = maxRecordingLengthSec ? maxRecordingLengthSec : minRecordingLengthSec * 1.5;
+        if(this.maxRecordingLengthSec < this.minRecordingLengthSec){
+            log.alert(`For tone ${name} the minRecordingLengthSec is ${this.minRecordingLengthSec} and the maxRecordingLengthSec ` +
+                `is ${maxRecordingLengthSec}. This is invalid and maxRecordingLengthSec will default to 1.5x minRecordingLengthSec.`);
+            this.maxRecordingLengthSec = this.minRecordingLengthSec * 1.5;
+        }
     }
 
     __buildToneDetectors(){
@@ -85,7 +94,9 @@ class TonesDetector extends EventEmitter{
             tones: this.tones,
             tolerancePercent:  this.tolerancePercent,
             matchThreshold:  this.matchThreshold,
-            notifications:  this.notifications
+            notifications:  this.notifications,
+            minRecordingLengthSec:  this.minRecordingLengthSec,
+            maxRecordingLengthSec:  this.maxRecordingLengthSec,
         }
     }
 

@@ -146,6 +146,9 @@ and a fresh default `config/` directory will be generated when you restart FD To
 ##### Detection - Required
   - `minRecordingLengthSec`: Recordings will be a minimum of this many seconds. Use a value that works for you. Keep in
   mind the larger this value, the longer it will take for Post Recording notifications to be sent.
+  - `maxRecordingLengthSec`: Recordings will be a maximum of this many seconds. Use a value that works for you. Keep in
+    mind the larger this value, the longer it will take for Post Recording notifications to be sent. If no value is specified
+    the default is 1.5x the minRecordingLengthSec.
   - `defaultMatchThreshold`: This is the default number of samples needed for a frequency match to be completed. For example,
   a tone of 1000Hz with a `matchThreshold` of 6 requires that 6 samples match 1000Hz within the `tolerancePercent` to be
   considered a match. Adjust this lower to increase sensitivity (tones matched faster). Adjust this value higher to decrease
@@ -157,6 +160,14 @@ and a fresh default `config/` directory will be generated when you restart FD To
   Default is `0.05` or 5%. For example, if a tone of 1000Hz is specified with a `tolerancePercent` of `0.05` any detected
   sample with a frequency between 950Hz and 1050Hz is considered a match counting towards the `matchThreshold` for that 
   tone.
+   - `defaultResetTimeoutMs`: This is how many milliseconds after detecting a tone (or series of tones) the detector will wait
+   before resetting. Make sure to account for the length of tones when setting this value. For example, if each tone lasts 
+   2 seconds a `defaultResetTimeoutMs` value of `3000` would only allow 1 second to match the next tone in the sequence. 
+   - `defaultLockoutTimeoutMs`: Acts as an absolute refractory period for the detector after the series of tones is detected.
+   This prevents a single tone from triggering multiple detection events. 
+   - `isRecordingEnabled`: Global setting for enabling recording. This option can be overridden in each detector config. 
+   This option is only used as a fallback value if a detector config does not specify the `isRecordingEnabled`. The default
+   behavior is `true`.
   
   :memo: `defaultMatchThreshold` can be overridden at the `detector` level using `matchThreshold`. `defaultTolerancePercent`
   can be overridden at the `detector` level using `tolerancePercent`    
@@ -178,6 +189,12 @@ as a starting point. There can be as many detectors in a single configuration fi
  is used.
  - `tolerancePercent` (Optional): If specified overrides the `defaultTolerancePercent`. If excluded the `defaultTolerancePercent`
   is used.
+  - `resetTimeoutMs` (Optional): Sets reset timeout on a per detector basis. See `defaultResetTimeoutMs` above.
+  - `isRecordingEnabled` (Optional): Overrides the global `isRecordingEnabled` option. If specified the value ALWAYS overrides the
+  global value.
+  - `lockoutTimeoutMs` (Optional): Sets lockout timeout on a per detector basis. See `defaultLockoutTimeoutMs` above.
+  - `minRecordingLengthSec` (Optional): Sets min recording length on a per detector basis. See `minRecordingLengthSec` above.
+  - `maxRecordingLengthSec` (Optional): Sets max recording length on a per detector basis. See `maxRecordingLengthSec` above.
 ###### Notifications
 Notification settings are specified for each detector individually.
 The `notifications` property is made up of two sections that use the same format: `preRecording` and `postRecording`.

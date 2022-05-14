@@ -12,14 +12,21 @@ async function fdToneNotify({webServer=false}={}){
         silenceAmplitude: config.audio.silenceAmplitude,
         sampleRate: config.audio.sampleRate,
         minRecordingLengthSec: config.audio.minRecordingLengthSec,
-        frequencyScaleFactor: config.audio.frequencyScaleFactor
+        maxRecordingLengthSec: config.audio.maxRecordingLengthSec,
+        frequencyScaleFactor: config.audio.frequencyScaleFactor,
+        recording: config.detection.hasOwnProperty("isRecordingEnabled") ? !!config.detection.isRecordingEnabled : null //Defaults to null to indicate not set
     });
     config.detection.detectors.forEach(detectorConfig => {
         const options = {
             name: detectorConfig.name,
             tones: detectorConfig.tones,
+            resetTimeoutMs: detectorConfig.resetTimeoutMs ? detectorConfig.resetTimeoutMs : config.detection.defaultResetTimeoutMs,
+            lockoutTimeoutMs: detectorConfig.lockoutTimeoutMs ? detectorConfig.lockoutTimeoutMs : config.detection.defaultLockoutTimeoutMs,
+            minRecordingLengthSec: detectorConfig.minRecordingLengthSec ? detectorConfig.minRecordingLengthSec : config.detection.minRecordingLengthSec,
+            maxRecordingLengthSec: detectorConfig.maxRecordingLengthSec ? detectorConfig.maxRecordingLengthSec : config.detection.maxRecordingLengthSec,
             matchThreshold: detectorConfig.matchThreshold ? detectorConfig.matchThreshold : config.detection.defaultMatchThreshold,
             tolerancePercent: detectorConfig.tolerancePercent ? detectorConfig.tolerancePercent : config.detection.defaultTolerancePercent,
+            isRecordingEnabled: detectorConfig.hasOwnProperty("isRecordingEnabled") ? !!detectorConfig.isRecordingEnabled : null, //Defaults to null to indicate not set
             notifications: detectorConfig.notifications
         };
         log.info(`Adding Detector for ${options.name} with tones ${options.tones.map(v => `${v}Hz`).join(', ')}. `

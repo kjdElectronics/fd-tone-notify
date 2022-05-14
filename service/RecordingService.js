@@ -48,15 +48,15 @@ class RecordingService{
 
             //Failsafe Timeout
             const failSafeTimeout = setTimeout(() => {
-                log.warning("Fail Safe End Recoding - Max Time Limit Reached");
+                log.warning(`Fail Safe End Recoding - Max Time Limit Reached after ${notificationParams.detector.maxRecordingLengthSec} seconds`);
                 cb();
-            }, config.detection.minRecordingLengthSec * 1.5 * 1000);
+            }, notificationParams.detector.maxRecordingLengthSec * 1000);
 
             //Min Recording Length Timeout
             setTimeout(function(){
-                log.debug("Initial Recording Complete... Waiting for silence");
+                log.debug(`Initial Recording Complete after ${notificationParams.detector.minRecordingLengthSec} seconds... Waiting for silence`);
                 silenceDetector.on('silenceDetected', cb);
-            }, config.detection.minRecordingLengthSec * 1000);
+            }, notificationParams.detector.minRecordingLengthSec * 1000);
         });
     }
 

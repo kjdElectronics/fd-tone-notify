@@ -109,6 +109,31 @@ describe("DetectionService", function() {
         });
     });
 
+    it(`should correctly calculate isRecordingEnabled`, async function() {
+        const args = DYNAMIC_TEST_ARGS[0];
+        let detection = new DetectionService({micInputStream: null, sampleRate: args.sampleRate, frequencyScaleFactor: args.frequencyScaleFactor, notifications: false});
+        //isRecordingEnabled was not specified in args
+        //When not specified at global level calculated value should match detector value
+        expect(detection._isRecordingEnabled(true)).to.be.true;
+        expect(detection._isRecordingEnabled(false)).to.be.false;
+        //When not specified in either location should default to true
+        expect(detection._isRecordingEnabled(null)).to.be.true;
+
+        //Set to false at the service level
+        detection = new DetectionService({recording: false, micInputStream: null, sampleRate: args.sampleRate, frequencyScaleFactor: args.frequencyScaleFactor, notifications: false});
+        expect(detection._isRecordingEnabled(true)).to.be.true; //Should override
+        expect(detection._isRecordingEnabled(false)).to.be.false; //Should override
+        //When not specified in either location should default to true
+        expect(detection._isRecordingEnabled(null)).to.be.false; //Should fallback to service
+
+        //Set to true at the service level
+        detection = new DetectionService({recording: true, micInputStream: null, sampleRate: args.sampleRate, frequencyScaleFactor: args.frequencyScaleFactor, notifications: false});
+        expect(detection._isRecordingEnabled(true)).to.be.true; //Should override
+        expect(detection._isRecordingEnabled(false)).to.be.false; //Should override
+        //When not specified in either location should default to true
+        expect(detection._isRecordingEnabled(null)).to.be.true; //Should fallback to service
+    });
+
 });
 
 async function generateTest({filename, tones, sampleRate, frequencyScaleFactor=1, freqsString}) {

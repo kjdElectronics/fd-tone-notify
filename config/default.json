@@ -10,15 +10,24 @@
   "detection":
     {
       "minRecordingLengthSec": 30,
+      "maxRecordingLengthSec": 45,
       "defaultMatchThreshold": 6,
       "defaultTolerancePercent": 0.05,
+      "defaultResetTimeoutMs": 5000,
+      "defaultLockoutTimeoutMs": 7000,
+      "isRecordingEnabled": true,
       "detectors": [
         {
           "name": "Test Fire Department",
           "tones": [911, 3000],
           "matchThreshold": 6,
           "tolerancePercent": 0.02,
-          "notifications": {
+          "resetTimeoutMs": 4000,
+          "isRecordingEnabled": true,
+          "lockoutTimeoutMs": 6000,
+          "minRecordingLengthSec": 45,
+          "maxRecordingLengthSec": 60,
+            "notifications": {
             "preRecording": {
               "pushbullet": [
                 {

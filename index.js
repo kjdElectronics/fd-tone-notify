@@ -22,7 +22,7 @@ function setupProgram(){
             'is monitored. When a multi tone is detected the result is logged to the console. Use this mode to determine the frequencies to monitor and ' +
             'enter the results in the "tones" parameter for the corresponding department.')
         .option('--test-notifications', 'Send test notifications')
-        .option('--csv-to-config', 'Send test notifications')
+        .option('--csv-to-config', 'Build a config file from a csv')
         .option('--debug', 'Overrides FD_LOG_LEVEL environment var forcing the log level to debug')
         .option('--silly', 'Overrides FD_LOG_LEVEL environment var forcing the log level to silly')
         .option('--instance-name', 'Overrides NODE_APP_INSTANCE environment allowing different config files for different instances running' +
