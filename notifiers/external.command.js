@@ -23,6 +23,15 @@ async function runExternalCommand({command, description="[Write a description fo
                 });
             });
 
+            child.stderr.on('data', function (data) {
+                const str = data.toString();
+                const lines = str.split(/(\r?\n)/g).filter(line => line !== "" && line !== "\r\n" && line !== "\n");
+                lines.forEach(line => {
+                    outputLines.push(line);
+                    log.error(chalk.magenta(`  EXTERN ${description}: ${line}`));
+                });
+            });
+
             child.on('close', function (code) {
                 let logLevel = "debug";
                 if (code === 0)

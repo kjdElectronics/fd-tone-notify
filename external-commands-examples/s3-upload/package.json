@@ -1,0 +1,16 @@
+{
+  "name": "fd-tone-notify-s3-upload-example",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Kevin J Dolan",
+  "license": "ISC",
+  "dependencies": {
+    "aws-sdk": "^2.1141.0",
+    "commander": "^9.2.0",
+    "dotenv": "^16.0.1"
+  }
+}
