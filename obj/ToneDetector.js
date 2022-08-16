@@ -59,7 +59,7 @@ class ToneDetector{
         else{
             if(this.state === MATCH_STATES.MATCH_IN_PROGRESS) {
                 this._unmatchedCount++;
-                if(this._unmatchedCount >= this.matchThreshold)
+                if(this._unmatchedCount >= this.matchThreshold * 2)
                     this.resetMatch();
             }
             return {match: false, warn: false};
