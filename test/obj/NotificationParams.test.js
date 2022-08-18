@@ -109,6 +109,10 @@ describe("NotificationParams", function() {
             const notificationParams = new NotificationParams(newParams);
 
             var emails = notificationParams.getEmails('PRE');
+            expect(emails).to.have.lengthOf(1);
+            expect(emails[0].text).to.not.have.string("%d");
+            expect(emails[0].subject).to.not.have.string("%d");
+
             expect(preEmail.text).to.have.string("%d");
             expect(preEmail.subject).to.have.string("%d");
         });
