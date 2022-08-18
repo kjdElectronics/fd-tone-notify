@@ -30,7 +30,7 @@ const DEFAULT_PARAMS = {
 };
 
 describe("NotificationParams", function() {
-    it("should be able build", async function() {
+    it("should instantiate correctly", async function() {
         const notificationParams = new NotificationParams(DEFAULT_PARAMS);
         expect(notificationParams).instanceOf(NotificationParams);
         expect(notificationParams.detector).deep.equals(DEFAULT_PARAMS.detector);
@@ -96,6 +96,21 @@ describe("NotificationParams", function() {
             expect(emails).to.have.lengthOf(1);
             expect(emails[0].text).to.have.string("August 1st 2022, 0:00:00");
             expect(emails[0].subject).to.have.string("August 1st 2022, 0:00:00");
+        });
+
+        it("should not modify the original email objects", function() {
+            const preEmail = {
+                text: "PRE Text %d",
+                subject: "PRE Subject %d",
+            }
+            newParams = deep_copy(DEFAULT_PARAMS);
+            newParams.notifications.preRecording.emails.push(preEmail);
+
+            const notificationParams = new NotificationParams(newParams);
+
+            var emails = notificationParams.getEmails('PRE');
+            expect(preEmail.text).to.have.string("%d");
+            expect(preEmail.subject).to.have.string("%d");
         });
     });
 });
