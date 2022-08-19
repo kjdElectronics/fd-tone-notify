@@ -60,7 +60,7 @@ class AudioService{
     }
 
     listenForMicInputEvents(){
-        this.onData(() => {
+        this._micInputStream.on('data', () => {
             this._resetNoDataInterval();
         });
         listenForMicInputEvents(this._micInputStream);
