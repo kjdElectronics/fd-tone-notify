@@ -33,8 +33,7 @@ class RecordingThread{
         this._recordingWorker.on("message", incoming => log.debug(`Message from Recording Worker ${this.threadId}: ${incoming}`));
         this._recordingWorker.on("error", code => new Error(`Recording Worker ${this.threadId} error with exit code ${code}`));
         this._recordingWorker.on("exit", code => {
-                log.debug(`Worker ${this.threadId} stopped with exit code ${code}. Restarting`);
-                this.__initThread();
+                log.debug(`Worker thread ${this.threadId} stopped with exit code ${code}.`);
             }
         );
     }
@@ -45,8 +44,7 @@ class RecordingThread{
         this._child.stdout.on("data", data => console.log(data.toString().replace(/(\r\n|\n|\r)/gm, "")));
         this._child.on("error", code => new Error(`Recording Worker ${this.threadId} error with exit code ${code}`));
         this._child.on("exit", code => {
-                log.debug(`Worker ${this.threadId} stopped with exit code ${code}. Restarting`);
-                this.__initThread();
+                log.debug(`Worker process ${this.threadId} stopped with exit code ${code}.`);
             }
         );
     }
