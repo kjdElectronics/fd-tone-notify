@@ -20,10 +20,11 @@ class RecordingThread{
 
     __initThread(){
         if(this.__useAltRecording) {
-            log.silly('Initializing Alternative Recording Thread (Fork)')
+            log.debug('Using a new process for recording');
             this.__startedForkedThread();
         }
         else{ //Use Alt
+            log.debug('Using a new thread for recording');
             this.__startWorkerThread();
         }
     }
