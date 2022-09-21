@@ -40,12 +40,14 @@ class NotificationParams{
 
     getEmails(prePostType){
         const emails = this.__getNotificationOptions({prePostType, notificationKey: "emails"});
-        emails.map(email => {
-                email.text = email.text.replace('%d', this.dateString);
-                email.subject = email.subject.replace('%d', this.dateString);
-                return email;
+        const updatedEmails = emails.map(email => {
+                // Make a shallow copy of the email objects so we do not modify them
+                let emailCopy = Object.assign({}, email);
+                emailCopy.text = email.text.replace('%d', this.dateString);
+                emailCopy.subject = email.subject.replace('%d', this.dateString);
+                return emailCopy;
             });
-        return emails;
+        return updatedEmails;
     }
 
     getWebhooks(prePostType){

@@ -66,9 +66,9 @@ FD Tone Notify will automatically create a sample configuration file and blank `
 [Configuration](#Configuration) and [Environment Variables and Secrets](#Environment-Variables-and-Secrets) sections below. 
 
 #### How do I know what to enter for the tones?
-If you don't know the tones for the department/station you want to monitor run FD Tone Notify with the `--tone-detector` option.
+If you don't know the tones for the department/station you want to monitor run FD Tone Notify with the `--all-tone-detector` option.
 
-     fd-tone-notify.exe --tone-detector --web-server
+     fd-tone-notify.exe --all-tone-detector --web-server
      
 In this mode FD Tone Notify **WILL NOT** send notifications. Instead it will detect any multi-tones and print the results to console. 
 For example:
@@ -77,9 +77,9 @@ For example:
 
 This indicates that a two-tone dispatch was detected with tones 919Hz, 2940Hz. Enter `tones: [919, 2940]` to detect this department.
 
-:information_source: The `--tone-detector` option cannot detect single tones. It will only print results for multi-tone matches.
+:information_source: The `--all-tone-detector` option cannot detect single tones. It will only print results for multi-tone matches.
 
-:bulb: You can run FD Tone Notify in `--tone-detector` mode and normal "notification" mode at the same time. This is recommended
+:bulb: You can run FD Tone Notify in `--all-tone-detector` mode and normal "notification" mode at the same time. This is recommended
 when you are building out and fine tuning your configuration.
     
 #### Running FD Tone Notify and Using the Web Monitor for Live Streaming Audio
