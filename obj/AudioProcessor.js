@@ -69,7 +69,7 @@ class AudioProcessor extends EventEmitter{
 
     _getPitch(decoded){
         const [pitchyResult, clarity] = this._pitchyDetector.findPitch(decoded, this.sampleRate);
-        if(clarity > 0.95 && pitchyResult !== 0) {
+        if(clarity > 0.90 && pitchyResult !== 0) {
             return {pitch: pitchyResult * this.frequencyScaleFactor, clarity};
         }
         return null;
