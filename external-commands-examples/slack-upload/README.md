@@ -50,7 +50,7 @@ initial_comment=custom['slack-message']
 
 ##### Custom Formatted
 You can extend this with formatting 
-``json
+```json
 "externalCommands": [{
     ...
     "custom": {
