@@ -4,6 +4,8 @@ const {PitchDetector} = require('pitchy');
 const EventEmitter = require('events');
 const moment = require("moment");
 const {SilenceDetector} = require("./SilenceDetector");
+const config = require("config");
+const CLARITY_THRESHOLD = config.detection.clarityThreshold ? config.detection.clarityThreshold : 0.9;
 
 const SAMPLE_SIZE = 200;
 
@@ -11,6 +13,7 @@ class AudioProcessor extends EventEmitter{
     constructor({sampleRate, silenceAmplitude, frequencyScaleFactor}) {
         super();
 
+        log.debug(`Clarity Threshold set to ${CLARITY_THRESHOLD}`);
         this._pitchyDetector = PitchDetector.forFloat32Array(this.sampleSize);
         this.sampleRate = sampleRate;
         this.silenceAmplitude = silenceAmplitude;
@@ -69,7 +72,7 @@ class AudioProcessor extends EventEmitter{
 
     _getPitch(decoded){
         const [pitchyResult, clarity] = this._pitchyDetector.findPitch(decoded, this.sampleRate);
-        if(clarity > 0.90 && pitchyResult !== 0) {
+        if(clarity > CLARITY_THRESHOLD && pitchyResult !== 0) {
             return {pitch: pitchyResult * this.frequencyScaleFactor, clarity};
         }
         return null;
