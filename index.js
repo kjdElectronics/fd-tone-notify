@@ -5,11 +5,6 @@ const { program } = require('commander');
 setupProgram();
 
 const {checkLicense} = require("./util/licence");
-
-const {toneDetector} = require('./bin/toneDetector');
-const {csvToConfig} = require('./bin/csvToConfig');
-const {fdToneNotify} = require('./bin/fdToneNotify');
-const {testNotifications} = require('./bin/testNotifications');
 const log = require('./util/logger');
 const {populateSecretsEnvVar} = require("./util/config.secrets");
 
@@ -45,6 +40,11 @@ async function main(){
     await checkLicense();
     const options = program.opts();
     populateSecretsEnvVar({secretsPath: options.secretsFile, forceSecretsFile: options.forceSecretsFile});
+
+    const {fdToneNotify} = require('./bin/fdToneNotify');
+    const {toneDetector} = require('./bin/toneDetector');
+    const {csvToConfig} = require('./bin/csvToConfig');
+    const {testNotifications} = require('./bin/testNotifications');
 
     if(options.csvToConfig)
         csvToConfig();

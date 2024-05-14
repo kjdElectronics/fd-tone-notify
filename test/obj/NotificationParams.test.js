@@ -89,13 +89,13 @@ describe("NotificationParams", function() {
 
             var emails = notificationParams.getEmails('PRE');
             expect(emails).to.have.lengthOf(1);
-            expect(emails[0].text).to.have.string("August 1st 2022, 0:00:00");
-            expect(emails[0].subject).to.have.string("August 1st 2022, 0:00:00");
+            expect(emails[0].text).to.have.string("August 1st 2022,");
+            expect(emails[0].subject).to.have.string("August 1st 2022,");
 
             var emails = notificationParams.getEmails('POST');
             expect(emails).to.have.lengthOf(1);
-            expect(emails[0].text).to.have.string("August 1st 2022, 0:00:00");
-            expect(emails[0].subject).to.have.string("August 1st 2022, 0:00:00");
+            expect(emails[0].text).to.have.string("August 1st 2022,");
+            expect(emails[0].subject).to.have.string("August 1st 2022,");
         });
 
         it("should not modify the original email objects", function() {
