@@ -12,6 +12,7 @@
       "minRecordingLengthSec": 30,
       "maxRecordingLengthSec": 45,
       "defaultMatchThreshold": 6,
+      "clarityThreshold": 0.89,
       "defaultTolerancePercent": 0.05,
       "defaultResetTimeoutMs": 5000,
       "defaultLockoutTimeoutMs": 7000,

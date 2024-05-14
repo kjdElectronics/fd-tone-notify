@@ -20,7 +20,7 @@ function setupProgram(){
         .option('--csv-to-config', 'Build a config file from a csv')
         .option('--debug', 'Overrides FD_LOG_LEVEL environment var forcing the log level to debug')
         .option('--silly', 'Overrides FD_LOG_LEVEL environment var forcing the log level to silly')
-        .option('--instance-name', 'Overrides NODE_APP_INSTANCE environment allowing different config files for different instances running' +
+        .option('--instance-name <name>', 'Overrides NODE_APP_INSTANCE environment allowing different config files for different instances running' +
             ' on the same machine. Example: "--instance-name my-fd" will load config files default-my-fd.json and local-my-fd.json')
         .option('--web-server', 'Starts the webserver. The webserver provides remote monitoring capability and ability to listen to live audio')
         .option('--port <port>', 'Overrides FD_PORT environment var setting the port for the web server. Has no effect without --web-server option. Default port 3000')

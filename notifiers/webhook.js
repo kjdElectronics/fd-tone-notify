@@ -31,7 +31,7 @@ async function postJson({address, headers={}, timestamp, tones, matchAverages, f
 }
 
 async function postMultiPartFormDataWithFile({address, headers={}, timestamp, tones=[], matchAverages=[], filename,
-                                                 recordingRelPath, detectorName, custom={}, isTest=false}){
+                                                 recordingRelPath, detectorName, custom={}, isTest}){
 
     _fillEnvVarsHeaders(headers);
     const form = new FormData();
@@ -40,7 +40,7 @@ async function postMultiPartFormDataWithFile({address, headers={}, timestamp, to
     form.append('matchAverages', matchAverages.toString());
     form.append('detectorName', detectorName);
     form.append('custom', JSON.stringify(custom));
-    form.append("isTest", isTest);
+    form.append('isTest', isTest.toString());
 
     const buffer = fs.readFileSync(recordingRelPath);
         form.append('file', buffer, {
