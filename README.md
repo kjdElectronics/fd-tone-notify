@@ -329,7 +329,7 @@ Options:
   --all-tone-detector    Secondary functionality: Instead of reading the config file and sending notifications when specific tones are detected this option activates multi
                          tone detector mode. In this mode the frequency spectrum from 300Hz to 4000Hz is monitored. When a multi tone is detected the result is logged to the
                          console. Use this mode to determine the frequencies to monitor and enter the results in the "tones" parameter for the corresponding department.
-  --test-notifications   Send test notifications
+  --test-notifications   Send test notifications. This is only designed to test the configuration. If using emails only an email will be sent (no attachement) this  is normal.
   --debug                Overrides FD_LOG_LEVEL environment var forcing the log level to debug
   --silly                Overrides FD_LOG_LEVEL environment var forcing the log level to silly
   --instance-name        Overrides NODE_APP_INSTANCE environment allowing different config files for different instances running on the same machine. Example:
