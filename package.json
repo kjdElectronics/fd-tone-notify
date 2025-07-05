@@ -11,7 +11,7 @@
   },
   "scripts": {
     "start": "node index.js",
-    "test": "mocha",
+    "test": "mocha 'test/**/*.test.js'",
     "build": "./build.sh"
   },
   "repository": {

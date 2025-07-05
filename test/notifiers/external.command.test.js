@@ -1,6 +1,7 @@
 const {runExternalCommand} = require('../../notifiers/external.command');
 const path = require('path');
 const expect  = require("chai").expect;
+const os = require('os');
 
 describe("External Command", function() {
     it(`should be able to run external command`, async function () {
@@ -44,6 +45,9 @@ describe("External Command", function() {
     });
 
     it(`should be able to run external bat command`, async function () {
+        if (os.platform() !== 'win32') {
+            this.skip();
+        }
         const timestamp = new Date().getTime();
         const results = await runExternalCommand({
             command: `${path.resolve("test/notifiers/bin/test.bat")} [timestamp] "[detectorName]" "[filename]" "[description]" [tones] [matchAverages] [recordingRelPath] [custom]`,

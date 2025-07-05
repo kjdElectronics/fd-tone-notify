@@ -1,3 +1,5 @@
+//Node Config Custom Env Vars - https://github.com/node-config/node-config/wiki/Environment-Variables#custom-environment-variables
+
 const CUSTOM_ENV_VAR_CONFIG = {
     audio:{
         inputDevice: "FD_INPUT_DEVICE",
@@ -9,6 +11,10 @@ const CUSTOM_ENV_VAR_CONFIG = {
     detection: {
         minRecordingLengthSec: "FD_MIN_RECORDING_LENGTH_SEC",
     },
+    recording: {
+        directory: "FD_RECORDING_DIRECTORY",
+        autoDeleteOlderThanDays: "FD_AUTO_DELETE_RECORDINGS_OLDER_THAN_DAYS"
+    },
     coralogix:{
         applicationName: "FD_CORALOGIX_APPLICATION_NAME",
         subsystemName: "FD_CORALOGIX_SUBSYSTEM_NAME",
@@ -16,6 +22,10 @@ const CUSTOM_ENV_VAR_CONFIG = {
     },
     pushbullet:{
         apiKey: "FD_PUSHBULLET_API_KEY"
+    },
+    email: {
+        from: "FD_EMAIL_FROM",
+        host: "FD_SMTP_HOST",
     }
 };
 

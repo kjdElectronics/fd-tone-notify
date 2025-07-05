@@ -68,7 +68,7 @@ async function _pushbulletNotifications(params, prePostType) {
             const options = {
                 filename: params.filename,
                 title: `${params.detector ? params.detector.name : ''} Dispatch Audio`,
-                absolutePath: path.resolve("./", params.filename),
+                absolutePath: path.resolve(params.filename),
                 channelTag: push.channelTag,
             };
 
@@ -89,8 +89,8 @@ async function _emailNotifications(params, prePostType){
 
     log.info(`Sending ${emails.length}x ${prePostType} Recording email notifications`);
     return emails.map(email => {
-        return sendEmail({...email, filename: params.filename,  isTest: params.isTest,
-            recordingRelPath: `./${params.filename}`, attachFile: params.attachFile})
+        return sendEmail({...email, filename: path.basename(params.filename),  isTest: params.isTest,
+            recordingRelPath: params.filename, attachFile: params.attachFile})
             .catch(err => {
                 log.error(`Email Error: ${emails.to}`);
                 log.debug(err.stack);
@@ -112,8 +112,8 @@ async function _webhooks(params, prePostType){
             timestamp: params.timestamp,
             tones: params.detector.tones,
             matchAverages: params.matchAverages,
-            filename: params.filename,
-            recordingRelPath: `./${params.filename}`,
+            filename: path.basename(params.filename),
+            recordingRelPath: params.filename,
             detectorName: params.detector.name,
             isTest: params.isTest
         };
@@ -143,8 +143,8 @@ async function _externalCommands(params, prePostType){
             timestamp: params.timestamp,
             tones: params.detector.tones,
             matchAverages: params.matchAverages,
-            recordingRelPath: `./${params.filename}`,
-            filename: params.filename,
+            recordingRelPath: params.filename,
+            filename: path.basename(params.filename),
             detectorName: params.detector.name,
             custom: commandConfig.custom,
         };

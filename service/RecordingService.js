@@ -7,6 +7,7 @@ const FileWriter = require('wav').FileWriter;
 const {SilenceDetector} = require('../obj/SilenceDetector');
 const {WavToMp3Service} = require('../service/WavToMp3Service');
 const {sendPostRecordingNotifications} = require('../notifiers');
+const path = require('path');
 
 class RecordingService{
     constructor() {
@@ -18,11 +19,12 @@ class RecordingService{
     }
 
     recordFile(notificationParams){
-        const filename = notificationParams.filename ? notificationParams.filename : `${new Date().getTime()}.wav`;
-        log.info(`Starting Recording ${filename}`);
+        const fullPath = notificationParams.filename ? notificationParams.filename : path.join(config.recording.directory, `${new Date().getTime()}.wav`);
+        
+        log.info(`Starting Recording ${fullPath}`);
 
         const micInputStream = this._micInstance.getAudioStream();
-        const outputFileStream = new FileWriter(`./${filename}`, {
+        const outputFileStream = new FileWriter(fullPath, {
             sampleRate: config.audio.sampleRate * config.audio.recordingScaleFactor,
             channels: config.audio.channels
         });

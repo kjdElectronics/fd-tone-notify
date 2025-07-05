@@ -101,6 +101,10 @@
         }
       ]
     },
+  "recording": {
+    "directory": "./recordings",
+    "autoDeleteOlderThanDays": 7
+  },
   "coralogix": {
     "applicationName": "FD-Tone-Notify",
     "subsystemName": "Test"

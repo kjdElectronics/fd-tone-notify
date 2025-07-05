@@ -5,7 +5,8 @@ FD Tone Notify is Dispatch Tone Notification Software for Fire Departments and E
   - Detect any number of tones from 1 to 5+ (no hard limit) with custom set tolerances and match thresholds. High accuracy and granularity to suit various applications
   - Cross Platform and tested on the Raspberry Pi 3. The simplicity and low cost of the Raspberry Pi 3 allows new installations to be deployed quickly and cheaply.
   - Web based remote monitoring interface with the ability to live stream audio.
-  - Works with Pulseaudio to facilitate running multiple audio inputs running on the same machine (Ex: Running 4 instances of OP25 to monitor 4 departments simultaneously). See [Configuring Pulse Audio](#configuring-pulse-audio) 
+  - Works with Pulseaudio to facilitate running multiple audio inputs running on the same machine (Ex: Running 4 instances of OP25 to monitor 4 departments simultaneously). See [Configuring Pulse Audio](#configuring-pulse-audio)
+  - Automatic recording management with configurable storage directory and auto-cleanup of old recordings 
   
 :triangular_flag_on_post::triangular_flag_on_post:
 
@@ -61,9 +62,7 @@ and use and there a plenty of examples below.
 To get started right away download FD Tone Notify and simply run `./fd-tone-notify` or doubleclick on `fd-tone-notify.exe`
 if you are using Windows.
 
-This will create a `config/` directory that will store the configuration files. When run for the first time
-FD Tone Notify will automatically create a sample configuration file and blank `secrets.template.json`. For more information see the 
-[Configuration](#Configuration) and [Environment Variables and Secrets](#Environment-Variables-and-Secrets) sections below. 
+This will create a `config/` directory that will store the configuration files and a `recordings/` directory where audio recordings will be saved. When run for the first time FD Tone Notify will automatically create a sample configuration file and blank `secrets.template.json`. For more information see the [Configuration](#Configuration) and [Environment Variables and Secrets](#Environment-Variables-and-Secrets) sections below. 
 
 #### How do I know what to enter for the tones?
 If you don't know the tones for the department/station you want to monitor run FD Tone Notify with the `--all-tone-detector` option.
@@ -309,6 +308,14 @@ Setup is free and easy. The free plan should be sufficient for most.
             }
 ```
 
+##### Recording - Optional
+This section configures where audio recordings are saved and automatic cleanup settings.
+  - `directory`: The directory where recordings will be saved. Defaults to `./recordings`. The directory will be created automatically if it doesn't exist.
+  - `autoDeleteOlderThanDays`: Number of days to keep recordings before automatically deleting them.  Defaults to `7` days. Set to `0` to disable auto-deletion and keep recordings forever.
+  - Runs automatically at midnight
+
+These settings can be overridden using environment variables `FD_RECORDING_DIRECTORY` and `FD_AUTO_DELETE_RECORDINGS_OLDER_THAN_DAYS`.
+
 ##### Coralogix - Optional
 Configure this section to use [Coralogix](https://coralogix.com/) for remote logging. 
 ##### Email - Required for Email Notifications
@@ -340,6 +347,8 @@ Options:
   --force-secrets-file   Using this option forces all secrets to be read from the secrets file (Either the default or the path specified by --secrets-path). Values from
                          environment variables will be disregarded. If the file cannot be loaded or parsed the application will exit with code 99 indicating an invalid
                          secrets configuration.
+  --recording-directory <path>  Overrides FD_RECORDING_DIRECTORY environment var setting the directory where recordings are saved
+  --auto-delete-recording-age-days <days>  Overrides FD_AUTO_DELETE_RECORDINGS_OLDER_THAN_DAYS environment var setting how many days to keep recordings (0 = forever)
   -h, --help             display help for command
 ```  
 
@@ -356,8 +365,10 @@ are used as environment and in the `secrets.json`. :information_source: Remember
  - `FD_SMTP_USERNAME`: The SMTP username. For Sendgrid this will always be `apikey`
  - `FD_SMTP_PASSWORD`: The SMTP password. For Sendgrid this an API Key. Sendgrid API keys can be created
   [here](https://app.sendgrid.com/settings/api_keys).
+ - `FD_RECORDING_DIRECTORY`: The directory where audio recordings are saved. Defaults to `./recordings`
+ - `FD_AUTO_DELETE_RECORDINGS_OLDER_THAN_DAYS`: Number of days to keep recordings before auto-deletion. Defaults to `7`. Set to `0` to disable. 
   
-:information_source: Enviornment variables override valus set by secrets file. To change this behavior use the 
+:information_source: Environment variables override values set by secrets file. To change this behavior use the 
 `--force-secrets-file` option.
 
 :information_source: An alternative secrets file can be specified at runtime using the `--secrets-file <path>` option.
@@ -365,7 +376,49 @@ are used as environment and in the `secrets.json`. :information_source: Remember
 :bulb: To help debug the secrets that are loaded use the `--silly` option. When starting FD Tone Notify the source of each
 secret will be logged to the console.
 
-#### List of Environment Variables
+### Recording Management and Auto-Cleanup
+
+FD Tone Notify includes automatic recording management features to help organize and maintain your audio recordings:
+
+#### Recording Directory
+- All recordings are saved to a configurable directory (default: `./recordings`)
+- Recordings are named with format: `{timestamp}-{detector-name}.wav` (e.g., `1625097600000-Fire-Station-1.wav`)
+- Recordings are converted to MP3 format automatically if ffmpeg is available
+
+#### Automatic Cleanup
+- Recordings older than the specified number of days are automatically deleted
+- Cleanup runs on application startup and then daily at midnight
+- Default retention period is 7 days
+- Set to `0` days to disable auto-deletion and keep recordings forever
+- Only audio files (.wav, .mp3, .m4a, .ogg, .flac) are deleted during cleanup
+- Non-audio files in the recording directory are preserved
+
+#### Configuration Examples
+
+**Environment Variables:**
+```bash
+# Set custom recording directory
+FD_RECORDING_DIRECTORY=/var/recordings/fire-dept
+
+# Keep recordings for 30 days
+FD_AUTO_DELETE_RECORDINGS_OLDER_THAN_DAYS=30
+
+# Disable auto-deletion (keep forever)
+FD_AUTO_DELETE_RECORDINGS_OLDER_THAN_DAYS=0
+```
+
+**Command Line:**
+```bash
+# Start with custom recording settings
+fd-tone-notify --recording-directory /var/recordings --auto-delete-recording-age-days 14
+
+# Disable auto-deletion via command line
+fd-tone-notify --auto-delete-recording-age-days 0
+```
+
+:information_source: Command line arguments override environment variables, which override configuration file settings.
+
+#### Complete List of Environment Variables
   - FD_INPUT_DEVICE: Overrides `config.audio.inputDevice`
   - FD_SAMPLE_RATE: Overrides `config.audio.sampleRate`
   - FD_FREQ_SCALE_FACTOR: Overrides `config.audio.frequencyScaleFactor`
@@ -378,4 +431,6 @@ secret will be logged to the console.
   - FD_PUSHBULLET_API_KEY: Api key for Pushbullet. Overrides `secrets.FD_PUSHBULLET_API_KEY`
   - FD_SMTP_USERNAME: Overrides `secrets.FD_PUSHBULLET_API_KEY`
   - FD_SMTP_PASSWORD: Overrides `secrets.FD_PUSHBULLET_API_KEY`
+  - FD_RECORDING_DIRECTORY: Overrides `config.recording.directory`
+  - FD_AUTO_DELETE_RECORDINGS_OLDER_THAN_DAYS: Overrides `config.recording.autoDeleteOlderThanDays`
   

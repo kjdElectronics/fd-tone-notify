@@ -19,7 +19,8 @@ const PARAMS = {
     detectorName: "Webhook Test Detector",
     custom: {
         customData: true
-    }
+    },
+    isTest: true
 }
 
 describe("Webhook Test", function() {
@@ -38,6 +39,7 @@ describe("Webhook Test", function() {
         delete expectedResult.address;
         delete expectedResult.headers;
         delete expectedResult.recordingRelPath;
+        delete expectedResult.isTest;
 
         expect(result).to.deep.equal(expectedResult);
     });
