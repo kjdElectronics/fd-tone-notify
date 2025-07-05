@@ -19,7 +19,7 @@ class RecordingService{
     }
 
     recordFile(notificationParams){
-        const fullPath = notificationParams.filename ? notificationParams.filename : path.join(process.env.FD_RECORDING_DIRECTORY || './recordings', `${new Date().getTime()}.wav`);
+        const fullPath = notificationParams.filename ? notificationParams.filename : path.join(config.recording.directory, `${new Date().getTime()}.wav`);
         
         log.info(`Starting Recording ${fullPath}`);
 

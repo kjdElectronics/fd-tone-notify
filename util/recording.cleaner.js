@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const log = require('./logger');
 const AutoCleanRecordingsService = require("../service/AutoCleanRecordingsService");
+const config = require('config');
 
 /**
  * Starts the AutoCleanRecordingsService. This will automatically run the cleaning of old recordings every day
@@ -9,8 +10,8 @@ const AutoCleanRecordingsService = require("../service/AutoCleanRecordingsServic
 function initRecordingAutoCleaningService() {
 
     // Initialize recording cleanup
-    const recordingDirectory = process.env.FD_RECORDING_DIRECTORY || './recordings';
-    const autoDeleteDays = parseInt(process.env.FD_AUTO_DELETE_RECORDINGS_OLDER_THAN_DAYS || '7');
+    const recordingDirectory = config.recording.directory;
+    const autoDeleteDays = config.recording.autoDeleteOlderThanDays;
 
     // Start auto-cleanup service if auto-delete is enabled. An initial cleanup will run automatically
     if (autoDeleteDays > 0) {

@@ -101,12 +101,16 @@
         }
       ]
     },
+  "recording": {
+    "directory": "./recordings",
+    "autoDeleteOlderThanDays": 7
+  },
   "coralogix": {
     "applicationName": "FD-Tone-Notify",
     "subsystemName": "Test"
   },
   "email": {
-    "from": "info@kjdelectronics.com",
+    "from": "test@example.com",
     "host": "smtp.sendgrid.net",
     "port": 465,
     "secure": true

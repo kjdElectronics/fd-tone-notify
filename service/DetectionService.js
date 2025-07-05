@@ -8,6 +8,7 @@ const {RecordingThread} = require("./RecordingThread");
 const {sendPreRecordingNotifications} = require('../notifiers');
 const {NotificationParams} = require('../obj/NotificationParams');
 const path = require('path');
+const config = require('config');
 
 const NO_DATA_INTERVAL_SEC = 30;
 
@@ -95,7 +96,7 @@ class DetectionService extends EventEmitter{
             const {matchAverages, message} = result;
             const timestamp = new Date().getTime();
             const filenameOnly = `${timestamp}-${name}.wav`; //Include the name of the detector in the filename
-            const recordingDirectory = process.env.FD_RECORDING_DIRECTORY || './recordings';
+            const recordingDirectory = config.recording.directory;
             const fullPath = path.join(recordingDirectory, filenameOnly);
 
             const notificationParams = new NotificationParams({
