@@ -28,6 +28,8 @@ function setupProgram(){
         .option('--force-secrets-file', 'Using this option forces all secrets to be read from the secrets file (Either the ' +
             'default or the path specified by --secrets-path). Values from environment variables will be disregarded. If the file cannot be loaded or parsed ' +
             'the application will exit with code 99 indicating an invalid secrets configuration.')
+        .option('--recording-directory <path>', 'Overrides FD_RECORDING_DIRECTORY environment var setting the directory where recordings are saved')
+        .option('--auto-delete-recording-age-days <days>', 'Overrides FD_AUTO_DELETE_RECORDINGS_OLDER_THAN_DAYS environment var setting how many days to keep recordings (0 = forever)')
         .parse();
 
     defaultConfig();
@@ -67,6 +69,12 @@ function overrideEnvVars(options){
 
     if(options.port)
         process.env.FD_PORT = Number.parseInt(options.port);
+    
+    if(options.recordingDirectory)
+        process.env.FD_RECORDING_DIRECTORY = options.recordingDirectory;
+    
+    if(options.autoDeleteRecordingAgeDays)
+        process.env.FD_AUTO_DELETE_RECORDINGS_OLDER_THAN_DAYS = Number.parseInt(options.autoDeleteRecordingAgeDays);
 }
 
 function defaultConfig(){
@@ -87,6 +95,22 @@ function defaultConfig(){
         const configPath = path.join(__dirname, './config/asound.conf');
         const data = fs.readFileSync(configPath);
         fs.writeFileSync('./config/asound.conf', data);
+    }
+    
+    // Set up recording directory environment variable if not already set
+    if (!process.env.FD_RECORDING_DIRECTORY) {
+        process.env.FD_RECORDING_DIRECTORY = './recordings';
+    }
+    
+    if (!process.env.FD_AUTO_DELETE_RECORDINGS_OLDER_THAN_DAYS) {
+        process.env.FD_AUTO_DELETE_RECORDINGS_OLDER_THAN_DAYS = '7';
+    }
+    
+    // Create recording directory if it doesn't exist
+    const recordingDir = process.env.FD_RECORDING_DIRECTORY;
+    if (!fs.existsSync(recordingDir)) {
+        console.log(`Creating recording directory: ${recordingDir}`);
+        fs.mkdirSync(recordingDir, { recursive: true });
     }
 }
 

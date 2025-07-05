@@ -106,7 +106,7 @@
     "subsystemName": "Test"
   },
   "email": {
-    "from": "test@example.com",
+    "from": "info@kjdelectronics.com",
     "host": "smtp.sendgrid.net",
     "port": 465,
     "secure": true

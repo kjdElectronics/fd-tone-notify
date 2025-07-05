@@ -7,6 +7,7 @@ const EventEmitter = require('events');
 const {RecordingThread} = require("./RecordingThread");
 const {sendPreRecordingNotifications} = require('../notifiers');
 const {NotificationParams} = require('../obj/NotificationParams');
+const path = require('path');
 
 const NO_DATA_INTERVAL_SEC = 30;
 
@@ -93,14 +94,16 @@ class DetectionService extends EventEmitter{
             log.debug(`Processing toneDetected event for ${name}`);
             const {matchAverages, message} = result;
             const timestamp = new Date().getTime();
-            const filename = `${timestamp}.wav`;
+            const filenameOnly = `${timestamp}-${name}.wav`; //Include the name of the detector in the filename
+            const recordingDirectory = process.env.FD_RECORDING_DIRECTORY || './recordings';
+            const fullPath = path.join(recordingDirectory, filenameOnly);
 
             const notificationParams = new NotificationParams({
                 detector: tonesDetector,
                 timestamp,
                 matchAverages,
                 notifications,
-                filename,
+                filename: fullPath,
                 message
             });
 
