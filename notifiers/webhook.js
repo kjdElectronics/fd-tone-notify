@@ -31,7 +31,7 @@ async function postJson({address, headers={}, timestamp, tones, matchAverages, f
 }
 
 async function postMultiPartFormDataWithFile({address, headers={}, timestamp, tones=[], matchAverages=[], filename,
-                                                 recordingRelPath, detectorName, custom={}, isTest}){
+                                                 recordingRelPath, detectorName, custom={}, isTest=false}){
 
     _fillEnvVarsHeaders(headers);
     const form = new FormData();
