@@ -2,6 +2,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { program } = require('commander');
+const config = require("config");
 setupProgram();
 
 const {checkLicense} = require("./util/licence");
@@ -95,15 +96,6 @@ function defaultConfig(){
         const configPath = path.join(__dirname, './config/asound.conf');
         const data = fs.readFileSync(configPath);
         fs.writeFileSync('./config/asound.conf', data);
-    }
-    
-    // Set up recording directory environment variable if not already set
-    if (!process.env.FD_RECORDING_DIRECTORY) {
-        process.env.FD_RECORDING_DIRECTORY = './recordings';
-    }
-    
-    if (!process.env.FD_AUTO_DELETE_RECORDINGS_OLDER_THAN_DAYS) {
-        process.env.FD_AUTO_DELETE_RECORDINGS_OLDER_THAN_DAYS = '7';
     }
     
     // Create recording directory if it doesn't exist
