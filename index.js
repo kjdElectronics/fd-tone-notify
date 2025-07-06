@@ -31,6 +31,7 @@ function setupProgram(){
             'the application will exit with code 99 indicating an invalid secrets configuration.')
         .option('--recording-directory <path>', 'Overrides FD_RECORDING_DIRECTORY environment var setting the directory where recordings are saved')
         .option('--auto-delete-recording-age-days <days>', 'Overrides FD_AUTO_DELETE_RECORDINGS_OLDER_THAN_DAYS environment var setting how many days to keep recordings (0 = forever)')
+        .option('--detect-from-files <paths>', 'Detect tones from audio files. Provide comma-separated list of file paths or directories containing WAV files')
         .parse();
 
     defaultConfig();
@@ -48,6 +49,7 @@ async function main(){
     const {toneDetector} = require('./bin/toneDetector');
     const {csvToConfig} = require('./bin/csvToConfig');
     const {testNotifications} = require('./bin/testNotifications');
+    const {detectFromFiles} = require('./bin/detectFromFiles');
 
     if(options.csvToConfig)
         csvToConfig();
@@ -55,6 +57,8 @@ async function main(){
         toneDetector({webServer: options.webServer});
     else if(options.testNotifications)
         testNotifications();
+    else if(options.detectFromFiles)
+        detectFromFiles({paths: options.detectFromFiles});
     else
         fdToneNotify({webServer: options.webServer});
 }
@@ -107,9 +111,9 @@ function defaultConfig(){
 }
 
 function validateOptions(options){
-    const mainOptionSelectedCount = [options.testNotifications, options.allToneDetector].filter(v => !!v).length;
+    const mainOptionSelectedCount = [options.testNotifications, options.allToneDetector, options.csvToConfig, options.detectFromFiles].filter(v => !!v).length;
     if(mainOptionSelectedCount > 1)
-        _exitWithError(`Multi main options selected. Can only selected one of the following: --all-tone-detector, --test-notifications`);
+        _exitWithError(`Multi main options selected. Can only selected one of the following: --all-tone-detector, --test-notifications, --csv-to-config, --detect-from-files`);
     if(options.port && !options.webServer)
         log.warning(`--port <port> option is meaningless without the --web-server option. ` +
             `Monitoring interface will only start on specified port when --web-server option is set`)

@@ -15,19 +15,22 @@ const NO_DATA_INTERVAL_SEC = 30;
 class DetectionService extends EventEmitter{
     constructor({audioInterface, sampleRate, recording: isRecordingEnabled, areNotificationsEnabled=true,
                     minRecordingLengthSec=30, maxRecordingLengthSec, frequencyScaleFactor=1,
-                    silenceAmplitude=0.05,
+                    silenceAmplitude=0.05, fileMode=false
                 }) {
         super();
 
         this._audioInterface = audioInterface;
+        this._fileMode = fileMode;
+        
         if(audioInterface) {
             this._audioInterface.onData( async (rawBuffer) => {
                 const decoded = decodeRawAudioBuffer(rawBuffer);
                 this.__processData(decoded);
             });
         }
-        else
+        else if(!fileMode) {
             log.warning(`Detection Service: No audioInterface. Should be used for testing only`);
+        }
 
         this._audioProcessor = new AudioProcessor({sampleRate, silenceAmplitude, frequencyScaleFactor});
         this._audioProcessor.on('pitchData', data => this.emit('pitchData', data)); //Forward event
@@ -94,7 +97,10 @@ class DetectionService extends EventEmitter{
 
             log.debug(`Processing toneDetected event for ${name}`);
             const {matchAverages, message} = result;
-            const timestamp = new Date().getTime();
+            // Use file timestamp in file mode, otherwise use current time
+            const timestamp = this._fileMode && this._currentTimestamp !== undefined 
+                ? this._currentTimestamp * 1000 // Convert to milliseconds to match existing format
+                : new Date().getTime();
             const filenameOnly = `${timestamp}-${name}.wav`; //Include the name of the detector in the filename
             const recordingDirectory = config.recording.directory;
             const fullPath = path.join(recordingDirectory, filenameOnly);
@@ -125,7 +131,14 @@ class DetectionService extends EventEmitter{
 
             if(notificationPromise)
                 await notificationPromise;
-            this.emit('toneDetected', notificationParams.toObj());
+            
+            // Emit detection event with additional context for file mode
+            const detectionData = notificationParams.toObj();
+            if (this._fileMode) {
+                detectionData.timestamp = this._currentTimestamp; // Use seconds for file mode
+                detectionData.filePath = this._currentFilePath;
+            }
+            this.emit('toneDetected', detectionData);
         });
 
         this.toneDetectors.push(tonesDetector);
@@ -139,6 +152,24 @@ class DetectionService extends EventEmitter{
             return this.isRecordingEnabled; //Use specified global value
         } else
             return detectorLevelIsRecordingEnabled; //use specified detector value
+    }
+
+    /**
+     * Process audio data directly (for file mode)
+     * @param {Object} audioData - Audio data with timestamp and buffer
+     */
+    processAudioData(audioData) {
+        if (!this._fileMode) {
+            throw new Error('processAudioData can only be used in file mode');
+        }
+        
+        // Store the current timestamp for tone detection context
+        this._currentTimestamp = audioData.timestamp;
+        this._currentFilePath = audioData.filePath;
+        
+        // Process the audio buffer through the same pipeline
+        const decoded = decodeRawAudioBuffer(audioData.audioBuffer);
+        this.__processData(decoded);
     }
 
 }
