@@ -6,6 +6,7 @@ const {CoralogixWinstonTransport} = require("./CoralogixWinstonTransport");
 const CORALOGIX_PRIVATE_KEY = process.env.FD_CORALOGIX_PRIVATE_KEY;
 const moment = require('moment');
 const config = require('config');
+const suppressStdout = require("./logger.suppress.stdout");
 
 let coralogixConfig;
 if(CORALOGIX_PRIVATE_KEY){
@@ -15,6 +16,9 @@ if(CORALOGIX_PRIVATE_KEY){
         subsystemName: config.coralogix.subsystemName,
     });
 }
+
+//Check if console output should be disabled
+const suppressStdOut = suppressStdout();
 
 let alignColorsAndTime = winston.format.combine(
     winston.format.colorize({
@@ -38,15 +42,19 @@ if(!logger) {
     const levels = winston.config.syslog.levels;
     levels.silly = 8;
     const transports = [
-        new winston.transports.Console({
-            format: alignColorsAndTime,
-        }),
         new winston.transports.File({
             filename: 'log.log',
             level: 'info',
             format: consoleFormat
         })
     ];
+
+    consoleTransport = new winston.transports.Console({
+        format: alignColorsAndTime,
+    });
+    if(!suppressStdOut)
+        transports.push(consoleTransport);
+
     if(CORALOGIX_PRIVATE_KEY) {
         transports.push(new CoralogixWinstonTransport({
             level: 'info',

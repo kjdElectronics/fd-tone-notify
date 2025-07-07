@@ -23,7 +23,7 @@ async function detectFromFiles({ paths } = {}) {
         const filesToProcess = await gatherFiles(paths);
         
         if (filesToProcess.length === 0) {
-            log.warning('No WAV files found to process');
+            console.error('No WAV files found to process');
             return;
         }
 
@@ -62,7 +62,7 @@ async function detectFromFiles({ paths } = {}) {
                 isRecordingEnabled: false, // Force disable recording for file mode
                 notifications: detectorConfig.notifications
             };
-            
+
             log.info(`Adding Detector for ${options.name} with tones ${options.tones.map(v => `${v}Hz`).join(', ')}. `
                         + `Match Threshold: ${options.matchThreshold}, Tolerance: ${options.tolerancePercent * 100}%`);
             detectionService.addToneDetector(options);
@@ -77,7 +77,7 @@ async function detectFromFiles({ paths } = {}) {
 
         // Process each file
         for (const filePath of filesToProcess) {
-            log.info(`Processing file: ${filePath}`);
+            console.error(`Processing file: ${filePath}`);
             
             const fileResult = {
                 filename: path.basename(filePath),
@@ -130,7 +130,7 @@ async function detectFromFiles({ paths } = {}) {
                 fileResult.duration = formatDuration(status.totalDuration);
                 fileResult.durationSeconds = status.totalDuration;
                 fileResult.detections = fileDetections;
-                
+
                 log.info(`Completed processing ${filePath}: ${fileDetections.length} detections found`);
                 
             } catch (error) {
@@ -141,10 +141,10 @@ async function detectFromFiles({ paths } = {}) {
             results.files.push(fileResult);
         }
 
-        // Output results as JSON
-        console.log(JSON.stringify(results, null, 2));
+        // Output results as JSON to stdout (clean output)
+        console.log(JSON.stringify(results, null, 2) + '\n');
         
-        // Summary
+        // Summary to stderr
         const totalDetections = results.files.reduce((sum, file) => sum + (file.detections ? file.detections.length : 0), 0);
         log.info(`Processing complete. Total detections: ${totalDetections} across ${results.totalFiles} files`);
 
@@ -165,7 +165,7 @@ async function gatherFiles(pathsString) {
         const resolvedPath = path.resolve(inputPath);
         
         if (!fs.existsSync(resolvedPath)) {
-            log.warning(`Path does not exist: ${resolvedPath}`);
+            log.error(`Path does not exist: ${resolvedPath}`);
             continue;
         }
 
@@ -188,7 +188,7 @@ async function gatherFiles(pathsString) {
                 log.error(`Error reading directory ${resolvedPath}: ${error.message}`);
             }
         } else {
-            log.warning(`Unsupported path type: ${resolvedPath}`);
+            log.error(`Unsupported path type: ${resolvedPath}`);
         }
     }
 

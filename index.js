@@ -32,6 +32,7 @@ function setupProgram(){
         .option('--recording-directory <path>', 'Overrides FD_RECORDING_DIRECTORY environment var setting the directory where recordings are saved')
         .option('--auto-delete-recording-age-days <days>', 'Overrides FD_AUTO_DELETE_RECORDINGS_OLDER_THAN_DAYS environment var setting how many days to keep recordings (0 = forever)')
         .option('--detect-from-files <paths>', 'Detect tones from audio files. Provide comma-separated list of file paths or directories containing WAV files')
+        .option('--suppress-logging', 'Disables logging to console. Logging will still be written to file. Automatically enabled when --detect-from-files option is set')
         .parse();
 
     defaultConfig();
@@ -84,7 +85,7 @@ function overrideEnvVars(options){
 
 function defaultConfig(){
     if(!fs.existsSync('./config')){
-        console.log('No config directory. Initializing with default configuration');
+        log.info('No config directory. Initializing with default configuration');
         fs.mkdirSync('./config');
 
         // javascript-obfuscator:disable
@@ -105,7 +106,7 @@ function defaultConfig(){
     // Create recording directory if it doesn't exist
     const recordingDir = process.env.FD_RECORDING_DIRECTORY;
     if (!fs.existsSync(recordingDir)) {
-        console.log(`Creating recording directory: ${recordingDir}`);
+        log.info(`Creating recording directory: ${recordingDir}`);
         fs.mkdirSync(recordingDir, { recursive: true });
     }
 }
