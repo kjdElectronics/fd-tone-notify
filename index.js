@@ -58,8 +58,14 @@ async function main(){
         toneDetector({webServer: options.webServer});
     else if(options.testNotifications)
         testNotifications();
-    else if(options.detectFromFiles)
-        detectFromFiles({paths: options.detectFromFiles});
+    else if(options.detectFromFiles) {
+        await detectFromFiles({paths: options.detectFromFiles});
+        // Give a brief moment for any pending notifications to complete
+        console.error("Processing completed. Waiting to allow any pending notifications to finish processing...")
+        setTimeout(() => {
+            process.exit(0);
+        }, 2000);
+    }
     else
         fdToneNotify({webServer: options.webServer});
 }

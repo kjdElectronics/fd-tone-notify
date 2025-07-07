@@ -113,6 +113,68 @@ audio above the `silenceAmplitude` is detected allowing you to verify your setup
 "beep" when you press a button. If everything is working correctly this "beep" should be printed to the console while
 running with '--silly'.
 
+## Detecting Tones from Audio Files
+FD Tone Notify can analyze pre-recorded audio files to detect tones and output JSON results.
+:warning: When in this mode all standard console output (stdout) logging is suppressed to the console by forcing 
+the `--suppress-logging` option. Logs will still be output to the log file but will not appear in the console. 
+### Usage
+```bash
+# Analyze a single WAV file
+fd-tone-notify --detect-from-files dispatch-recording.wav
+
+# Analyze multiple files
+fd-tone-notify --detect-from-files file1.wav,file2.wav,file3.wav
+
+# Analyze all WAV files in a directory
+fd-tone-notify --detect-from-files /path/to/recordings/
+
+# Mix files and directories
+fd-tone-notify --detect-from-files file1.wav,/recordings/,file2.wav
+```
+
+### Output Format
+The command outputs JSON results to stdout, making it easy to pipe to other applications or save to a file:
+
+```bash
+# Save results to JSON file
+fd-tone-notify --detect-from-files recordings/ > results.json
+
+# Process with another application
+fd-tone-notify --detect-from-files recordings/ | your-analysis-tool
+```
+
+### JSON Output Structure
+```json
+{
+  "processed": "2024-01-15T10:30:45.123Z",
+  "totalFiles": 2,
+  "files": [
+    {
+      "filename": "dispatch1.wav",
+      "filepath": "/full/path/to/dispatch1.wav",
+      "duration": "00:04.474",
+      "durationSeconds": 4.474,
+      "detections": [
+        {
+          "detector": "Fire Station 1",
+          "tones": [567, 378],
+          "timestamp": "00:01.250",
+          "timestampSeconds": 1.25,
+          "matchAverages": [567.2, 378.1],
+          "message": "Fire Station 1 tone detected"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Important Notes
+- **File Format**: Currently supports WAV files only (MP3 support planned for future releases)
+- **Processing**: Files are processed in 1-second chunks using the same detection algorithms as live audio
+- **Configuration**: Uses the same detector configurations from your `config/default.json` file
+- **Directories**: Only scans the specified directory (non-recursive) for WAV files
+
 ## Configuration
 FD Tone Notify is configured via configuration files in the `config/` directory and environment variables. 
 
@@ -349,6 +411,8 @@ Options:
                          secrets configuration.
   --recording-directory <path>  Overrides FD_RECORDING_DIRECTORY environment var setting the directory where recordings are saved
   --auto-delete-recording-age-days <days>  Overrides FD_AUTO_DELETE_RECORDINGS_OLDER_THAN_DAYS environment var setting how many days to keep recordings (0 = forever)
+  --detect-from-files <paths>  Detect tones from audio files. Provide comma-separated list of file paths or directories containing WAV files. Outputs JSON results to stdout for piping
+  --suppress-logging     Disables logging to console. Logging will still be written to file. Automatically enabled when --detect-from-files option is set
   -h, --help             display help for command
 ```  
 
