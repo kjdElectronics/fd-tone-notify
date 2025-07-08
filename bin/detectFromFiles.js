@@ -12,8 +12,9 @@ const path = require('path');
  */
 async function detectFromFiles({ paths } = {}) {
     if (!paths) {
-        log.error('No file paths or directories specified. Use --detect-from-files <paths>');
-        process.exit(1);
+        const errorMsg = 'No file paths or directories specified. Use --detect-from-files <paths>';
+        log.error(errorMsg);
+        throw new Error(errorMsg);
     }
 
     log.info('Starting tone detection from audio files');
@@ -32,7 +33,6 @@ async function detectFromFiles({ paths } = {}) {
         // Initialize audio file service
         const audioFileService = new AudioFileService({
             sampleRate: config.audio.sampleRate,
-            channels: config.audio.channels,
             chunkDurationSeconds: 1
         });
 
@@ -70,6 +70,7 @@ async function detectFromFiles({ paths } = {}) {
 
         // Results storage
         const results = {
+            success: true,
             processed: new Date().toISOString(),
             totalFiles: filesToProcess.length,
             files: []
@@ -112,7 +113,7 @@ async function detectFromFiles({ paths } = {}) {
                         duration: audioData.duration,
                         chunkIndex: audioData.chunkIndex,
                         filePath: audioData.filePath,
-                        audioBuffer: audioData.data
+                        audioBuffer: audioData.audioBuffer
                     };
                     
                     // Feed data to detection service
@@ -150,7 +151,7 @@ async function detectFromFiles({ paths } = {}) {
 
     } catch (error) {
         log.error(`Error in detectFromFiles: ${error.message}`);
-        process.exit(1);
+        throw error;
     }
 }
 

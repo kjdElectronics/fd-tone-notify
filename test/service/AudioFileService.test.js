@@ -11,7 +11,6 @@ describe('AudioFileService', function() {
     beforeEach(function() {
         audioFileService = new AudioFileService({
             sampleRate: 44100,
-            channels: 1,
             chunkDurationSeconds: 1
         });
     });
@@ -26,7 +25,6 @@ describe('AudioFileService', function() {
         it('should initialize with default configuration', function() {
             const service = new AudioFileService();
             expect(service.sampleRate).to.equal(44100);
-            expect(service.channels).to.equal(1);
             expect(service.chunkDurationSeconds).to.equal(1);
             expect(service.isProcessing).to.be.false;
         });
@@ -34,11 +32,9 @@ describe('AudioFileService', function() {
         it('should initialize with custom configuration', function() {
             const service = new AudioFileService({
                 sampleRate: 32000,
-                channels: 2,
                 chunkDurationSeconds: 0.5
             });
             expect(service.sampleRate).to.equal(32000);
-            expect(service.channels).to.equal(2);
             expect(service.chunkDurationSeconds).to.equal(0.5);
         });
 
@@ -151,12 +147,12 @@ describe('AudioFileService', function() {
             
             // Verify chunk structure
             audioChunks.forEach((chunk, index) => {
-                expect(chunk).to.have.property('data');
+                expect(chunk).to.have.property('audioBuffer');
                 expect(chunk).to.have.property('timestamp');
                 expect(chunk).to.have.property('duration');
                 expect(chunk).to.have.property('chunkIndex', index);
                 expect(chunk).to.have.property('filePath', testFile);
-                expect(chunk.data).to.be.instanceOf(Buffer);
+                expect(chunk.audioBuffer).to.be.instanceOf(Buffer);
                 expect(chunk.timestamp).to.be.a('number');
                 expect(chunk.duration).to.be.a('number');
             });
@@ -324,7 +320,7 @@ describe('AudioFileService', function() {
             
             // Verify we get meaningful audio data
             audioChunks.forEach(chunk => {
-                expect(chunk.data.length).to.be.greaterThan(0);
+                expect(chunk.audioBuffer.length).to.be.greaterThan(0);
                 expect(chunk.filePath).to.equal(testFile);
             });
             

@@ -2,11 +2,12 @@ const {runExternalCommand} = require('../../notifiers/external.command');
 const path = require('path');
 const expect  = require("chai").expect;
 const os = require('os');
+const {stripVTControlCharacters} = require("node:util");
 
 describe("External Command", function() {
     it(`should be able to run external command`, async function () {
         const timestamp = new Date().getTime();
-        const results = await runExternalCommand({
+        let results = await runExternalCommand({
             command: `node ${path.resolve("test/notifiers/bin/test.external.js")} [timestamp] "[detectorName]" "[filename]" "[description]" [tones] [matchAverages] [recordingRelPath] [custom]`,
             commandName: "Some External Task",
             timestamp,
@@ -18,6 +19,7 @@ describe("External Command", function() {
             custom: {obj: true}
         });
 
+        results = results.map(s => stripVTControlCharacters(s));
         expect(results).to.deep.equal([
             "myArgs:  [",
             `  '${timestamp}',`,

@@ -175,6 +175,208 @@ fd-tone-notify --detect-from-files recordings/ | your-analysis-tool
 - **Configuration**: Uses the same detector configurations from your `config/default.json` file
 - **Directories**: Only scans the specified directory (non-recursive) for WAV files
 
+## API for Tone Detection
+
+FD Tone Notify includes a REST API for uploading and analyzing audio files, making it easy to integrate with existing systems and automation workflows.
+
+### Starting the API Server
+
+The API is available when running with the `--web-server` option:
+
+```bash
+# Start with API enabled
+fd-tone-notify --web-server --port 3000
+
+# API will be available at http://localhost:3000/api/
+```
+
+### API Endpoints
+
+#### POST /api/detect-tones
+
+Upload a WAV file and detect tones using the configured or custom detector settings.
+
+**Request:**
+- Method: `POST`
+- Content-Type: `multipart/form-data`
+- Body parameters:
+  - `file`: WAV audio file (required)
+  - `enableNotifications`: Boolean - enable notifications for this upload (default: false)
+  - `detectors`: JSON array of custom detector configurations (optional)
+  - `matchThreshold`: Number - global match threshold override (optional)
+  - `tolerancePercent`: Number - global tolerance percentage override (optional)
+
+**Response:**
+```json
+{
+  "success": true,
+  "requestId": "uuid-string",
+  "processed": "2025-01-15T10:30:45.123Z",
+  "filename": "dispatch-recording.wav",
+  "duration": "00:04.474",
+  "durationSeconds": 4.474,
+  "detections": [
+    {
+      "detector": "Fire Station 1",
+      "tones": [567, 378],
+      "timestamp": "00:01.250",
+      "timestampSeconds": 1.25,
+      "matchAverages": [567.2, 378.1],
+      "message": "Fire Station 1 tone detected"
+    }
+  ],
+  "processingTimeMs": 145,
+  "detectorsUsed": 2,
+  "customConfiguration": {
+    "enableNotifications": false,
+    "customDetectors": false,
+    "globalOverrides": {
+      "matchThreshold": null,
+      "tolerancePercent": null
+    }
+  }
+}
+```
+
+**Example Usage:**
+
+```bash
+# Basic file upload
+curl -X POST \
+  -F "file=@recording.wav" \
+  -F "enableNotifications=false" \
+  http://localhost:3000/api/detect-tones
+
+# Custom detector configuration
+curl -X POST \
+  -F "file=@recording.wav" \
+  -F 'detectors=[{"name":"Custom FD","tones":[850,860],"matchThreshold":4}]' \
+  -F "enableNotifications=true" \
+  http://localhost:3000/api/detect-tones
+
+# Global parameter overrides
+curl -X POST \
+  -F "file=@recording.wav" \
+  -F "matchThreshold=4" \
+  -F "tolerancePercent=0.08" \
+  http://localhost:3000/api/detect-tones
+```
+
+#### GET /api/health
+
+Health check endpoint to verify API availability.
+
+**Response:**
+```json
+{
+  "success": true,
+  "service": "fd-tone-notify-api",
+  "timestamp": "2025-01-15T10:30:45.123Z",
+  "version": "0.1.0"
+}
+```
+
+#### GET /api/config
+
+Get current detector configuration and system settings.
+
+**Response:**
+```json
+{
+  "success": true,
+  "detectors": [
+    {
+      "name": "Fire Station 1",
+      "tones": [567, 378],
+      "matchThreshold": 6,
+      "tolerancePercent": 0.02,
+      "resetTimeoutMs": 5000,
+      "lockoutTimeoutMs": 7000
+    }
+  ],
+  "defaults": {
+    "matchThreshold": 6,
+    "tolerancePercent": 0.05,
+    "resetTimeoutMs": 5000,
+    "lockoutTimeoutMs": 7000
+  },
+  "audio": {
+    "sampleRate": 44100,
+    "channels": 1,
+    "frequencyScaleFactor": 1
+  }
+}
+```
+
+### Custom Detector Configuration
+
+You can override the default detector configuration by providing a custom `detectors` array:
+
+```json
+[
+  {
+    "name": "Custom Department",
+    "tones": [850, 860, 350, 700],
+    "matchThreshold": 4,
+    "tolerancePercent": 0.05,
+    "resetTimeoutMs": 5000,
+    "lockoutTimeoutMs": 7000,
+    "minRecordingLengthSec": 30,
+    "maxRecordingLengthSec": 45,
+    "notifications": {
+      "preRecording": {
+        "pushbullet": [{"title": "Custom Alert", "body": "Tone detected"}]
+      }
+    }
+  }
+]
+```
+
+### API Features
+
+- **File Upload**: Supports WAV files up to 50MB
+- **Custom Configuration**: Override detector settings per request
+- **Notification Control**: Enable/disable notifications for API uploads
+- **Request Tracking**: Each request gets a unique ID for logging
+- **Fast Processing**: Optimized for quick analysis and response
+- **Error Handling**: Comprehensive error messages and status codes
+- **Auto Cleanup**: Uploaded files are automatically deleted after processing
+
+### Integration Examples
+
+**JavaScript/Node.js:**
+```javascript
+const FormData = require('form-data');
+const fs = require('fs');
+
+const form = new FormData();
+form.append('file', fs.createReadStream('recording.wav'));
+form.append('enableNotifications', 'false');
+
+fetch('http://localhost:3000/api/detect-tones', {
+  method: 'POST',
+  body: form
+})
+.then(response => response.json())
+.then(data => console.log('Detections:', data.detections));
+```
+
+**Python:**
+```python
+import requests
+
+with open('recording.wav', 'rb') as f:
+    files = {'file': f}
+    data = {'enableNotifications': 'false'}
+    response = requests.post(
+        'http://localhost:3000/api/detect-tones',
+        files=files,
+        data=data
+    )
+    
+print(response.json())
+```
+
 ## Configuration
 FD Tone Notify is configured via configuration files in the `config/` directory and environment variables. 
 

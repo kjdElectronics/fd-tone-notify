@@ -8,7 +8,6 @@ class AudioFileService extends EventEmitter {
     constructor(config = {}) {
         super();
         this.sampleRate = config.sampleRate || 44100;
-        this.channels = config.channels || 1;
         this.chunkDurationSeconds = config.chunkDurationSeconds || 1;
         this.isProcessing = false;
         this.currentFile = null;
@@ -58,10 +57,6 @@ class AudioFileService extends EventEmitter {
                 if (format.sampleRate !== this.sampleRate) {
                     log.warning(`File sample rate (${format.sampleRate}Hz) differs from expected (${this.sampleRate}Hz). Results may be affected.`);
                 }
-                
-                if (format.channels !== this.channels) {
-                    log.warning(`File channels (${format.channels}) differs from expected (${this.channels}). Will use first channel only.`);
-                }
 
                 // Calculate total duration
                 const stats = fs.statSync(filePath);
@@ -88,7 +83,7 @@ class AudioFileService extends EventEmitter {
                     const timestamp = chunkIndex * this.chunkDurationSeconds;
                     
                     this.emit('audioData', {
-                        data: Buffer.from(new Int16Array(chunkData).buffer),
+                        audioBuffer: Buffer.from(new Int16Array(chunkData).buffer),
                         timestamp: timestamp,
                         duration: this.chunkDurationSeconds,
                         chunkIndex: chunkIndex,
@@ -114,7 +109,7 @@ class AudioFileService extends EventEmitter {
                         }
 
                         this.emit('audioData', {
-                            data: Buffer.from(new Int16Array(audioBuffer).buffer),
+                            audioBuffer: Buffer.from(new Int16Array(audioBuffer).buffer),
                             timestamp: timestamp,
                             duration: actualDuration,
                             chunkIndex: chunkIndex,

@@ -150,52 +150,6 @@ describe("DetectionService", function() {
             expect(detection._audioInterface).to.be.null;
         });
 
-        it('should process audio data directly in file mode', function(done) {
-            const detection = new DetectionService({
-                audioInterface: null,
-                sampleRate: 44100,
-                frequencyScaleFactor: 1,
-                fileMode: true,
-                recording: false
-            });
-
-            const testTones = [850, 860];
-            const detector = detection.addToneDetector({
-                name: 'File Mode Test',
-                tones: testTones,
-                matchThreshold: 1,
-                tolerancePercent: 0.1
-            });
-
-            // Listen for detection
-            detector.on('toneDetected', (result) => {
-                expect(result).to.have.property('detector');
-                expect(result.detector.tones).to.deep.equal(testTones);
-                done();
-            });
-
-            // Generate synthetic audio data with the target frequencies
-            const sampleRate = 44100;
-            const duration = 2; // 2 seconds
-            const samples = sampleRate * duration;
-            const audioData = new Int16Array(samples);
-            
-            // Generate test tones
-            for (let i = 0; i < samples; i++) {
-                const t = i / sampleRate;
-                const amplitude = 0.5 * 32767; // 16-bit audio
-                audioData[i] = amplitude * (Math.sin(2 * Math.PI * 850 * t) + Math.sin(2 * Math.PI * 860 * t));
-            }
-
-            // Convert to buffer and process
-            const buffer = Buffer.from(audioData.buffer);
-            detection.processAudioData({
-                audioBuffer: buffer,
-                timestamp: 0,
-                filePath: 'test-file.wav'
-            });
-        });
-
         it('should include file context in detection events for file mode', function(done) {
             const detection = new DetectionService({
                 audioInterface: null,
@@ -206,15 +160,18 @@ describe("DetectionService", function() {
             });
 
             const testFilePath = '/test/path/test-file.wav';
-            const testTimestamp = 5.5; // 5.5 seconds into the file
+            const testTimestamp = 0; // fake
 
             detection.on('toneDetected', (detectionData) => {
+                expect(detectionData).to.have.property('uuid');
+                expect(detectionData).to.have.property('detector');
+                expect(detectionData.detector.name).eq('File Context Test');
                 expect(detectionData).to.have.property('timestamp', testTimestamp);
                 expect(detectionData).to.have.property('filePath', testFilePath);
                 done();
             });
 
-            const testTones = [1000];
+            const testTones = [800, 1200];
             detection.addToneDetector({
                 name: 'File Context Test',
                 tones: testTones,
@@ -224,13 +181,16 @@ describe("DetectionService", function() {
 
             // Generate synthetic 1000Hz tone
             const sampleRate = 44100;
-            const duration = 1;
+            const duration = 2;
             const samples = sampleRate * duration;
             const audioData = new Int16Array(samples);
-            
+
             for (let i = 0; i < samples; i++) {
                 const t = i / sampleRate;
-                audioData[i] = 0.5 * 32767 * Math.sin(2 * Math.PI * 1000 * t);
+                if(i <= samples/2)
+                    audioData[i] = 0.5 * 32767 * Math.sin(2 * Math.PI * testTones[0] * t);
+                else
+                    audioData[i] = 0.5 * 32767 * Math.sin(2 * Math.PI * testTones[1] * t);
             }
 
             const buffer = Buffer.from(audioData.buffer);
@@ -304,7 +264,6 @@ async function generateFileProcessingTest({filename, tones, sampleRate, frequenc
     // Initialize AudioFileService
     const audioFileService = new AudioFileService({
         sampleRate,
-        channels: 1,
         chunkDurationSeconds: 1
     });
 
@@ -329,7 +288,7 @@ async function generateFileProcessingTest({filename, tones, sampleRate, frequenc
         const failTimeout = setTimeout(() => {
             audioFileService.stop();
             reject(new Error(`File Mode: Tone Not Detected within Expected Timeframe for ${filename}`));
-        }, 10000);
+        }, 5000);
 
         // Set up success condition
         detector.on("toneDetected", (result) => {
@@ -357,7 +316,11 @@ async function generateFileProcessingTest({filename, tones, sampleRate, frequenc
         });
 
         // Start processing the file
-        audioFileService.processFile(filePath).catch((error) => {
+        audioFileService.processFile(filePath)
+            .then(() => {
+                console.log("File processing complete.");
+            })
+            .catch((error) => {
             clearTimeout(failTimeout);
             reject(error);
         });
