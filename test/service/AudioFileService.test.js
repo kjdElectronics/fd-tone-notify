@@ -10,7 +10,6 @@ describe('AudioFileService', function() {
     
     beforeEach(function() {
         audioFileService = new AudioFileService({
-            sampleRate: 44100,
             chunkDurationSeconds: 1
         });
     });
@@ -24,17 +23,14 @@ describe('AudioFileService', function() {
     describe('Constructor and Configuration', function() {
         it('should initialize with default configuration', function() {
             const service = new AudioFileService();
-            expect(service.sampleRate).to.equal(44100);
             expect(service.chunkDurationSeconds).to.equal(1);
             expect(service.isProcessing).to.be.false;
         });
 
         it('should initialize with custom configuration', function() {
             const service = new AudioFileService({
-                sampleRate: 32000,
                 chunkDurationSeconds: 0.5
             });
-            expect(service.sampleRate).to.equal(32000);
             expect(service.chunkDurationSeconds).to.equal(0.5);
         });
 
@@ -64,7 +60,7 @@ describe('AudioFileService', function() {
                 await audioFileService.processFile(testFile);
                 throw new Error('Should have thrown an error');
             } catch (error) {
-                expect(error.message).to.include('Unsupported file format. Only WAV files are supported');
+                expect(error.message).to.include('Unsupported file format');
             }
         });
 
@@ -89,26 +85,26 @@ describe('AudioFileService', function() {
 
     describe('Directory Processing', function() {
         it('should find WAV files in directory', function() {
-            const wavFiles = audioFileService.getWavFilesFromDirectory('./test/wav');
-            expect(wavFiles).to.be.an('array');
-            expect(wavFiles.length).to.be.greaterThan(0);
+            const files = audioFileService.getSupportedAudioFilesFromDirectory('./test/wav');
+            expect(files).to.be.an('array');
+            expect(files.length).to.be.greaterThan(0);
             
             // Check that all files are WAV files
-            wavFiles.forEach(file => {
+            files.forEach(file => {
                 expect(path.extname(file).toLowerCase()).to.equal('.wav');
             });
         });
 
         it('should handle non-existent directory', function() {
             expect(() => {
-                audioFileService.getWavFilesFromDirectory('./non-existent-directory');
+                audioFileService.getSupportedAudioFilesFromDirectory('./non-existent-directory');
             }).to.throw('Directory does not exist');
         });
 
         it('should handle file path instead of directory', function() {
             const testFile = path.resolve('./test/wav/raw.wav');
             expect(() => {
-                audioFileService.getWavFilesFromDirectory(testFile);
+                audioFileService.getSupportedAudioFilesFromDirectory(testFile);
             }).to.throw('Path is not a directory');
         });
 
@@ -120,9 +116,9 @@ describe('AudioFileService', function() {
             }
             
             try {
-                const wavFiles = audioFileService.getWavFilesFromDirectory(tempDir);
-                expect(wavFiles).to.be.an('array');
-                expect(wavFiles).to.have.length(0);
+                const files = audioFileService.getSupportedAudioFilesFromDirectory(tempDir);
+                expect(files).to.be.an('array');
+                expect(files).to.have.length(0);
             } finally {
                 // Clean up
                 if (fs.existsSync(tempDir)) {
@@ -197,29 +193,16 @@ describe('AudioFileService', function() {
             });
         });
 
-        it('should handle different sample rates with warnings', async function() {
-            // This test assumes we have a file with different sample rate
-            // For now, we'll test with a known file and verify the warning mechanism works
+        it('should handle different sample rates automatically', async function() {
+            // Test that files with different sample rates (like dispatch2.wav at 32kHz) 
+            // are processed without issues, using the file's native sample rate
             const testFile = path.resolve('./test/wav/dispatch2.wav'); // Known to be 32kHz
-            let warningLogged = false;
             
-            // Mock the logger to capture warnings
-            const originalWarning = require('../../util/logger').warning;
-            require('../../util/logger').warning = (message) => {
-                if (message.includes('Sample Rate') || message.includes('sample rate')) {
-                    warningLogged = true;
-                }
-                originalWarning(message);
-            };
-
-            try {
-                await audioFileService.processFile(testFile);
-                // If the file has different sample rate, warning should be logged
-                // We can't assert this strongly since we don't know the exact sample rate
-            } finally {
-                // Restore original logger
-                require('../../util/logger').warning = originalWarning;
-            }
+            await audioFileService.processFile(testFile);
+            
+            // Should complete without errors, using the file's native sample rate
+            const status = audioFileService.getStatus();
+            expect(status.totalDuration).to.be.greaterThan(0);
         });
 
         it('should calculate duration correctly', async function() {

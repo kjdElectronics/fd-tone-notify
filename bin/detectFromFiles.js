@@ -20,21 +20,20 @@ async function detectFromFiles({ paths } = {}) {
     log.info('Starting tone detection from audio files');
     
     try {
+        // Initialize audio file service first
+        const audioFileService = new AudioFileService({
+            chunkDurationSeconds: 1
+        });
+
         // Parse paths and gather all files to process
-        const filesToProcess = await gatherFiles(paths);
+        const filesToProcess = audioFileService.gatherSupportedAudioFilesFromPaths(paths);
         
         if (filesToProcess.length === 0) {
-            console.error('No WAV files found to process');
+            console.error('No supported audio files found to process');
             return;
         }
 
-        log.info(`Found ${filesToProcess.length} WAV files to process`);
-
-        // Initialize audio file service
-        const audioFileService = new AudioFileService({
-            sampleRate: config.audio.sampleRate,
-            chunkDurationSeconds: 1
-        });
+        log.info(`Found ${filesToProcess.length} supported audio files to process`);
 
         // Initialize detection service (without audio interface)
         const detectionService = new DetectionService({
@@ -89,23 +88,12 @@ async function detectFromFiles({ paths } = {}) {
 
             try {
                 // Track detections for this file
-                const fileDetections = [];
-                
-                // Listen for tone detections
-                const detectionListener = (detection) => {
-                    fileDetections.push({
-                        detector: detection.detector.name,
-                        tones: detection.detector.tones,
-                        timestamp: formatTimestamp(detection.timestamp),
-                        timestampSeconds: detection.timestamp,
-                        matchAverages: detection.matchAverages,
-                        message: detection.message
-                    });
-                };
+                const detectionsForFile = [];
 
-                detectionService.on('toneDetected', detectionListener);
+                const detectionListenerCb = generateToneDetectedEventCallback(detectionsForFile)
+                detectionService.on('toneDetected', detectionListenerCb);
 
-                // Process audio chunks
+                // Listener for audio data
                 audioFileService.on('audioData', (audioData) => {
                     // Convert audio data to format expected by detection service
                     const processedData = {
@@ -124,16 +112,17 @@ async function detectFromFiles({ paths } = {}) {
                 await audioFileService.processFile(filePath);
                 
                 // Clean up listener
-                detectionService.removeListener('toneDetected', detectionListener);
+                detectionService.removeListener('toneDetected', detectionListenerCb);
                 
                 // Get file duration
                 const status = audioFileService.getStatus();
                 fileResult.duration = formatDuration(status.totalDuration);
                 fileResult.durationSeconds = status.totalDuration;
-                fileResult.detections = fileDetections;
+                fileResult.detections = detectionsForFile;
 
-                log.info(`Completed processing ${filePath}: ${fileDetections.length} detections found`);
-                
+                const message = `Completed processing ${filePath}: ${detectionsForFile.length} detections found`;
+                log.info(message);
+                console.error(message);
             } catch (error) {
                 log.error(`Error processing file ${filePath}: ${error.message}`);
                 fileResult.error = error.message;
@@ -155,48 +144,20 @@ async function detectFromFiles({ paths } = {}) {
     }
 }
 
-/**
- * Gather all WAV files from the provided paths
- */
-async function gatherFiles(pathsString) {
-    const paths = pathsString.split(',').map(p => p.trim());
-    const allFiles = [];
-
-    for (const inputPath of paths) {
-        const resolvedPath = path.resolve(inputPath);
-        
-        if (!fs.existsSync(resolvedPath)) {
-            log.error(`Path does not exist: ${resolvedPath}`);
-            continue;
-        }
-
-        const stats = fs.statSync(resolvedPath);
-        
-        if (stats.isFile()) {
-            // Single file
-            if (path.extname(resolvedPath).toLowerCase() === '.wav') {
-                allFiles.push(resolvedPath);
-            } else {
-                log.warning(`Skipping non-WAV file: ${resolvedPath}`);
-            }
-        } else if (stats.isDirectory()) {
-            // Directory - get all WAV files (non-recursive)
-            try {
-                const audioFileService = new AudioFileService();
-                const wavFiles = audioFileService.getWavFilesFromDirectory(resolvedPath);
-                allFiles.push(...wavFiles);
-            } catch (error) {
-                log.error(`Error reading directory ${resolvedPath}: ${error.message}`);
-            }
-        } else {
-            log.error(`Unsupported path type: ${resolvedPath}`);
-        }
-    }
-
-    // Remove duplicates and sort
-    const uniqueFiles = [...new Set(allFiles)].sort();
-    return uniqueFiles;
+function generateToneDetectedEventCallback(detectionsForFile){
+    // Create a file callback to populate the detected info
+    return (detection) => {
+        detectionsForFile.push({
+            detector: detection.detector.name,
+            tones: detection.detector.tones,
+            timestamp: formatTimestamp(detection.timestamp),
+            timestampSeconds: detection.timestamp,
+            matchAverages: detection.matchAverages,
+            message: detection.message
+        });
+    };
 }
+
 
 /**
  * Format timestamp in seconds to MM:SS.mmm format

@@ -1,13 +1,12 @@
 const fs = require('fs');
 const path = require('path');
-const { Reader } = require('wav');
 const log = require('../util/logger');
 const EventEmitter = require('events');
+const { AudioDecoder } = require('./AudioDecoder');
 
 class AudioFileService extends EventEmitter {
     constructor(config = {}) {
         super();
-        this.sampleRate = config.sampleRate || 44100;
         this.chunkDurationSeconds = config.chunkDurationSeconds || 1;
         this.isProcessing = false;
         this.currentFile = null;
@@ -16,139 +15,74 @@ class AudioFileService extends EventEmitter {
     }
 
     /**
-     * Process a single WAV file and emit audio chunks with timing information
-     * @param {string} filePath - Path to the WAV file
+     * Process a single audio file and emit audio chunks with timing information
+     * @param {string} filePath - Path to the audio file
      * @returns {Promise} - Resolves when file processing is complete
      */
     async processFile(filePath) {
-        return new Promise((resolve, reject) => {
-            if (this.isProcessing) {
-                return reject(new Error('AudioFileService is already processing a file'));
-            }
+        if (this.isProcessing) {
+            throw new Error('AudioFileService is already processing a file');
+        }
 
-            if (!fs.existsSync(filePath)) {
-                return reject(new Error(`File does not exist: ${filePath}`));
-            }
+        if (!fs.existsSync(filePath)) {
+            throw new Error(`File does not exist: ${filePath}`);
+        }
 
-            if (path.extname(filePath).toLowerCase() !== '.wav') {
-                return reject(new Error(`Unsupported file format. Only WAV files are supported: ${filePath}`));
-            }
+        const fileExtension = path.extname(filePath).toLowerCase();
+        if (!AudioDecoder.getSupportedFormats().includes(fileExtension)) {
+            throw new Error(`Unsupported file format: ${fileExtension}. Supported formats: ${AudioDecoder.getSupportedFormats().join(', ')}`);
+        }
 
-            this.isProcessing = true;
-            this.currentFile = filePath;
-            this.processedDuration = 0;
+        this.isProcessing = true;
+        this.currentFile = filePath;
+        this.processedDuration = 0;
 
+        try {
             log.info(`Starting audio file processing: ${filePath}`);
 
-            const fileReader = new Reader();
-            let audioBuffer = [];
-            let samplesPerChunk = this.sampleRate * this.chunkDurationSeconds;
-            let chunkIndex = 0;
-            let readStream = null;
+            // Decode the entire file using wav-decoder for consistency
+            const decodedAudio = await AudioDecoder.decodeFile(filePath);
+            this.totalDuration = decodedAudio.duration;
 
-            // Store references for cleanup
-            this._currentReader = fileReader;
-            this._currentStream = null;
+            log.info(`File duration: ${this.formatDuration(this.totalDuration)}`);
 
-            fileReader.on('format', (format) => {
-                log.debug(`Audio format - Sample Rate: ${format.sampleRate}Hz, Channels: ${format.channels}, Bit Depth: ${format.bitDepth}`);
-                
-                // Validate format compatibility
-                if (format.sampleRate !== this.sampleRate) {
-                    log.warning(`File sample rate (${format.sampleRate}Hz) differs from expected (${this.sampleRate}Hz). Results may be affected.`);
-                }
+            // Create chunks using the AudioDecoder
+            const chunks = AudioDecoder.createChunks(
+                decodedAudio.samples,
+                decodedAudio.sampleRate,
+                this.chunkDurationSeconds,
+                filePath
+            );
 
-                // Calculate total duration
-                const stats = fs.statSync(filePath);
-                const bytesPerSample = format.bitDepth / 8;
-                const totalSamples = (stats.size - 44) / (bytesPerSample * format.channels); // Subtract WAV header size
-                this.totalDuration = totalSamples / format.sampleRate;
-                
-                log.info(`File duration: ${this.formatDuration(this.totalDuration)}`);
-            });
-
-            fileReader.on('data', (chunk) => {
-                // Check if we've been stopped
+            // Emit chunks in sequence
+            for (const chunk of chunks) {
                 if (!this.isProcessing) {
-                    return;
+                    break; // Stop processing if stop() was called
                 }
 
-                // Convert chunk to the format expected by the detection service
-                const samples = this._convertChunkToSamples(chunk);
-                audioBuffer.push(...samples);
+                this.emit('audioData', chunk);
+                this.processedDuration = chunk.timestamp + chunk.duration;
+            }
 
-                // Process complete chunks
-                while (audioBuffer.length >= samplesPerChunk && this.isProcessing) {
-                    const chunkData = audioBuffer.splice(0, samplesPerChunk);
-                    const timestamp = chunkIndex * this.chunkDurationSeconds;
-                    
-                    this.emit('audioData', {
-                        audioBuffer: Buffer.from(new Int16Array(chunkData).buffer),
-                        timestamp: timestamp,
-                        duration: this.chunkDurationSeconds,
-                        chunkIndex: chunkIndex,
-                        filePath: filePath
-                    });
+            if (this.isProcessing) {
+                log.info(`Completed processing file: ${filePath} (${this.formatDuration(this.totalDuration)})`);
+            }
 
-                    chunkIndex++;
-                    this.processedDuration = timestamp + this.chunkDurationSeconds;
-                }
-            });
-
-            fileReader.on('end', () => {
-                // Only process if we haven't been stopped
-                if (this.isProcessing) {
-                    // Process any remaining audio data
-                    if (audioBuffer.length > 0) {
-                        const timestamp = chunkIndex * this.chunkDurationSeconds;
-                        const actualDuration = audioBuffer.length / this.sampleRate;
-                        
-                        // Pad to chunk size if needed
-                        while (audioBuffer.length < samplesPerChunk) {
-                            audioBuffer.push(0);
-                        }
-
-                        this.emit('audioData', {
-                            audioBuffer: Buffer.from(new Int16Array(audioBuffer).buffer),
-                            timestamp: timestamp,
-                            duration: actualDuration,
-                            chunkIndex: chunkIndex,
-                            filePath: filePath,
-                            isLastChunk: true
-                        });
-                    }
-
-                    log.info(`Completed processing file: ${filePath} (${this.formatDuration(this.totalDuration)})`);
-                    this.isProcessing = false;
-                    this.currentFile = null;
-                    this._currentReader = null;
-                    this._currentStream = null;
-                    resolve();
-                }
-            });
-
-            fileReader.on('error', (error) => {
-                log.error(`Error processing audio file ${filePath}: ${error.message}`);
-                this.isProcessing = false;
-                this.currentFile = null;
-                this._currentReader = null;
-                this._currentStream = null;
-                reject(error);
-            });
-
-            // Start reading the file
-            readStream = fs.createReadStream(filePath);
-            this._currentStream = readStream;
-            readStream.pipe(fileReader);
-        });
+        } catch (error) {
+            log.error(`Error processing audio file ${filePath}: ${error.message}`);
+            throw error;
+        } finally {
+            this.isProcessing = false;
+            this.currentFile = null;
+        }
     }
 
     /**
-     * Get list of WAV files from a directory (non-recursive)
+     * Get list of audio files from a directory (non-recursive)
      * @param {string} directoryPath - Path to directory
-     * @returns {Array<string>} - Array of WAV file paths
+     * @returns {Array<string>} - Array of audio file paths
      */
-    getWavFilesFromDirectory(directoryPath) {
+    getSupportedAudioFilesFromDirectory(directoryPath) {
         if (!fs.existsSync(directoryPath)) {
             throw new Error(`Directory does not exist: ${directoryPath}`);
         }
@@ -159,8 +93,13 @@ class AudioFileService extends EventEmitter {
         }
 
         const files = fs.readdirSync(directoryPath);
-        const wavFiles = files
-            .filter(file => path.extname(file).toLowerCase() === '.wav')
+        const supportedFormats = AudioDecoder.getSupportedFormats();
+        
+        const audioFiles = files
+            .filter(file => {
+                const ext = path.extname(file).toLowerCase();
+                return supportedFormats.includes(ext);
+            })
             .map(file => path.join(directoryPath, file))
             .filter(filePath => {
                 try {
@@ -171,24 +110,8 @@ class AudioFileService extends EventEmitter {
                 }
             });
 
-        log.info(`Found ${wavFiles.length} WAV files in ${directoryPath}`);
-        return wavFiles;
-    }
-
-    /**
-     * Convert raw audio chunk to samples array
-     * @private
-     */
-    _convertChunkToSamples(chunk) {
-        const samples = [];
-        // Assuming 16-bit PCM data
-        for (let i = 0; i < chunk.length; i += 2) {
-            if (i + 1 < chunk.length) {
-                const sample = chunk.readInt16LE(i);
-                samples.push(sample);
-            }
-        }
-        return samples;
+        log.info(`Found ${audioFiles.length} audio files in ${directoryPath}`);
+        return audioFiles;
     }
 
     /**
@@ -222,18 +145,62 @@ class AudioFileService extends EventEmitter {
             log.info('Stopping audio file processing');
             this.isProcessing = false;
             this.currentFile = null;
-            
-            // Clean up streams
-            if (this._currentStream) {
-                this._currentStream.destroy();
-                this._currentStream = null;
-            }
-            if (this._currentReader) {
-                this._currentReader = null;
-            }
-            
             this.emit('stopped');
         }
+    }
+
+    /**
+     * Get supported audio formats
+     * @returns {Array<string>} - Array of supported file extensions
+     */
+    getSupportedFormats() {
+        return AudioDecoder.getSupportedFormats();
+    }
+
+    /**
+     * Gather all supported audio files from the provided paths
+     * @param {string} pathsString - Comma-separated list of file paths or directories
+     * @returns {Array<string>} - Array of audio file paths
+     */
+    gatherSupportedAudioFilesFromPaths(pathsString) {
+        const paths = pathsString.split(',').map(p => p.trim());
+        const allFiles = [];
+
+        for (const inputPath of paths) {
+            const resolvedPath = path.resolve(inputPath);
+            
+            if (!fs.existsSync(resolvedPath)) {
+                log.error(`Path does not exist: ${resolvedPath}`);
+                continue;
+            }
+
+            const stats = fs.statSync(resolvedPath);
+            
+            if (stats.isFile()) {
+                // Single file
+                const fileExtension = path.extname(resolvedPath).toLowerCase();
+                if (this.getSupportedFormats().includes(fileExtension)) {
+                    allFiles.push(resolvedPath);
+                } else {
+                    console.error(`Skipping unsupported file: ${resolvedPath}`);
+                    log.warning(`Skipping unsupported file: ${resolvedPath}`);
+                }
+            } else if (stats.isDirectory()) {
+                // Directory - get all audio files (non-recursive)
+                try {
+                    const audioFiles = this.getSupportedAudioFilesFromDirectory(resolvedPath);
+                    allFiles.push(...audioFiles);
+                } catch (error) {
+                    log.error(`Error reading directory ${resolvedPath}: ${error.message}`);
+                }
+            } else { //Should not be possible
+                log.error(`Unsupported path type: ${resolvedPath}`);
+            }
+        }
+
+        // Remove duplicates and sort
+        const uniqueFiles = [...new Set(allFiles)].sort();
+        return uniqueFiles;
     }
 }
 
