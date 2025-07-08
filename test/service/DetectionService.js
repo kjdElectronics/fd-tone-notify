@@ -263,7 +263,6 @@ async function generateFileProcessingTest({filename, tones, sampleRate, frequenc
 
     // Initialize AudioFileService
     const audioFileService = new AudioFileService({
-        sampleRate,
         chunkDurationSeconds: 1
     });
 
