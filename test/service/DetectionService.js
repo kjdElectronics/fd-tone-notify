@@ -12,6 +12,7 @@ const decode = async (buffer) => {
 process.env.FD_LOG_LEVEL = "silly"; //Force silly log level
 
 const {DetectionService} = require('../../service/DetectionService');
+const {TonesDetectorConfig} = require("../../obj/config/TonesDetectorConfig");
 const DYNAMIC_TEST_ARGS = [
     {filename: "raw.wav", tones: [911, 2934], sampleRate: 44100, frequencyScaleFactor: 1},
     {filename: "dispatch1.wav", tones: [567, 378], sampleRate: 44100, frequencyScaleFactor: 1},
@@ -36,7 +37,7 @@ describe("DetectionService", function() {
         const data = await decode(rawFile);
 
         const detection = new DetectionService({micInputStream: null, sampleRate: args.sampleRate, frequencyScaleFactor: args.frequencyScaleFactor, notifications: false});
-        const detector = detection.addToneDetector({name: `Test Tone`, tones: args.tones});
+        const detector = detection.addToneDetector(new TonesDetectorConfig({name: `Test Tone`, tones: args.tones}));
 
         const SLICE_SIZE = 100;
         const dataSlices = [];
@@ -79,7 +80,7 @@ describe("DetectionService", function() {
             args.frequencyScaleFactor,
             notifications: false,
         });
-        const detector = detection.addToneDetector({name: `Test Tone`, tones: args.tones, resetTimeoutMs: TIMEOUT});
+        const detector = detection.addToneDetector(new TonesDetectorConfig({name: `Test Tone`, tones: args.tones, resetTimeoutMs: TIMEOUT}));
 
         const SLICE_SIZE = 100;
         const dataSlices = [];
@@ -172,12 +173,12 @@ describe("DetectionService", function() {
             });
 
             const testTones = [800, 1200];
-            detection.addToneDetector({
+            detection.addToneDetector(new TonesDetectorConfig({
                 name: 'File Context Test',
                 tones: testTones,
                 matchThreshold: 1,
                 tolerancePercent: 0.1
-            });
+            }));
 
             // Generate synthetic 1000Hz tone
             const sampleRate = 44100;
@@ -233,7 +234,7 @@ async function generateTest({filename, tones, sampleRate, frequencyScaleFactor=1
     const rawFile = fs.readFileSync(path.resolve("./test/wav", filename) );
     const data = await decode(rawFile);
     const detection = new DetectionService({micInputStream: null, sampleRate, frequencyScaleFactor, notifications: false});
-    const detector = detection.addToneDetector({name: `Test Tone ${freqsString}`, tones});
+    const detector = detection.addToneDetector(new TonesDetectorConfig({name: `Test Tone ${freqsString}`, tones}));
     return expectPassPromise({detection, detector, data})
 }
 
@@ -275,12 +276,12 @@ async function generateFileProcessingTest({filename, tones, sampleRate, frequenc
         recording: false
     });
 
-    const detector = detection.addToneDetector({
+    const detector = detection.addToneDetector(new TonesDetectorConfig({
         name: `File Mode Test ${freqsString}`,
         tones,
         matchThreshold: 6,
         tolerancePercent: 0.05
-    });
+    }));
 
     return new Promise((resolve, reject) => {
         // Set up timeout for test failure

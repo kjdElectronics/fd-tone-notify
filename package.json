@@ -11,8 +11,8 @@
   },
   "scripts": {
     "start": "node index.js",
-    "test":          "mocha --recursive \"test\" --ignore \"test/INTEGRATION/**\"",
-    "test:int":      "mocha --recursive \"test/INTEGRATION\"",
+    "test":          "mocha --exit --recursive \"test\" --ignore \"test/INTEGRATION/**\"",
+    "test:int":      "mocha --exit --recursive \"test/INTEGRATION\"",
     "test:all":      "npm run test && npm run test:int",
     "build": "./build.sh"
   },
