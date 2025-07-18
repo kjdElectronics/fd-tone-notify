@@ -527,8 +527,9 @@ in the config file must also be complete. See [Email](#Email - Required for Emai
 :information_source: Multiple emails notification objects can be listed. Use this to send notifications with different 
 subjects. Otherwise list recipients in the `to` or `bcc` fields.
 
-:information_source: To get started quickly check out [SendGrid](https://sendgrid.com/). 
-Setup is free and easy. The free plan should be sufficient for most.
+:information_source: To get started quickly sending emails check out [Brevo](https://www.brevo.com/). 
+Setup is free and easy. The free plan should be sufficient for most. The default config has the SMTP host
+sent to use Brevo by default. Make sure to change this or orverride with an ENV var to suit your needs.
 
 ###### Example Full Notifications Configuration
 ```

@@ -111,7 +111,7 @@
   },
   "email": {
     "from": "test@example.com",
-    "host": "smtp.sendgrid.net",
+    "host": "smtp-relay.brevo.com",
     "port": 465,
     "secure": true
   }
