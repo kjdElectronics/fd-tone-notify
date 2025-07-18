@@ -1,5 +1,6 @@
 const { DetectionService } = require("../service/DetectionService");
 const { AudioFileService } = require("../service/AudioFileService");
+const { formatTimestamp, formatDuration } = require('../util/formatters');
 const config = require("config");
 const log = require('../util/logger');
 const fs = require('fs');
@@ -159,28 +160,5 @@ function generateToneDetectedEventCallback(detectionsForFile){
 }
 
 
-/**
- * Format timestamp in seconds to MM:SS.mmm format
- */
-function formatTimestamp(seconds) {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toFixed(3).padStart(6, '0')}`;
-}
-
-/**
- * Format duration in seconds to HH:MM:SS.mmm format
- */
-function formatDuration(seconds) {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const remainingSeconds = seconds % 60;
-    
-    if (hours > 0) {
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toFixed(3).padStart(6, '0')}`;
-    } else {
-        return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toFixed(3).padStart(6, '0')}`;
-    }
-}
 
 module.exports = { detectFromFiles };

@@ -2,13 +2,16 @@ require('dotenv').config();
 const expect  = require("chai").expect;
 const {NotificationParams, MATCH_STATES} = require('../../obj/NotificationParams');
 const { TonesDetector } = require('../../obj/TonesDetector');
+const { TonesDetectorConfig } = require('../../obj/config/TonesDetectorConfig');
 
-const TONES_DETECTOR = new TonesDetector({
+const TONES_DETECTOR_CONFIG = new TonesDetectorConfig({
     name: "Test",
     tones: [1000, 1300],
     tolerancePercent: 0.02,
     matchThreshold: 8
 });
+
+const TONES_DETECTOR = new TonesDetector(TONES_DETECTOR_CONFIG);
 
 const TIMESTAMP = 1659337200000; // Mon Aug 01 2022 07:00:00 GMT+0000
 const NOTIFICATIONS = {

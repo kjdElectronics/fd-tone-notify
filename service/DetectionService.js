@@ -1,4 +1,5 @@
 const {TonesDetector} = require("../obj/TonesDetector");
+const { TonesDetectorConfig } = require('../obj/config/TonesDetectorConfig');
 const log = require('../util/logger');
 const chalk = require('chalk');
 const {AudioProcessor} = require("../obj/AudioProcessor");
@@ -9,6 +10,7 @@ const {sendPreRecordingNotifications} = require('../notifiers');
 const {NotificationParams} = require('../obj/NotificationParams');
 const path = require('path');
 const config = require('config');
+const {ErrorWithStatusCode} = require("../util/ErrorWithStatusCode");
 
 const NO_DATA_INTERVAL_SEC = 30;
 
@@ -63,25 +65,16 @@ class DetectionService extends EventEmitter{
         });
     }
 
-    addToneDetector({name, tones= [], tolerancePercent, isRecordingEnabled,
-                        matchThreshold, logLevel="debug", notifications, resetTimeoutMs, lockoutTimeoutMs, minRecordingLengthSec, maxRecordingLengthSec}){
-        const tonesDetector = new TonesDetector({
-            name,
-            tones: tones,
-            matchThreshold,
-            tolerancePercent,
-            notifications,
-            resetTimeoutMs,
-            lockoutTimeoutMs,
-            minRecordingLengthSec: minRecordingLengthSec ? minRecordingLengthSec : this.minRecordingLengthSec,
-            maxRecordingLengthSec: maxRecordingLengthSec ? maxRecordingLengthSec : this.maxRecordingLengthSec
-        });
+    addToneDetector(tonesDetectorConfig) {
+        let logLevel = "debug";
 
-        if(isRecordingEnabled === undefined)
-            isRecordingEnabled = null;
-        const calculatedIsRecordingEnabled = this._isRecordingEnabled(isRecordingEnabled);
+        if((tonesDetectorConfig instanceof TonesDetectorConfig))
+            throw new ErrorWithStatusCode({statusCode: 500, message: "Invalid config. Use the constructor instead."});
 
-        const message = `Creating detector for${tonesDetector.name ? ` ${tonesDetector.name}` : ""} tone(s) ${tones.map(v => `${v}Hz`).join(", ")} ` +
+        const tonesDetector = new TonesDetector(tonesDetectorConfig);
+        const calculatedIsRecordingEnabled = this._isRecordingEnabled(tonesDetectorConfig.isRecordingEnabled);
+
+        const message = `Creating detector for${tonesDetector.name ? ` ${tonesDetector.name}` : ""} tone(s) ${tonesDetectorConfig.tones.map(v => `${v}Hz`).join(", ")} ` +
             `with tolerance ±${tonesDetector.tolerancePercent}, match threshold ${tonesDetector.matchThreshold}, ` +
             `reset timeout ${tonesDetector.resetTimeoutMs}ms, lockout timeout ${tonesDetector.lockoutTimeoutMs}ms, ` +
             `minimum recording length ${tonesDetector.minRecordingLengthSec} seconds, max recording length ${tonesDetector.maxRecordingLengthSec} seconds, ` +
@@ -95,13 +88,13 @@ class DetectionService extends EventEmitter{
             const recordingThread = this._recordingThread;
             this._recordingThread = new RecordingThread({threadId: recordingThread.threadId + 1});
 
-            log.debug(`Processing toneDetected event for ${name}`);
+            log.debug(`Processing toneDetected event for ${tonesDetectorConfig.name}`);
             const {matchAverages, message} = result;
             // Use file timestamp in file mode, otherwise use current time
             const timestamp = this._fileMode && this._currentTimestamp !== undefined 
                 ? this._currentTimestamp * 1000 // Convert to milliseconds to match existing format
                 : new Date().getTime();
-            const filenameOnly = `${timestamp}-${name}.wav`; //Include the name of the detector in the filename
+            const filenameOnly = `${timestamp}-${tonesDetectorConfig.name}.wav`; //Include the name of the detector in the filename
             const recordingDirectory = config.recording.directory;
             const fullPath = path.join(recordingDirectory, filenameOnly);
 
@@ -109,16 +102,16 @@ class DetectionService extends EventEmitter{
                 detector: tonesDetector,
                 timestamp,
                 matchAverages,
-                notifications,
+                notifications: tonesDetectorConfig.notifications,
                 filename: fullPath,
                 message
             });
 
             let notificationPromise = null;
-            if(this.areNotificationsEnabled && notifications) { //Notifications enabled on the service and detector
+            if(this.areNotificationsEnabled && tonesDetectorConfig.notifications) { //Notifications enabled on the service and detector
                 notificationPromise = sendPreRecordingNotifications(notificationParams)
                     .then(results => {
-                        log.info(`All notifications for ${name} have finished processing`);
+                        log.info(`All notifications for ${tonesDetectorConfig.name} have finished processing`);
                         return results;
                     });
 
@@ -156,7 +149,12 @@ class DetectionService extends EventEmitter{
 
     /**
      * Process audio data directly (for file mode)
-     * @param {Object} audioData - Audio data with timestamp and buffer
+     * @param {Object} audioData - Audio data object
+     * @param {number} audioData.timestamp - Timestamp in seconds
+     * @param {string} audioData.filePath - Path to the audio file being processed
+     * @param {Buffer} audioData.audioBuffer - Raw audio buffer data
+     * @param {number} [audioData.duration] - Duration of the audio chunk (optional)
+     * @param {number} [audioData.chunkIndex] - Index of the audio chunk (optional)
      */
     processAudioData(audioData) {
         if (!this._fileMode) {

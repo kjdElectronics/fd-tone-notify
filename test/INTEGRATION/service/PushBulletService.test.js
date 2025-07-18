@@ -1,6 +1,6 @@
 require('dotenv').config();
 const expect  = require("chai").expect;
-const {PushBulletService} = require('../../notifiers/PushBulletService');
+const {PushBulletService} = require('../../../notifiers/PushBulletService');
 const path = require('path');
 
 describe("PushBulletService", function() {

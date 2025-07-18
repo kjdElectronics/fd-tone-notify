@@ -9,6 +9,8 @@ lerna-debug.log*
 npm-debug.log
 yarn-error.log
 
+.idea/*
+
 secrets.json
 config/local*
 config/test*
@@ -35,7 +37,7 @@ coverage
 *.lcov
 
 # nyc test coverage
-.nyc_output
+.nyc_output/*
 
 # Grunt intermediate storage (https://gruntjs.com/creating-plugins#storing-task-files)
 .grunt

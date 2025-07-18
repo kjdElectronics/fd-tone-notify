@@ -1,5 +1,5 @@
 require('dotenv').config();
-const {sendEmail} = require('../../notifiers/send.email');
+const {sendEmail} = require('../../../notifiers/send.email');
 const path = require('path');
 const expect  = require("chai").expect;
 

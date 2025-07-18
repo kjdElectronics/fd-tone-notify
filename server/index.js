@@ -38,7 +38,8 @@ function startWebApp() {
     configureWss(wss);
 
     //Configure application routes
-    //router.configureRoutes(app);
+    const { configureRoutes } = require('./routes/router');
+    configureRoutes(app);
 
     errorHandlingMiddleware(app);
 
@@ -55,24 +56,14 @@ function expressMiddlewareInit(app){
     //app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
     app.use(morgan('dev', ));
     app.use('/', express.static(PUBLIC_PATH))
-    //app.use(bodyParser.json({ extended: true, limit: '5mb' }));
-    //app.use(bodyParser.urlencoded({extended: false}));
+    app.use(express.json({ limit: '5mb' }));
+    app.use(express.urlencoded({ extended: true, limit: '5mb' }));
     //app.use(cookieParser());
 }
 
 function errorHandlingMiddleware(app){
-    // error handler
-    app.use(function (err, req, res, next) {
-        //Log error
-        log.error(`Unhandled Error: ${err.stack}`);
-        // set locals, only providing error in development
-        res.locals.message = err.message;
-        res.locals.error = req.app.get('env') === 'development' ? err : {};
-
-        // render the error page
-        res.status(err.status || 500);
-        res.json({"error": err.status});
-    });
+    const { errorHandler } = require('./middleware/error.middleware');
+    app.use(errorHandler);
 }
 
 function configureWss(wss){
