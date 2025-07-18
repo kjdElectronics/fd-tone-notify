@@ -1,36 +1,43 @@
-const { Worker, SHARE_ENV } = require('worker_threads');
+const {Worker, SHARE_ENV} = require('worker_threads');
 const fork = require('child_process').fork;
 const log = require('../util/logger');
 const path = require("path");
 
-const recordAndNotify = require('../bin/recordAndNotify'); // Require but do not use to force pkg to include
+const recordAndNotify = require('../bin/recordAndNotify');
+const suppressStdout = require("../util/logger.suppress.stdout"); // Require but do not use to force pkg to include
 const PATH_PREFIX = __dirname.replace("service", "");
 const RECORD_NOTIFY_PATH = path.join(PATH_PREFIX, "bin/recordAndNotify.js");
 const FORK_OPTIONS = {
-    stdio: [ 'pipe', 'pipe', 'pipe', 'ipc' ],
+    stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
     silent: true
 };
 
+const IS_STD_OUT_SUPPRESSED = suppressStdout();
+const ARGV = IS_STD_OUT_SUPPRESSED ? ["--suppress-logging"] : [];
 
-class RecordingThread{
+class RecordingThread {
     constructor({threadId}) {
         this.threadId = threadId;
         this.__initThread();
     }
 
-    __initThread(){
-        if(this.__useAltRecording) {
+    __initThread() {
+        if (this.__useAltRecording) {
             log.debug('Using a new process for recording');
             this.__startedForkedThread();
-        }
-        else{ //Use Alt
+        } else { //Use Alt
             log.debug('Using a new thread for recording');
             this.__startWorkerThread();
         }
     }
 
-    __startWorkerThread(){
-        this._recordingWorker = new Worker(RECORD_NOTIFY_PATH, {env: SHARE_ENV, workerData: {worker: true}});
+    __startWorkerThread() {
+        this._recordingWorker = new Worker(RECORD_NOTIFY_PATH,
+            {
+                env: SHARE_ENV,
+                workerData: {worker: true},
+                argv: ARGV
+            });
         this._recordingWorker.on("message", incoming => log.debug(`Message from Recording Worker ${this.threadId}: ${incoming}`));
         this._recordingWorker.on("error", code => new Error(`Recording Worker ${this.threadId} error with exit code ${code}`));
         this._recordingWorker.on("exit", code => {
@@ -39,8 +46,8 @@ class RecordingThread{
         );
     }
 
-    __startedForkedThread(){
-        this._child = fork(RECORD_NOTIFY_PATH, [], FORK_OPTIONS);
+    __startedForkedThread() {
+        this._child = fork(RECORD_NOTIFY_PATH, ARGV, FORK_OPTIONS);
         this._child.on("message", incoming => log.debug(`Message from Recording Fork ${this.threadId}: ${incoming}`));
         this._child.stdout.on("data", data => console.log(data.toString().replace(/(\r\n|\n|\r)/gm, "")));
         this._child.on("error", code => new Error(`Recording Worker ${this.threadId} error with exit code ${code}`));
@@ -50,14 +57,14 @@ class RecordingThread{
         );
     }
 
-    get __useAltRecording(){
+    get __useAltRecording() {
         return process.arch.includes("arm") && process.pkg && process.pkg.entrypoint;
     }
 
-    sendMessage(message){
-        if(this._recordingWorker)
+    sendMessage(message) {
+        if (this._recordingWorker)
             this._recordingWorker.postMessage(message);
-        else if(this._child)
+        else if (this._child)
             this._child.send(message);
         else {
             const message = "Unable to send message to thread. No thread exists";

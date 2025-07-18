@@ -11,7 +11,9 @@
   },
   "scripts": {
     "start": "node index.js",
-    "test": "mocha 'test/**/*.test.js'",
+    "test":          "mocha --exit --recursive \"test\" --ignore \"test/INTEGRATION/**\"",
+    "test:int":      "mocha --exit --recursive \"test/INTEGRATION\"",
+    "test:all":      "npm run test && npm run test:int",
     "build": "./build.sh"
   },
   "repository": {
@@ -42,9 +44,10 @@
     "mic": "^2.1.2",
     "moment": "^2.29.1",
     "morgan": "^1.10.0",
+    "multer": "^2.0.1",
     "node-fetch": "^2.6.1",
     "nodemailer": "^6.4.18",
-    "pitchy": "^2.0.3",
+    "pitchy": "3.0.1",
     "prettier": "^2.2.1",
     "uuid": "^8.3.2",
     "wav": "^1.0.2",
@@ -58,6 +61,8 @@
     "formidable": "^1.2.2",
     "mocha": "^8.2.1",
     "nock": "^13.0.7",
-    "nyc": "^15.1.0"
+    "nyc": "^15.1.0",
+    "sinon": "^21.0.0",
+    "supertest": "^7.1.2"
   }
 }

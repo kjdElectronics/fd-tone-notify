@@ -1,13 +1,14 @@
 const fs = require('fs');
 const path = require('path');
 const log = require('./logger');
-const AutoCleanRecordingsService = require("../service/AutoCleanRecordingsService");
 const config = require('config');
 
 /**
  * Starts the AutoCleanRecordingsService. This will automatically run the cleaning of old recordings every day
  */
 function initRecordingAutoCleaningService() {
+    // Import AutoCleanRecordingsService here to avoid circular dependency
+    const AutoCleanRecordingsService = require("../service/AutoCleanRecordingsService");
 
     // Initialize recording cleanup
     const recordingDirectory = config.recording.directory;

@@ -1,6 +1,7 @@
 const {DetectionService} = require("./DetectionService");
 const EventEmitter = require('events');
 const log = require('../util/logger');
+const {TonesDetectorConfig} = require("../obj/config/TonesDetectorConfig");
 
 class AllToneDetectionService extends EventEmitter{
     //rangeOverlapModifier is a value between 1-2 that determines how much
@@ -37,12 +38,13 @@ class AllToneDetectionService extends EventEmitter{
         log.info(`Initializing Generic Tone Detector for frequencies between ` +
             `${this.startFreq}Hz and ${this.endFreq}Hz with tolerance ±${ this.tolerancePercent * 100} `);
         while(freq < this.endFreq){
-            const detector = this.detectionService.addToneDetector({
+            const detector = this.detectionService.addToneDetector(new TonesDetectorConfig({
+                name: "Generic Tone Detector for " + freq + "Hz",
                 tones: [freq],
                 matchThreshold: this.matchThreshold,
                 tolerancePercent: this.tolerancePercent,
                 logLevel: this.logLevel //Defaults to silly Suppress logs from the detectors
-            });
+            }));
             freq = this.rangeOverlapModifier * (freq * this.tolerancePercent) + freq;
 
             this._detectors.push(detector);

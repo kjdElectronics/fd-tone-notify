@@ -3,37 +3,43 @@ const EventEmitter = require('events');
 const chalk = require('chalk');
 const log = require('../util/logger');
 const {SilenceDetector} = require("./SilenceDetector");
+const { TonesDetectorConfig } = require('./config/TonesDetectorConfig');
 
 class TonesDetector extends EventEmitter{
-    constructor({name, tones= [], tolerancePercent= 0.02,
-                    matchThreshold= 8, silenceAmplitude=0.05,
-                    notifications, lockoutTimeoutMs=5000, resetTimeoutMs=7000, minRecordingLengthSec=30, maxRecordingLengthSec}) {
+    constructor(config) {
         super();
+        
+        if (!(config instanceof TonesDetectorConfig)) {
+            throw new Error('TonesDetector constructor requires a TonesDetectorConfig instance');
+        }
 
-        this.name = name ? name : ``;
-        this.tones = tones;
-        this.tolerancePercent = tolerancePercent;
-        this.matchThreshold = matchThreshold;
-        this.notifications = notifications;
+        this.name = config.name || '';
+        this.tones = config.tones;
+        this.tolerancePercent = config.tolerancePercent;
+        this.matchThreshold = config.matchThreshold;
+        this.notifications = config.notifications;
+
         this.__buildToneDetectors();
-        this._silenceDetector = new SilenceDetector({silenceAmplitude, matchThreshold});
+
+        // Use default silenceAmplitude since it's not part of TonesDetectorConfig
+        this._silenceDetector = new SilenceDetector({silenceAmplitude: 0.05, matchThreshold: this.matchThreshold});
         this._silenceDetector.on('toneDetected', () =>{
             this.emit('silenceDetected');
         });
 
-        this.lockoutTimeoutMs = lockoutTimeoutMs;
+        this.lockoutTimeoutMs = config.lockoutTimeoutMs;
         this._isLockedOut = false;
         this._unLockoutTimeout = null;
 
-        this.resetTimeoutMs = resetTimeoutMs;
+        this.resetTimeoutMs = config.resetTimeoutMs;
         this._fullResetTimeout = null;
 
         //Not used here but accessed by the RecordingService
-        this.minRecordingLengthSec = minRecordingLengthSec;
-        this.maxRecordingLengthSec = maxRecordingLengthSec ? maxRecordingLengthSec : minRecordingLengthSec * 1.5;
+        this.minRecordingLengthSec = config.minRecordingLengthSec;
+        this.maxRecordingLengthSec = config.maxRecordingLengthSec;
         if(this.maxRecordingLengthSec < this.minRecordingLengthSec){
-            log.alert(`For tone ${name} the minRecordingLengthSec is ${this.minRecordingLengthSec} and the maxRecordingLengthSec ` +
-                `is ${maxRecordingLengthSec}. This is invalid and maxRecordingLengthSec will default to 1.5x minRecordingLengthSec.`);
+            log.alert(`For tone ${this.name} the minRecordingLengthSec is ${this.minRecordingLengthSec} and the maxRecordingLengthSec ` +
+                `is ${config.maxRecordingLengthSec}. This is invalid and maxRecordingLengthSec will default to 1.5x minRecordingLengthSec.`);
             this.maxRecordingLengthSec = this.minRecordingLengthSec * 1.5;
         }
     }

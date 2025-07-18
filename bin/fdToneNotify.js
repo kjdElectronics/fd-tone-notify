@@ -5,6 +5,7 @@ const {configureWebSocketEvents} = require("../server");
 const {startWebApp} = require('../server');
 const {AudioService} = require('../service/AudioService');
 const { initRecordingAutoCleaningService} = require('../util/recording.cleaner');
+const {TonesDetectorConfig} = require("../obj/config/TonesDetectorConfig");
 
 async function fdToneNotify({webServer=false}={}){
     const audioInterface = new AudioService();
@@ -32,7 +33,7 @@ async function fdToneNotify({webServer=false}={}){
         };
         log.info(`Adding Detector for ${options.name} with tones ${options.tones.map(v => `${v}Hz`).join(', ')}. `
                     + `Match Threshold: ${options.matchThreshold}, Tolerance: ${options.tolerancePercent * 100}%`);
-        detectionService.addToneDetector(options);
+        detectionService.addToneDetector(new TonesDetectorConfig(options));
     });
 
     //Init the Auto Cleaning Service to get rid of old recordings (Cofnig driven from env vars)

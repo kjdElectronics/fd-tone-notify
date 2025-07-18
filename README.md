@@ -113,6 +113,270 @@ audio above the `silenceAmplitude` is detected allowing you to verify your setup
 "beep" when you press a button. If everything is working correctly this "beep" should be printed to the console while
 running with '--silly'.
 
+## Detecting Tones from Audio Files
+FD Tone Notify can analyze pre-recorded audio files to detect tones and output JSON results.
+:warning: When in this mode all standard console output (stdout) logging is suppressed to the console by forcing 
+the `--suppress-logging` option. Logs will still be output to the log file but will not appear in the console. 
+### Usage
+```bash
+# Analyze a single WAV file
+fd-tone-notify --detect-from-files dispatch-recording.wav
+
+# Analyze multiple files
+fd-tone-notify --detect-from-files file1.wav,file2.wav,file3.wav
+
+# Analyze all WAV files in a directory
+fd-tone-notify --detect-from-files /path/to/recordings/
+
+# Mix files and directories
+fd-tone-notify --detect-from-files file1.wav,/recordings/,file2.wav
+```
+
+### Output Format
+The command outputs JSON results to stdout, making it easy to pipe to other applications or save to a file:
+
+```bash
+# Save results to JSON file
+fd-tone-notify --detect-from-files recordings/ > results.json
+
+# Process with another application
+fd-tone-notify --detect-from-files recordings/ | your-analysis-tool
+```
+
+### JSON Output Structure
+```json
+{
+  "processed": "2024-01-15T10:30:45.123Z",
+  "totalFiles": 2,
+  "files": [
+    {
+      "filename": "dispatch1.wav",
+      "filepath": "/full/path/to/dispatch1.wav",
+      "duration": "00:04.474",
+      "durationSeconds": 4.474,
+      "detections": [
+        {
+          "detector": "Fire Station 1",
+          "tones": [567, 378],
+          "timestamp": "00:01.250",
+          "timestampSeconds": 1.25,
+          "matchAverages": [567.2, 378.1],
+          "message": "Fire Station 1 tone detected"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Important Notes
+- **File Format**: Currently supports WAV files only (MP3 support planned for future releases)
+- **Processing**: Files are processed in 1-second chunks using the same detection algorithms as live audio
+- **Configuration**: Uses the same detector configurations from your `config/default.json` file
+- **Directories**: Only scans the specified directory (non-recursive) for WAV files
+
+## API for Tone Detection
+
+FD Tone Notify includes a REST API for uploading and analyzing audio files, making it easy to integrate with existing systems and automation workflows.
+
+### Starting the API Server
+
+The API is available when running with the `--web-server` option:
+
+```bash
+# Start with API enabled
+fd-tone-notify --web-server --port 3000
+
+# API will be available at http://localhost:3000/api/
+```
+
+### API Endpoints
+
+#### POST /api/detect-tones
+
+Upload a WAV file and detect tones using the configured or custom detector settings.
+
+**Request:**
+- Method: `POST`
+- Content-Type: `multipart/form-data`
+- Body parameters:
+  - `file`: WAV audio file (required)
+  - `enableNotifications`: Boolean - enable notifications for this upload (default: false)
+  - `detectors`: JSON array of custom detector configurations (optional)
+  - `matchThreshold`: Number - global match threshold override (optional)
+  - `tolerancePercent`: Number - global tolerance percentage override (optional)
+
+**Response:**
+```json
+{
+  "success": true,
+  "requestId": "uuid-string",
+  "processed": "2025-01-15T10:30:45.123Z",
+  "filename": "dispatch-recording.wav",
+  "duration": "00:04.474",
+  "durationSeconds": 4.474,
+  "detections": [
+    {
+      "detector": "Fire Station 1",
+      "tones": [567, 378],
+      "timestamp": "00:01.250",
+      "timestampSeconds": 1.25,
+      "matchAverages": [567.2, 378.1],
+      "message": "Fire Station 1 tone detected"
+    }
+  ],
+  "processingTimeMs": 145,
+  "detectorsUsed": 2,
+  "customConfiguration": {
+    "enableNotifications": false,
+    "customDetectors": false,
+    "globalOverrides": {
+      "matchThreshold": null,
+      "tolerancePercent": null
+    }
+  }
+}
+```
+
+**Example Usage:**
+
+```bash
+# Basic file upload
+curl -X POST \
+  -F "file=@recording.wav" \
+  -F "enableNotifications=false" \
+  http://localhost:3000/api/detect-tones
+
+# Custom detector configuration
+curl -X POST \
+  -F "file=@recording.wav" \
+  -F 'detectors=[{"name":"Custom FD","tones":[850,860],"matchThreshold":4}]' \
+  -F "enableNotifications=true" \
+  http://localhost:3000/api/detect-tones
+
+# Global parameter overrides
+curl -X POST \
+  -F "file=@recording.wav" \
+  -F "matchThreshold=4" \
+  -F "tolerancePercent=0.08" \
+  http://localhost:3000/api/detect-tones
+```
+
+#### GET /api/health
+
+Health check endpoint to verify API availability.
+
+**Response:**
+```json
+{
+  "success": true,
+  "service": "fd-tone-notify-api",
+  "timestamp": "2025-01-15T10:30:45.123Z",
+  "version": "0.1.0"
+}
+```
+
+#### GET /api/config
+
+Get current detector configuration and system settings.
+
+**Response:**
+```json
+{
+  "success": true,
+  "detectors": [
+    {
+      "name": "Fire Station 1",
+      "tones": [567, 378],
+      "matchThreshold": 6,
+      "tolerancePercent": 0.02,
+      "resetTimeoutMs": 5000,
+      "lockoutTimeoutMs": 7000
+    }
+  ],
+  "defaults": {
+    "matchThreshold": 6,
+    "tolerancePercent": 0.05,
+    "resetTimeoutMs": 5000,
+    "lockoutTimeoutMs": 7000
+  },
+  "audio": {
+    "sampleRate": 44100,
+    "channels": 1,
+    "frequencyScaleFactor": 1
+  }
+}
+```
+
+### Custom Detector Configuration
+
+You can override the default detector configuration by providing a custom `detectors` array:
+
+```json
+[
+  {
+    "name": "Custom Department",
+    "tones": [850, 860, 350, 700],
+    "matchThreshold": 4,
+    "tolerancePercent": 0.05,
+    "resetTimeoutMs": 5000,
+    "lockoutTimeoutMs": 7000,
+    "minRecordingLengthSec": 30,
+    "maxRecordingLengthSec": 45,
+    "notifications": {
+      "preRecording": {
+        "pushbullet": [{"title": "Custom Alert", "body": "Tone detected"}]
+      }
+    }
+  }
+]
+```
+
+### API Features
+
+- **File Upload**: Supports WAV files up to 50MB
+- **Custom Configuration**: Override detector settings per request
+- **Notification Control**: Enable/disable notifications for API uploads
+- **Request Tracking**: Each request gets a unique ID for logging
+- **Fast Processing**: Optimized for quick analysis and response
+- **Error Handling**: Comprehensive error messages and status codes
+- **Auto Cleanup**: Uploaded files are automatically deleted after processing
+
+### Integration Examples
+
+**JavaScript/Node.js:**
+```javascript
+const FormData = require('form-data');
+const fs = require('fs');
+
+const form = new FormData();
+form.append('file', fs.createReadStream('recording.wav'));
+form.append('enableNotifications', 'false');
+
+fetch('http://localhost:3000/api/detect-tones', {
+  method: 'POST',
+  body: form
+})
+.then(response => response.json())
+.then(data => console.log('Detections:', data.detections));
+```
+
+**Python:**
+```python
+import requests
+
+with open('recording.wav', 'rb') as f:
+    files = {'file': f}
+    data = {'enableNotifications': 'false'}
+    response = requests.post(
+        'http://localhost:3000/api/detect-tones',
+        files=files,
+        data=data
+    )
+    
+print(response.json())
+```
+
 ## Configuration
 FD Tone Notify is configured via configuration files in the `config/` directory and environment variables. 
 
@@ -349,6 +613,8 @@ Options:
                          secrets configuration.
   --recording-directory <path>  Overrides FD_RECORDING_DIRECTORY environment var setting the directory where recordings are saved
   --auto-delete-recording-age-days <days>  Overrides FD_AUTO_DELETE_RECORDINGS_OLDER_THAN_DAYS environment var setting how many days to keep recordings (0 = forever)
+  --detect-from-files <paths>  Detect tones from audio files. Provide comma-separated list of file paths or directories containing WAV files. Outputs JSON results to stdout for piping
+  --suppress-logging     Disables logging to console. Logging will still be written to file. Automatically enabled when --detect-from-files option is set
   -h, --help             display help for command
 ```  
 

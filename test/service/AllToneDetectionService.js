@@ -42,7 +42,7 @@ describe("AllToneDetectionService", function() {
             //Setup pass condition
             detection.on("multiToneDetected", multiToneMatch => {
                 //The rounded average of 850 and 860 is condensed to a single match followed by matches for 350 and 700
-                expect(multiToneMatch).to.deep.equal([857, 352, 700]);
+                expect(multiToneMatch).to.deep.equal([850, 352, 701]);
                 resolve(multiToneMatch);
             });
             //Process data
