@@ -5,6 +5,7 @@ const config = require("config");
 const log = require('../util/logger');
 const fs = require('fs');
 const path = require('path');
+const {TonesDetectorConfig} = require("../obj/config/TonesDetectorConfig");
 
 /**
  * Detect tones from audio files instead of live audio input
@@ -65,7 +66,7 @@ async function detectFromFiles({ paths } = {}) {
 
             log.info(`Adding Detector for ${options.name} with tones ${options.tones.map(v => `${v}Hz`).join(', ')}. `
                         + `Match Threshold: ${options.matchThreshold}, Tolerance: ${options.tolerancePercent * 100}%`);
-            detectionService.addToneDetector(options);
+            detectionService.addToneDetector(new TonesDetectorConfig(options));
         });
 
         // Results storage

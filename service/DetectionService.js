@@ -68,7 +68,7 @@ class DetectionService extends EventEmitter{
     addToneDetector(tonesDetectorConfig) {
         let logLevel = "debug";
 
-        if((tonesDetectorConfig instanceof TonesDetectorConfig))
+        if(!(tonesDetectorConfig instanceof TonesDetectorConfig))
             throw new ErrorWithStatusCode({statusCode: 500, message: "Invalid config. Use the constructor instead."});
 
         const tonesDetector = new TonesDetector(tonesDetectorConfig);

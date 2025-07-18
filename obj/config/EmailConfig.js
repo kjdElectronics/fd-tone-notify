@@ -71,6 +71,12 @@ class EmailConfig {
      */
     toJSON() {
         let {...result} = this;
+        // Remove undefined properties
+        Object.keys(result).forEach(key => {
+            if (result[key] === undefined) {
+                delete result[key];
+            }
+        });
         return result;
     }
 }
