@@ -182,7 +182,6 @@ class AudioFileService extends EventEmitter {
                 if (this.getSupportedFormats().includes(fileExtension)) {
                     allFiles.push(resolvedPath);
                 } else {
-                    console.error(`Skipping unsupported file: ${resolvedPath}`);
                     log.warning(`Skipping unsupported file: ${resolvedPath}`);
                 }
             } else if (stats.isDirectory()) {

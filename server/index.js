@@ -3,6 +3,7 @@ let express = require('express');
 let morgan = require('morgan');
 //let bodyParser = require('body-parser');
 let helmet = require('helmet');
+const cors = require('cors');
 const WebSocket = require('ws');
 const log = require('../util/logger');
 const path = require('path');
@@ -18,24 +19,25 @@ const cssPath = path.join(__dirname, './public/index.html');
 const {startServer} = require("./server");
 const corsOptions = {
     origin: function (origin, callback) {
-        callback(null, true);
-        return;
-        if (whitelist.indexOf(origin) !== -1) {
-            callback(null, true)
-        } else {
-            callback(new Error('Not allowed by CORS'))
+        // Allow requests with no origin (like mobile apps, curl, postman, etc.)
+        if (!origin) return callback(null, true);
+
+        // Allow any localhost origin
+        if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+            return callback(null, true);
         }
-    }
+        
+        // Reject other origins
+        callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true // Allow credentials (cookies, authorization headers)
 };
 
 function startWebApp() {
     let app = express();
-    const server = startServer(app);
-    const wss = new WebSocket.Server({ server });
-
+    
     //Standard middleware
     expressMiddlewareInit(app);
-    configureWss(wss);
 
     //Configure application routes
     const { configureRoutes } = require('./routes/router');
@@ -43,14 +45,27 @@ function startWebApp() {
 
     errorHandlingMiddleware(app);
 
+    const server = startServer(app);
+    
+    // Create WebSocket server after HTTP server is ready
+    const wss = new WebSocket.Server({ 
+        server,
+        path: '/api/websocket',
+        perMessageDeflate: false,
+        clientTracking: true
+    });
+
+    configureWss(wss);
+
     app.wss = wss;
 
+    log.info('WebSocket server configured and attached to HTTP server');
     return app;
 }
 
 function expressMiddlewareInit(app){
     app.use(helmet());
-    //app.use(cors(corsOptions));
+    app.use(cors(corsOptions));
 
     // uncomment after placing your favicon in /public
     //app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
@@ -67,41 +82,114 @@ function errorHandlingMiddleware(app){
 }
 
 function configureWss(wss){
-    wss.on('connection', (ws) => {
+    wss.on('connection', (ws, req) => {
+        log.info(`WebSocket client connected from ${req.socket.remoteAddress}`);
 
         //connection is up, let's add a simple simple event
         ws.on('message', (message) => {
             //log the received message and send it back to the client
-            console.log('received: %s', message);
+            log.debug('WebSocket received: %s', message);
         });
 
-        //send immediatly a feedback to the incoming connection
-        ws.send(JSON.stringify({type: "toneDetected", data: {message: "Connected", dateString: moment().format('MMMM Do YYYY, H:mm:ss')}}));
+        ws.on('close', (code, reason) => {
+            log.info(`WebSocket client disconnected: ${code} ${reason}`);
+        });
+
+        ws.on('error', (error) => {
+            log.error(`WebSocket client error: ${error.message}`);
+        });
+
+        //send immediately a feedback to the incoming connection
+        try {
+            ws.send(JSON.stringify({
+                type: "connection", 
+                data: {
+                    message: "Connected to FD Tone Notify Backend", 
+                    dateString: moment().format('MMMM Do YYYY, H:mm:ss'),
+                    timestamp: new Date().toISOString()
+                }
+            }));
+        } catch (error) {
+            log.error(`Failed to send connection message: ${error.message}`);
+        }
     });
+
+    wss.on('error', (error) => {
+        log.error(`WebSocket server error: ${error.message}`);
+    });
+
+    // Send heartbeat every 5 seconds to all connected clients
+    setInterval(() => {
+        wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+                try {
+                    client.send(JSON.stringify({
+                        type: 'heartbeat',
+                        data: {
+                            timestamp: new Date().toISOString(),
+                            status: 'running',
+                            message: 'Backend heartbeat'
+                        }
+                    }));
+                } catch (error) {
+                    log.error(`Failed to send heartbeat: ${error.message}`);
+                }
+            }
+        });
+    }, 5000);
+
+    log.info('WebSocket server event handlers configured');
 }
 
 
 function configureWebSocketEvents({detectionService, wss}){
     detectionService.on('audio', data => {
         wss.clients.forEach(client => {
-            client.send(JSON.stringify({type: 'data', data}));
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({type: 'data', data}));
+            }
         });
     });
 
     detectionService.on('pitchData', data => {
         wss.clients.forEach(client => {
-            client.send(JSON.stringify({type: 'pitchData', data}));
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({type: 'pitchData', data}));
+            }
         });
         log.silly('Sending pitchData to ws clients');
     });
 
     detectionService.on('toneDetected', data => {
         wss.clients.forEach(client => {
-            const message = {type: 'toneDetected', data};
-            client.send(JSON.stringify(message));
+            if (client.readyState === WebSocket.OPEN) {
+                const message = {type: 'toneDetected', data};
+                client.send(JSON.stringify(message));
+            }
         });
         log.info('Sending toneDetected to ws clients');
-    })
+    });
+
+    // Add function to broadcast log messages
+    //TODO - Determine if needed
+    function broadcastLog(level, message, data = {}) {
+        wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({
+                    type: 'log',
+                    data: {
+                        level,
+                        message,
+                        timestamp: new Date().toISOString(),
+                        ...data
+                    }
+                }));
+            }
+        });
+    }
+
+    // Expose broadcast function for use by other modules
+    wss.broadcastLog = broadcastLog;
 }
 
 module.exports = {startWebApp, configureWebSocketEvents };

@@ -49,7 +49,7 @@ class RecordingThread {
     __startedForkedThread() {
         this._child = fork(RECORD_NOTIFY_PATH, ARGV, FORK_OPTIONS);
         this._child.on("message", incoming => log.debug(`Message from Recording Fork ${this.threadId}: ${incoming}`));
-        this._child.stdout.on("data", data => console.log(data.toString().replace(/(\r\n|\n|\r)/gm, "")));
+        this._child.stdout.on("data", data => log.debug(data.toString().replace(/(\r\n|\n|\r)/gm, "")));
         this._child.on("error", code => new Error(`Recording Worker ${this.threadId} error with exit code ${code}`));
         this._child.on("exit", code => {
                 log.debug(`Worker process ${this.threadId} stopped with exit code ${code}.`);

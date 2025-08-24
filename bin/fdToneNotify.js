@@ -19,6 +19,10 @@ async function fdToneNotify({webServer=false}={}){
         recording: config.detection.hasOwnProperty("isRecordingEnabled") ? !!config.detection.isRecordingEnabled : null //Defaults to null to indicate not set
     });
     config.detection.detectors.forEach(detectorConfig => {
+        let isRecordingEnabled = detectorConfig.hasOwnProperty("isRecordingEnabled") ? !!detectorConfig.isRecordingEnabled : null;
+        if(isRecordingEnabled === null)
+            isRecordingEnabled = config.detection.isRecordingEnabled;
+
         const options = {
             name: detectorConfig.name,
             tones: detectorConfig.tones,
@@ -28,7 +32,7 @@ async function fdToneNotify({webServer=false}={}){
             maxRecordingLengthSec: detectorConfig.maxRecordingLengthSec ? detectorConfig.maxRecordingLengthSec : config.detection.maxRecordingLengthSec,
             matchThreshold: detectorConfig.matchThreshold ? detectorConfig.matchThreshold : config.detection.defaultMatchThreshold,
             tolerancePercent: detectorConfig.tolerancePercent ? detectorConfig.tolerancePercent : config.detection.defaultTolerancePercent,
-            isRecordingEnabled: detectorConfig.hasOwnProperty("isRecordingEnabled") ? !!detectorConfig.isRecordingEnabled : null, //Defaults to null to indicate not set
+            isRecordingEnabled: isRecordingEnabled,
             notifications: detectorConfig.notifications
         };
         log.info(`Adding Detector for ${options.name} with tones ${options.tones.map(v => `${v}Hz`).join(', ')}. `

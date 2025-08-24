@@ -2,6 +2,7 @@ const {TonesDetector} = require("../obj/TonesDetector");
 const { TonesDetectorConfig } = require('../obj/config/TonesDetectorConfig');
 const log = require('../util/logger');
 const chalk = require('chalk');
+const { v4: uuidv4 } = require('uuid');
 const {AudioProcessor} = require("../obj/AudioProcessor");
 const {decodeRawAudioBuffer} = require("../util/util");
 const EventEmitter = require('events');
@@ -53,6 +54,41 @@ class DetectionService extends EventEmitter{
 
         this.toneDetectors = [];
         this._recordingThread = new RecordingThread({threadId: 0});
+
+        //Tone Detection Locks
+        this._toneDetectionLocks = {};
+    }
+
+    /**
+     * Returns true if the service is actively processing a tone detection.
+     * @returns {boolean}
+     */
+    get isLocked(){
+        return Object.keys(this._toneDetectionLocks).length > 0;
+    }
+
+    /**
+     * Returns a promise that polls the service every 100 ms waiting for it to be finished processing
+     * @returns {Promise<void>}
+     */
+    async waitForProcessingToComplete(){
+        while(this.isLocked){
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+    }
+
+    __getToneDetectionLock({tonesDetector}){
+        const lock = `${tonesDetector.name}-${uuidv4()}`;
+        this._toneDetectionLocks[lock] = this._toneDetectionLocks[tonesDetector.name] || {};
+        log.debug(`Detection Service: Acquiring lock ${lock}`);
+
+        return {
+            lock,
+            release: () => {
+                log.debug(`Detection Service: Releasing lock ${lock}`);
+                delete this._toneDetectionLocks[lock];
+            }
+        }
     }
 
     __processData(decodedData){
@@ -85,53 +121,65 @@ class DetectionService extends EventEmitter{
             log[logLevel](message);
 
         tonesDetector.on('toneDetected', async (result) =>{
-            const recordingThread = this._recordingThread;
-            this._recordingThread = new RecordingThread({threadId: recordingThread.threadId + 1});
+            const lock = this.__getToneDetectionLock({tonesDetector});
+            try{
+                const recordingThread = this._recordingThread;
+                this._recordingThread = new RecordingThread({threadId: recordingThread.threadId + 1});
 
-            log.debug(`Processing toneDetected event for ${tonesDetectorConfig.name}`);
-            const {matchAverages, message} = result;
-            // Use file timestamp in file mode, otherwise use current time
-            const timestamp = this._fileMode && this._currentTimestamp !== undefined 
-                ? this._currentTimestamp * 1000 // Convert to milliseconds to match existing format
-                : new Date().getTime();
-            const filenameOnly = `${timestamp}-${tonesDetectorConfig.name}.wav`; //Include the name of the detector in the filename
-            const recordingDirectory = config.recording.directory;
-            const fullPath = path.join(recordingDirectory, filenameOnly);
+                log.debug(`Processing toneDetected event for ${tonesDetectorConfig.name}`);
+                const {matchAverages, message} = result;
+                // Use file timestamp in file mode, otherwise use current time
+                const timestamp = this._fileMode && this._currentTimestamp !== undefined
+                    ? this._currentTimestamp * 1000 // Convert to milliseconds to match existing format
+                    : new Date().getTime();
+                const filenameOnly = `${timestamp}-${tonesDetectorConfig.name}.wav`; //Include the name of the detector in the filename
+                const recordingDirectory = config.recording.directory;
+                const fullPath = path.join(recordingDirectory, filenameOnly);
 
-            const notificationParams = new NotificationParams({
-                detector: tonesDetector,
-                timestamp,
-                matchAverages,
-                notifications: tonesDetectorConfig.notifications,
-                filename: fullPath,
-                message
-            });
+                const notificationParams = new NotificationParams({
+                    detector: tonesDetector,
+                    timestamp,
+                    matchAverages,
+                    notifications: tonesDetectorConfig.notifications,
+                    filename: fullPath,
+                    message
+                });
 
-            let notificationPromise = null;
-            if(this.areNotificationsEnabled && tonesDetectorConfig.notifications) { //Notifications enabled on the service and detector
-                notificationPromise = sendPreRecordingNotifications(notificationParams)
-                    .then(results => {
-                        log.info(`All notifications for ${tonesDetectorConfig.name} have finished processing`);
-                        return results;
-                    });
+                let notificationPromise = null;
+                if(this.areNotificationsEnabled && tonesDetectorConfig.notifications) { //Notifications enabled on the service and detector
+                    notificationPromise = sendPreRecordingNotifications(notificationParams)
+                        .then(results => {
+                            log.info(`All notifications for ${tonesDetectorConfig.name} have finished processing`);
+                            return results;
+                        });
 
-                if(calculatedIsRecordingEnabled) {
-                    //Start recording in new thread. Post recording notifications sent from new thread
-                    log.debug(`Starting recorder & post recording notification processing. Thread Id: ${recordingThread.threadId}`);
-                    recordingThread.sendMessage(notificationParams.toObj());
+                    if(calculatedIsRecordingEnabled) {
+                        //Start recording in new thread. Post recording notifications sent from new thread
+                        log.debug(`Starting recorder & post recording notification processing. Thread Id: ${recordingThread.threadId}`);
+                        recordingThread.sendMessage(notificationParams.toObj());
+                    }
                 }
+
+                if(notificationPromise)
+                    await notificationPromise;
+
+                // Emit detection event with additional context for file mode
+                const detectionData = notificationParams.toObj();
+                if (this._fileMode) {
+                    detectionData.timestamp = this._currentTimestamp; // Use seconds for file mode
+                    detectionData.filePath = this._currentFilePath;
+                }
+                this.emit('toneDetected', detectionData);
+            }
+            catch (e) {
+                log.error(`Error processing toneDetected event for ${tonesDetectorConfig.name}: ${e.message}`);
+                throw e;
+            }
+            finally {
+                lock.release();
             }
 
-            if(notificationPromise)
-                await notificationPromise;
-            
-            // Emit detection event with additional context for file mode
-            const detectionData = notificationParams.toObj();
-            if (this._fileMode) {
-                detectionData.timestamp = this._currentTimestamp; // Use seconds for file mode
-                detectionData.filePath = this._currentFilePath;
-            }
-            this.emit('toneDetected', detectionData);
+
         });
 
         this.toneDetectors.push(tonesDetector);

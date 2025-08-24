@@ -1,0 +1,122 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles for FD Tone Notify UI */
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  
+  body {
+    @apply bg-gray-50 text-gray-900;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-fire-600 hover:bg-fire-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-fire-500 focus:ring-offset-2;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2;
+  }
+  
+  .btn-danger {
+    @apply bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2;
+  }
+  
+  .card {
+    @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6;
+  }
+  
+  .input-field {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-fire-500 focus:border-transparent;
+  }
+  
+  .label {
+    @apply block text-sm font-medium text-gray-700 mb-2;
+  }
+  
+  .help-text {
+    @apply text-sm text-gray-500 mt-1;
+  }
+  
+  .error-text {
+    @apply text-sm text-red-600 mt-1;
+  }
+  
+  .status-indicator {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  
+  .status-online {
+    @apply status-indicator bg-green-100 text-green-800;
+  }
+  
+  .status-offline {
+    @apply status-indicator bg-red-100 text-red-800;
+  }
+  
+  .status-warning {
+    @apply status-indicator bg-yellow-100 text-yellow-800;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400;
+}
+
+/* Fire department themed animations */
+@keyframes pulse-fire {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.pulse-fire {
+  animation: pulse-fire 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Code/config display styling */
+.config-display {
+  @apply bg-gray-900 text-gray-100 p-4 rounded-lg font-mono text-sm overflow-auto;
+}
+
+.config-display pre {
+  @apply whitespace-pre-wrap;
+}
+
+/* Emergency alert styling */
+.alert-emergency {
+  @apply bg-emergency-50 border border-emergency-200 text-emergency-800 px-4 py-3 rounded-lg;
+}
+
+.alert-success {
+  @apply bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg;
+}
+
+.alert-warning {
+  @apply bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg;
+}
+
+.alert-info {
+  @apply bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg;
+}

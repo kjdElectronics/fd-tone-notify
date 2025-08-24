@@ -30,7 +30,7 @@ function parseDetectorConfig(req, res, next) {
                 matchThreshold: globalMatchThreshold || detectorConfig.matchThreshold || config.detection.defaultMatchThreshold,
                 tolerancePercent: globalTolerancePercent || detectorConfig.tolerancePercent || config.detection.defaultTolerancePercent,
                 isRecordingEnabled: false, // Force disable recording for API
-                notifications: enableNotifications ? detectorConfig.notifications : null
+                notifications: detectorConfig.notifications // Always include notifications config
             });
 
             detectorConfigs.push(detectorConfigObj);

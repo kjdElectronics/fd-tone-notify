@@ -45,7 +45,8 @@ async function detectTones(req, res) {
         sampleRate: config.audio.sampleRate,
         frequencyScaleFactor: config.audio.frequencyScaleFactor,
         fileMode: true,
-        recording: false // Disable recording for API requests
+        recording: false, // Disable recording for API requests
+        areNotificationsEnabled: enableNotifications // Control notifications based on request flag
     });
 
     // Configure detectors using pre-parsed configuration
@@ -90,6 +91,9 @@ async function detectTones(req, res) {
     try {
         // Process the file
         await audioFileService.processFile(wavFilePath);
+
+        //Wait for the detection service (Note: This is a polling loop internally)
+        await detectionService.waitForProcessingToComplete();
         
         // Clean up event listener
         detectionService.removeListener('toneDetected', detectionListener);

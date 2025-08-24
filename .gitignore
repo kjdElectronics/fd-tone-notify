@@ -19,6 +19,13 @@ build/*
 license.txt
 config.csv
 config/ignore*
+config/local_dev.json
+config/secrets.json
+config/backups/**
+
+temp-uploads/*
+
+config/backup/*
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
@@ -84,6 +91,7 @@ typings/
 
 # dotenv environment variables file
 .env
+.env.backup
 .env.test
 
 # parcel-bundler cache (https://parceljs.org/)

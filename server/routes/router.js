@@ -1,6 +1,8 @@
 const express = require('express');
 const configRoutes = require('./config');
 const detectionRoutes = require('./detection');
+const systemRoutes = require('./system');
+const { login } = require('../middleware/auth.middleware');
 
 /**
  * Configure all API routes
@@ -17,8 +19,12 @@ function configureRoutes(app) {
         });
     });
 
+    // Authentication endpoint - //TODO This is a placeholder for now
+    app.post('/api/auth/login', login);
+
     // Mount route modules
     app.use('/api/config', configRoutes);
+    app.use('/api/system', systemRoutes);
     app.use('/api', detectionRoutes);
 }
 

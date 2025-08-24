@@ -11,9 +11,14 @@
   },
   "scripts": {
     "start": "node index.js",
-    "test":          "mocha --exit --recursive \"test\" --ignore \"test/INTEGRATION/**\"",
-    "test:int":      "mocha --exit --recursive \"test/INTEGRATION\"",
-    "test:all":      "npm run test && npm run test:int",
+    "start:legacy": "node index.js --legacy",
+    "start-ui": "cd user-interface && npm run dev",
+    "manager": "node bin/manager.js",
+    "manager:backend-only": "node bin/manager.js --backend-only",
+    "manager:ui-only": "node bin/manager.js --ui-only",
+    "test": "mocha --exit --recursive \"test\" --ignore \"test/INTEGRATION/**\"",
+    "test:int": "mocha --exit --recursive \"test/INTEGRATION\"",
+    "test:all": "npm run test && npm run test:int",
     "build": "./build.sh"
   },
   "repository": {

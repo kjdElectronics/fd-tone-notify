@@ -20,7 +20,7 @@
       "detectors": [
         {
           "name": "Test Fire Department",
-          "tones": [911, 3000],
+          "tones": [911, 2938],
           "matchThreshold": 6,
           "tolerancePercent": 0.02,
           "resetTimeoutMs": 4000,

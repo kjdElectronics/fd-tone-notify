@@ -2,7 +2,9 @@ const  Coralogix = require("coralogix-logger");
 const winston = require('winston');
 const chalk = require('chalk');
 let logger;
+let webSocketTransport;
 const {CoralogixWinstonTransport} = require("./CoralogixWinstonTransport");
+const WebSocketTransport = require("./WebSocketTransport");
 const CORALOGIX_PRIVATE_KEY = process.env.FD_CORALOGIX_PRIVATE_KEY;
 const moment = require('moment');
 const config = require('config');
@@ -41,6 +43,7 @@ const consoleFormat = winston.format.combine(
 if(!logger) {
     const levels = winston.config.syslog.levels;
     levels.silly = 8;
+    levels.success = levels.info; // Map success to info level
     const transports = [
         new winston.transports.File({
             filename: 'log.log',
@@ -62,6 +65,12 @@ if(!logger) {
         }));
     }
 
+    // Add WebSocket transport for live streaming to web clients
+    webSocketTransport = new WebSocketTransport({
+        level: 'info'
+    });
+    transports.push(webSocketTransport);
+
     logger = winston.createLogger({
         levels: levels,
         level: process.env.FD_LOG_LEVEL ? process.env.FD_LOG_LEVEL : "info",
@@ -71,4 +80,14 @@ if(!logger) {
     logger.silly(chalk.bold.blue.bgGray('Starting Logging'));
 }
 
+/**
+ * Set the WebSocket manager for live log streaming
+ */
+function setWebSocketManager(webSocketManager) {
+    if (webSocketTransport) {
+        webSocketTransport.setWebSocketManager(webSocketManager);
+    }
+}
+
 module.exports = logger;
+module.exports.setWebSocketManager = setWebSocketManager;
