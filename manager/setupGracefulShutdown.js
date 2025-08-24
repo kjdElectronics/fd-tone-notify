@@ -82,6 +82,42 @@ function setupGracefulShutdown({processManager, apiServer}) {
     // Handle normal signals
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    
+    // Windows-specific signal handling
+    if (process.platform === 'win32') {
+        // On Windows, we need to handle the SIGBREAK signal for Ctrl+Break
+        process.on('SIGBREAK', () => gracefulShutdown('SIGBREAK'));
+        
+        // Handle Windows-specific close event
+        process.on('beforeExit', () => {
+            console.log(chalk.yellow('Process is about to exit...'));
+        });
+        
+        // Additional Windows process events
+        process.on('exit', (code) => {
+            if (!shuttingDown && code !== 0) {
+                console.log(chalk.red(`Process exiting with code ${code}`));
+            }
+        });
+        
+        // Try to capture Ctrl+C events on Windows more reliably
+        process.stdin.resume(); // Keep process alive
+        if (process.stdin.setRawMode) {
+            try {
+                process.stdin.setRawMode(true);
+                process.stdin.on('data', (data) => {
+                    const key = data.toString();
+                    // Ctrl+C is character code 3
+                    if (key.charCodeAt(0) === 3) {
+                        gracefulShutdown('Ctrl+C');
+                    }
+                });
+            } catch (rawModeError) {
+                // Raw mode might not be available in all Windows environments
+                console.log(chalk.gray('Raw mode not available, using standard signal handling'));
+            }
+        }
+    }
 
     // Handle uncaught exceptions with special messaging
     process.on('uncaughtException', (error) => {

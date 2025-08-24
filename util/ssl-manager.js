@@ -109,21 +109,63 @@ class SSLManager {
     /**
      * Generate self-signed SSL certificate
      */
+    /**
+     * Get all network interface IP addresses
+     */
+    getAllNetworkIPs() {
+        const os = require('os');
+        const networkInterfaces = os.networkInterfaces();
+        const ips = new Set();
+        
+        // Always include standard localhost addresses
+        ips.add('127.0.0.1');
+        ips.add('::1');
+        ips.add('0.0.0.0');
+        
+        // Add all detected network interface IPs
+        for (const interfaceName of Object.keys(networkInterfaces)) {
+            const addresses = networkInterfaces[interfaceName];
+            for (const address of addresses) {
+                // Skip internal/loopback that we already added
+                if (!address.internal) {
+                    ips.add(address.address);
+                }
+            }
+        }
+        
+        return Array.from(ips);
+    }
+
     async generateSelfSignedCertificate() {
         try {
             const os = require('os');
             const hostname = os.hostname();
+            const allIPs = this.getAllNetworkIPs();
+            
+            log.info(`Generating SSL certificate for hostname: ${hostname}`);
+            log.info(`Including IP addresses: ${allIPs.join(', ')}`);
 
-            // Generate private key using older, more compatible syntax
+            // Generate private key using cross-platform compatible syntax
             await this.runOpenSSLCommand([
                 'genrsa',
                 '-out', this.keyPath,
                 '2048'
             ]);
 
-            //TODO Also do for public interfaces
-            // Create config file for certificate with SANs
+            // Create config file for certificate with dynamic SANs
             const configPath = path.join(this.sslDir, 'openssl.conf');
+            
+            // Build alt_names section dynamically
+            let altNamesSection = 'DNS.1 = localhost\n';
+            if (hostname && hostname !== 'localhost') {
+                altNamesSection += `DNS.2 = ${hostname}\n`;
+            }
+            
+            // Add all detected IP addresses
+            allIPs.forEach((ip, index) => {
+                altNamesSection += `IP.${index + 1} = ${ip}\n`;
+            });
+            
             const configContent = `[req]
 distinguished_name = req_distinguished_name
 req_extensions = v3_req
@@ -143,16 +185,12 @@ extendedKeyUsage = serverAuth
 subjectAltName = @alt_names
 
 [alt_names]
-DNS.1 = localhost
-DNS.2 = ${hostname}
-IP.1 = 127.0.0.1
-IP.2 = ::1
-`;
+${altNamesSection}`;
 
             await fs.writeFile(configPath, configContent);
 
-            // Generate certificate with SANs
-            await this.runOpenSSLCommand([
+            // Generate certificate with SANs using cross-platform approach
+            const certArgs = [
                 'req',
                 '-new',
                 '-x509',
@@ -161,16 +199,24 @@ IP.2 = ::1
                 '-days', '365',
                 '-config', configPath,
                 '-extensions', 'v3_req'
-            ]);
+            ];
+            
+            await this.runOpenSSLCommand(certArgs);
 
             // Clean up config file
             await fs.unlink(configPath).catch(() => {});
 
-            // Set appropriate permissions
-            await fs.chmod(this.keyPath, 0o600);
-            await fs.chmod(this.certPath, 0o644);
+            // Set appropriate permissions (cross-platform)
+            try {
+                await fs.chmod(this.keyPath, 0o600);
+                await fs.chmod(this.certPath, 0o644);
+            } catch (permError) {
+                // On Windows, chmod might not work as expected, but files are still created
+                log.debug(`Certificate permission setting skipped on this platform: ${permError.message}`);
+            }
 
-            log.info('SSL certificate generated with Subject Alternative Names for network access');
+            log.info(`SSL certificate generated with Subject Alternative Names for network access`);
+            log.info(`Certificate valid for ${allIPs.length} IP addresses and hostname: ${hostname}`);
 
         } catch (error) {
             log.error(`Failed to generate SSL certificate: ${error.message}`);
@@ -184,32 +230,65 @@ IP.2 = ::1
     async runOpenSSLCommand(args) {
         return new Promise((resolve, reject) => {
             const { spawn } = require('child_process');
-            const openssl = spawn('openssl', args, { 
+            const os = require('os');
+            
+            // Cross-platform OpenSSL command setup
+            let command = 'openssl';
+            let spawnOptions = { 
                 stdio: ['pipe', 'pipe', 'pipe'],
-                cwd: this.sslDir 
-            });
+                cwd: this.sslDir
+            };
+            
+            // On Windows, we might need to handle shell commands differently
+            if (os.platform() === 'win32') {
+                spawnOptions.shell = true;
+                // Try common Windows OpenSSL locations if standard command fails
+            }
+            
+            log.debug(`Running OpenSSL command: ${command} ${args.join(' ')}`);
+            
+            const openssl = spawn(command, args, spawnOptions);
 
             let stdout = '';
             let stderr = '';
 
-            openssl.stdout.on('data', (data) => {
+            openssl.stdout?.on('data', (data) => {
                 stdout += data.toString();
             });
 
-            openssl.stderr.on('data', (data) => {
+            openssl.stderr?.on('data', (data) => {
                 stderr += data.toString();
             });
 
             openssl.on('close', (code) => {
                 if (code === 0) {
+                    log.debug(`OpenSSL command successful: ${args[0]}`);
                     resolve(stdout);
                 } else {
-                    reject(new Error(`OpenSSL command failed with code ${code}: ${stderr}`));
+                    const errorMsg = `OpenSSL command failed with code ${code}: ${stderr || 'No error details'}`;
+                    log.error(errorMsg);
+                    
+                    // Provide helpful Windows-specific guidance
+                    if (os.platform() === 'win32') {
+                        log.error('Windows users: Ensure OpenSSL is installed and in PATH');
+                        log.error('Download from: https://slproweb.com/products/Win32OpenSSL.html');
+                        log.error('Or install via Chocolatey: choco install openssl');
+                    }
+                    
+                    reject(new Error(errorMsg));
                 }
             });
 
             openssl.on('error', (error) => {
-                reject(new Error(`Failed to spawn OpenSSL: ${error.message}`));
+                const errorMsg = `Failed to spawn OpenSSL: ${error.message}`;
+                log.error(errorMsg);
+                
+                if (os.platform() === 'win32' && error.code === 'ENOENT') {
+                    log.error('OpenSSL not found. Please install OpenSSL for Windows.');
+                    log.error('Download from: https://slproweb.com/products/Win32OpenSSL.html');
+                }
+                
+                reject(new Error(errorMsg));
             });
         });
     }
