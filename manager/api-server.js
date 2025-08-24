@@ -10,6 +10,7 @@ const sslManager = require('../util/ssl-manager');
 const HealthRoutes = require('./routes/health');
 const ProcessRoutes = require('./routes/processes');
 const WebSocketManager = require('./routes/websocket');
+const NetworkUtils = require('../util/network-utils');
 
 /**
  * ApiServer provides HTTP and WebSocket APIs for process management
@@ -37,10 +38,7 @@ class ApiServer {
             
             // Middleware
             this.app.use(cors({
-                origin: function (origin, callback) {
-                    //TODO
-                    return callback(null, true);
-                },
+                origin: NetworkUtils.createCORSOriginValidator(),
                 credentials: true
             }));
             

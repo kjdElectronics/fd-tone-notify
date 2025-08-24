@@ -113,27 +113,8 @@ class SSLManager {
      * Get all network interface IP addresses
      */
     getAllNetworkIPs() {
-        const os = require('os');
-        const networkInterfaces = os.networkInterfaces();
-        const ips = new Set();
-        
-        // Always include standard localhost addresses
-        ips.add('127.0.0.1');
-        ips.add('::1');
-        ips.add('0.0.0.0');
-        
-        // Add all detected network interface IPs
-        for (const interfaceName of Object.keys(networkInterfaces)) {
-            const addresses = networkInterfaces[interfaceName];
-            for (const address of addresses) {
-                // Skip internal/loopback that we already added
-                if (!address.internal) {
-                    ips.add(address.address);
-                }
-            }
-        }
-        
-        return Array.from(ips);
+        const NetworkUtils = require('./network-utils');
+        return NetworkUtils.getAllNetworkIPs();
     }
 
     async generateSelfSignedCertificate() {

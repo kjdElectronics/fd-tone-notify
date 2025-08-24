@@ -110,7 +110,7 @@ async function displayStartupSummary(processManager, statusMonitor, logAggregato
         ],
         [
             'Manager API', 
-            `http://localhost:${options.managerPort}`, 
+            `https://localhost:${options.managerPort}`, 
             '✓ Listening'
         ]
     ];
@@ -118,7 +118,7 @@ async function displayStartupSummary(processManager, statusMonitor, logAggregato
     // Add backend info if started
     if (!options.uiOnly) {
         const backendStatus = processStatus.backend;
-        const backendUrl = `http://localhost:${options.backendPort}`;
+        const backendUrl = `https://localhost:${options.backendPort}`;
         let backendStatusText = '✗ Failed to Start';
         
         if (backendStatus.running) {
@@ -138,7 +138,7 @@ async function displayStartupSummary(processManager, statusMonitor, logAggregato
     if (!options.backendOnly) {
         const uiStatus = processStatus.ui;
         const detectedPort = processManager.getUIPort();
-        const uiUrl = `http://localhost:${detectedPort}`;
+        const uiUrl = `https://localhost:${detectedPort}`;
         let uiStatusText = '✗ Failed to Start';
         
         if (uiStatus.running) {
@@ -183,11 +183,11 @@ async function displayStartupSummary(processManager, statusMonitor, logAggregato
 
     if (!options.backendOnly) {
         const detectedPort = processManager.getUIPort();
-        console.log(chalk.bold.green(`   • Open web interface: ${chalk.white(`http://localhost:${detectedPort}`)}`));
+        console.log(chalk.bold.green(`   • Open web interface: ${chalk.white(`https://localhost:${detectedPort}`)}`));
     }
 
     if (options.backendOnly) {
-        console.log(chalk.gray(`   • Backend API: ${chalk.white(`http://localhost:${options.backendPort}`)}`));
+        console.log(chalk.gray(`   • Backend API: ${chalk.white(`https://localhost:${options.backendPort}`)}`));
     }
 
     console.log(chalk.gray('   • Press Ctrl+C to stop all processes gracefully'));

@@ -149,8 +149,9 @@ class LogAggregator {
     detectVitePort(line, processManager) {
         // Look for Vite's local server URL patterns
         const vitePatterns = [
-            /Local:\s+http:\/\/localhost:(\d+)/i,
-            /Local:\s+http:\/\/127\.0\.0\.1:(\d+)/i,
+            /➜\s+Local:\s+https?:\/\/localhost:(\d+)/i,
+            /Local:\s+https?:\/\/localhost:(\d+)/i,
+            /Local:\s+https?:\/\/127\.0\.0\.1:(\d+)/i,
             /dev server running at.*:(\d+)/i,
             /ready in.*Local.*:(\d+)/i
         ];

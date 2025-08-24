@@ -17,11 +17,10 @@ const htmlPath = path.join(__dirname, './public/index.css');
 const cssPath = path.join(__dirname, './public/index.html');
 
 const {startServer} = require("./server");
+const NetworkUtils = require('../util/network-utils');
+
 const corsOptions = {
-    origin: function (origin, callback) {
-        //TODO
-        return callback(null, true);
-    },
+    origin: NetworkUtils.createCORSOriginValidator(),
     credentials: true // Allow credentials (cookies, authorization headers)
 };
 
