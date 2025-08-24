@@ -1,8 +1,13 @@
 import axios from 'axios'
 
-// Create axios instance pointing to main backend
+// Create axios instance pointing to main backend 
+// Use HTTP in development when UI is served via HTTP (Vite dev server)
+// Use HTTPS in production or when UI is served via HTTPS
+const isHttpsUI = window.location.protocol === 'https:';
+const backendProtocol = isHttpsUI ? 'https' : 'http';
+
 const api = axios.create({
-  baseURL: 'http://localhost:3000/api',
+  baseURL: `${backendProtocol}://${window.location.hostname}:3000/api`,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json'

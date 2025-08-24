@@ -2,6 +2,7 @@ const config = require('config');
 const fs = require('fs').promises;
 const path = require('path');
 const log = require('../../util/logger');
+const { hashPassword } = require('../middleware/auth.middleware');
 
 // Paths for configuration files
 const PROJECT_ROOT = path.join(__dirname, '../..');
@@ -28,6 +29,8 @@ async function getConfiguration(req, res) {
         // Read current config file and secrets
         const configData = await readConfigFile();
         const secretsData = await readSecretsFile();
+
+        delete secretsData.UI_PASSWORD_HASH;
 
         res.json({
             success: true,
@@ -127,7 +130,7 @@ async function readConfigFile() {
         const data = await fs.readFile(configPath, 'utf8');
         return JSON.parse(data);
     } catch (error) {
-        log.warn(`Failed to read config file: ${error.message}`);
+        log.warning(`Failed to read config file: ${error.message}`);
         return {};
     }
 }
@@ -138,7 +141,7 @@ async function readSecretsFile() {
         const data = await fs.readFile(secretsPath, 'utf8');
         return JSON.parse(data);
     } catch (error) {
-        log.warn(`Failed to read secrets file: ${error.message}`);
+        log.warning(`Failed to read secrets file: ${error.message}`);
         return {};
     }
 }
@@ -259,13 +262,20 @@ function updateConfigFromData(configData, configurationData) {
 function updateSecretsFromData(secretsData, configurationData) {
     const secretKeys = [
         'FD_SMTP_USERNAME', 'FD_SMTP_PASSWORD', 'FD_PUSHBULLET_API_KEY', 
-        'FD_CORALOGIX_PRIVATE_KEY', 'UI_PASSWORD', 'AWS_ACCESS_KEY_ID', 
+        'FD_CORALOGIX_PRIVATE_KEY', 'UI_PASSWORD_HASH', 'AWS_ACCESS_KEY_ID',
         'AWS_SECRET_ACCESS_KEY_ID', 'BUCKET_NAME'
     ];
     
     for (const key of secretKeys) {
         if (configurationData[key] !== undefined && configurationData[key] !== '') {
-            secretsData[key] = configurationData[key];
+            // Special handling for UI_PASSWORD_HASH
+            if (key === 'UI_PASSWORD_HASH') {
+                const password = configurationData[key];
+                secretsData[key] = hashPassword(password);
+                log.info('UI password updated and hashed');
+            } else {
+                secretsData[key] = configurationData[key];
+            }
         }
     }
 }
@@ -353,7 +363,7 @@ async function createBackup() {
                 await fs.copyFile(configPath, path.join(backupDir, path.basename(configPath)));
                 log.debug(`Config file backed up: ${path.basename(configPath)}`);
             } catch (error) {
-                log.warn(`Config file not found for backup: ${configPath}`);
+                log.warning(`Config file not found for backup: ${configPath}`);
             }
             
             try {
@@ -361,12 +371,12 @@ async function createBackup() {
                 await fs.copyFile(secretsPath, path.join(backupDir, 'secrets.json'));
                 log.debug(`Secrets file backed up: secrets.json`);
             } catch (error) {
-                log.warn(`Secrets file not found for backup: ${secretsPath}`);
+                log.warning(`Secrets file not found for backup: ${secretsPath}`);
             }
             
             log.info(`Configuration backup created: ${backupDir}`);
         } catch (error) {
-            log.warn(`Failed to backup some files: ${error.message}`);
+            log.warning(`Failed to backup some files: ${error.message}`);
         }
     } catch (error) {
         log.error(`Failed to create backup directory: ${error.message}`);

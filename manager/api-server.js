@@ -1,8 +1,11 @@
 const express = require('express');
 const http = require('http');
+const https = require('https');
+const fs = require('fs');
 const cors = require('cors');
 const chalk = require('chalk');
 const logger = require('../util/logger');
+const sslManager = require('../util/ssl-manager');
 
 const HealthRoutes = require('./routes/health');
 const ProcessRoutes = require('./routes/processes');
@@ -28,56 +31,79 @@ class ApiServer {
      * Start the API server
      */
     async start() {
-        return new Promise((resolve, reject) => {
+        try {
+            // Create Express app
+            this.app = express();
+            
+            // Middleware
+            this.app.use(cors({
+                origin: function (origin, callback) {
+                    //TODO
+                    return callback(null, true);
+                },
+                credentials: true
+            }));
+            
+            this.app.use(express.json());
+            
+            // Setup routes
+            this.setupRoutes();
+            
+            // Create HTTPS server with SSL certificates
+            let server;
+            let isHttps = false;
+            
             try {
-                // Create Express app
-                this.app = express();
+                // Ensure SSL certificates exist
+                const { keyPath, certPath } = await sslManager.ensureCertificates();
                 
-                // Middleware
-                this.app.use(cors({
-                    origin: function (origin, callback) {
-                        // Allow requests with no origin (like mobile apps, curl, postman, etc.)
-                        if (!origin) return callback(null, true);
+                // Read SSL certificates
+                const privateKey = fs.readFileSync(keyPath, 'utf8');
+                const certificate = fs.readFileSync(certPath, 'utf8');
+                
+                const credentials = {
+                    key: privateKey,
+                    cert: certificate
+                };
 
-                        // Allow any localhost origin
-                        if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
-                            return callback(null, true);
-                        }
-                        
-                        // Reject other origins
-                        callback(new Error('Not allowed by CORS'));
-                    },
-                    credentials: true
-                }));
-                
-                this.app.use(express.json());
-                
-                // Setup routes
-                this.setupRoutes();
-                
-                // Create HTTP server
-                this.server = http.createServer(this.app);
-                
-                // Setup WebSocket manager
-                this.webSocketManager = new WebSocketManager(this.statusMonitor);
-                this.webSocketManager.setup(this.server);
-                
-                // Connect logger to WebSocket manager for live log streaming
-                logger.setWebSocketManager(this.webSocketManager);
-                
-                // Start listening
-                this.server.listen(this.port, () => {
+                // Create HTTPS server
+                server = https.createServer(credentials, this.app);
+                isHttps = true;
+                logger.info('Manager HTTPS server created with SSL certificates');
+
+            } catch (sslError) {
+                logger.warning(`Manager SSL setup failed, falling back to HTTP: ${sslError.message}`);
+                server = http.createServer(this.app);
+            }
+            
+            this.server = server;
+            
+            // Setup WebSocket manager
+            this.webSocketManager = new WebSocketManager(this.statusMonitor);
+            this.webSocketManager.setup(this.server);
+            
+            // Connect logger to WebSocket manager for live log streaming
+            logger.setWebSocketManager(this.webSocketManager);
+            
+            // Start listening on all interfaces
+            return new Promise((resolve, reject) => {
+                this.server.listen(this.port, '0.0.0.0', () => {
+                    const protocol = isHttps ? 'https' : 'http';
+                    const wsProtocol = isHttps ? 'wss' : 'ws';
+                    logger.info(`📡 Manager API listening on port ${this.port}`);
+                    logger.info(`🔗 API: ${protocol}://localhost:${this.port}`);
+                    logger.info(`🔌 WebSocket: ${wsProtocol}://localhost:${this.port}/ws`);
                     resolve();
                 });
                 
                 this.server.on('error', (error) => {
                     reject(error);
                 });
-                
-            } catch (error) {
-                reject(error);
-            }
-        });
+            });
+            
+        } catch (error) {
+            throw error;
+        }
     }
 
     /**

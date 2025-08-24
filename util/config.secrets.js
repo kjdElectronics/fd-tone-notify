@@ -5,6 +5,7 @@ const SECRET_NAMES = [
     "FD_CORALOGIX_PRIVATE_KEY",
     "FD_SMTP_USERNAME",
     "FD_SMTP_PASSWORD",
+    "UI_PASSWORD_HASH"
 ];
 const fs = require('fs');
 

@@ -1,12 +1,13 @@
 const log = require('../../util/logger');
+const bcrypt = require('bcrypt');
 
 /**
  * Simple authentication middleware for the UI
- * Uses UI_PASSWORD environment variable or config
+ * Uses UI_PASSWORD_HASH environment variable or config
  */
 function authenticate(req, res, next) {
     //TODO: Placeholder
-    const uiPassword = process.env.UI_PASSWORD || 'admin123'; // Default password
+    const uiPassword = process.env.UI_PASSWORD_HASH;
     
     // Check for Authorization header
     const authHeader = req.headers.authorization;
@@ -25,8 +26,11 @@ function authenticate(req, res, next) {
         ? authHeader.substring(7) 
         : authHeader;
     
-    if (token !== uiPassword) {
-        log.warn('Failed authentication attempt from ' + req.ip);
+    // Check if password is hashed (starts with $2b$ for bcrypt)
+    const isValidPassword = bcrypt.compareSync(token, uiPassword)
+    
+    if (!isValidPassword) {
+        log.warning('Failed authentication attempt from ' + req.ip);
         return res.status(401).json({
             success: false,
             error: 'Invalid credentials'
@@ -41,9 +45,8 @@ function authenticate(req, res, next) {
  * Login endpoint for getting authentication token
  */
 function login(req, res) {
-    //TODO: Placeholder
     const { password } = req.body;
-    const uiPassword = process.env.UI_PASSWORD || 'admin123';
+    const uiPassword = process.env.UI_PASSWORD_HASH;
     
     if (!password) {
         return res.status(400).json({
@@ -52,8 +55,11 @@ function login(req, res) {
         });
     }
     
-    if (password !== uiPassword) {
-        log.warn('Failed login attempt from ' + req.ip);
+    // Check if password is hashed (starts with $2b$ for bcrypt)
+    const isValidPassword = bcrypt.compareSync(password, uiPassword)
+    
+    if (!isValidPassword) {
+        log.warning('Failed login attempt from ' + req.ip);
         return res.status(401).json({
             success: false,
             error: 'Invalid password'
@@ -68,4 +74,13 @@ function login(req, res) {
     });
 }
 
-module.exports = { authenticate, login };
+/**
+ * Hash a password using bcrypt
+ * @param {string} plainTextPassword - The plain text password to hash
+ * @returns {string} The hashed password
+ */
+function hashPassword(plainTextPassword) {
+    return bcrypt.hashSync(plainTextPassword, 10);
+}
+
+module.exports = { authenticate, login, hashPassword };

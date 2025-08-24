@@ -32,10 +32,14 @@ export const useSocketStore = defineStore('socket', () => {
       disconnect()
     }
 
-    console.log('Attempting to connect to WebSocket at ws://localhost:3000/api/websocket')
+    // Use WSS if UI is served over HTTPS, otherwise use WS
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const wsUrl = `${wsProtocol}://${window.location.hostname}:3000/api/websocket`;
+    
+    console.log(`Attempting to connect to WebSocket at ${wsUrl}`)
 
-    // Connect to main tone detection backend using native WebSocket (not Socket.IO)
-    socket.value = new WebSocket('ws://localhost:3000/api/websocket')
+    // Connect to main tone detection backend WebSocket
+    socket.value = new WebSocket(wsUrl)
 
     socket.value.onopen = (event) => {
       connected.value = true

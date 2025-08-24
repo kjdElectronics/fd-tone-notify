@@ -11,6 +11,7 @@
 require('dotenv').config();
 const { program } = require('commander');
 const chalk = require('chalk');
+const { checkDefaultPassword } = require('../util/password-checker');
 
 const ProcessManager = require('../manager/process-manager');
 const LogAggregator = require('../manager/log-aggregator');
@@ -58,7 +59,6 @@ async function main() {
 
         // Start manager API server
         await apiServer.start();
-        console.log(chalk.green(`📡 Manager API listening on port ${options.managerPort}`));
 
         // Start processes based on options
         if (!options.uiOnly) {
@@ -79,6 +79,9 @@ async function main() {
         
         // Display status table
         await displayStartupSummary(processManager, statusMonitor, logAggregator, options);
+        
+        // Check if default password is in use and show reminder
+        await checkDefaultPassword();
         
         console.log(chalk.gray('\nProcess logs will appear below:'));
         logAggregator.logSeparator('LIVE PROCESS LOGS');

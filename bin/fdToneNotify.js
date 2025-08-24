@@ -47,7 +47,7 @@ async function fdToneNotify({webServer=false}={}){
 
     if(webServer){
         log.info(`Starting Web App`);
-        const app = startWebApp();
+        const app = await startWebApp();
         configureWebSocketEvents({detectionService, wss: app.wss})
     }
 

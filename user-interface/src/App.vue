@@ -219,6 +219,12 @@ function closeStopModal() {
   stopping.value = false // Reset stopping state when modal closes
 }
 
+// Helper function to generate manager API URLs with correct protocol and hostname
+function getManagerApiUrl(endpoint) {
+  const protocol = window.location.protocol === 'https:' ? 'https' : 'http'
+  return `${protocol}://${window.location.hostname}:3001${endpoint}`
+}
+
 // Backend control functions
 async function startBackend() {
   if (controlLoading.value) return
@@ -231,7 +237,7 @@ async function startBackend() {
       message: 'Starting backend server...'
     })
     
-    const response = await fetch('http://localhost:3001/backend/start', {
+    const response = await fetch(getManagerApiUrl('/backend/start'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     })
@@ -275,7 +281,7 @@ async function restartBackend() {
     // Check if backend is managed by process manager
     if (systemStatus.isManagerAvailable.value) {
       // Use manager API for managed restart
-      const response = await fetch('http://localhost:3001/backend/restart', {
+      const response = await fetch(getManagerApiUrl('/backend/restart'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       })
@@ -366,7 +372,7 @@ async function stopBackend() {
     // Check if backend is managed by process manager
     if (systemStatus.isManagerAvailable.value) {
       // Use manager API for managed stop
-      const response = await fetch('http://localhost:3001/backend/stop', {
+      const response = await fetch(getManagerApiUrl('/backend/stop'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       })

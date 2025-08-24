@@ -28,9 +28,13 @@ export const useManagerSocketStore = defineStore('manager-socket', () => {
       disconnect()
     }
 
-    console.log('Attempting to connect to Manager WebSocket at ws://localhost:3001/ws')
+    // Use WSS if UI is served over HTTPS, otherwise use WS
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const managerWsUrl = `${wsProtocol}://${window.location.hostname}:3001/ws`;
+    
+    console.log(`Attempting to connect to Manager WebSocket at ${managerWsUrl}`)
 
-    socket.value = new WebSocket('ws://localhost:3001/ws')
+    socket.value = new WebSocket(managerWsUrl)
 
     socket.value.onopen = (event) => {
       connected.value = true

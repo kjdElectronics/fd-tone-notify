@@ -19,21 +19,13 @@ const cssPath = path.join(__dirname, './public/index.html');
 const {startServer} = require("./server");
 const corsOptions = {
     origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps, curl, postman, etc.)
-        if (!origin) return callback(null, true);
-
-        // Allow any localhost origin
-        if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
-            return callback(null, true);
-        }
-        
-        // Reject other origins
-        callback(new Error('Not allowed by CORS'));
+        //TODO
+        return callback(null, true);
     },
     credentials: true // Allow credentials (cookies, authorization headers)
 };
 
-function startWebApp() {
+async function startWebApp() {
     let app = express();
     
     //Standard middleware
@@ -45,7 +37,7 @@ function startWebApp() {
 
     errorHandlingMiddleware(app);
 
-    const server = startServer(app);
+    const server = await startServer(app);
     
     // Create WebSocket server after HTTP server is ready
     const wss = new WebSocket.Server({ 
@@ -157,7 +149,6 @@ function configureWebSocketEvents({detectionService, wss}){
                 client.send(JSON.stringify({type: 'pitchData', data}));
             }
         });
-        log.silly('Sending pitchData to ws clients');
     });
 
     detectionService.on('toneDetected', data => {

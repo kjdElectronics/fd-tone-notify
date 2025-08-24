@@ -67,7 +67,7 @@ if(!logger) {
 
     // Add WebSocket transport for live streaming to web clients
     webSocketTransport = new WebSocketTransport({
-        level: 'info'
+        level: 'silly'
     });
     transports.push(webSocketTransport);
 

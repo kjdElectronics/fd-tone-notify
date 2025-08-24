@@ -1,0 +1,4 @@
+# SSL certificates should not be committed
+*.key
+*.crt
+*.pem

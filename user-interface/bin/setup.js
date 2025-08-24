@@ -32,7 +32,7 @@ async function setup() {
                 // Create basic .env file
                 const basicEnv = `UI_PORT=3001
 UI_HOST=localhost
-UI_PASSWORD=admin123
+UI_PASSWORD_HASH=$2b$10$EyHr7.C0LLV375X8BAMkPeRKNBWjHEJWqluFc8EEFGXAqMc8X5Sju
 MAIN_API_URL=http://localhost:2090/api
 NODE_ENV=development
 `;
@@ -64,7 +64,7 @@ NODE_ENV=development
         
         console.log('\n🎉 Setup complete!');
         console.log('\nNext steps:');
-        console.log('1. Review .env file and update UI_PASSWORD');
+        console.log('1. Review .env file and update UI_PASSWORD_HASH');
         console.log('2. Start the UI: npm start');
         console.log('3. Access at: http://localhost:3001');
         console.log('\nFor development: npm run dev');

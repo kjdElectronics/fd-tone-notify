@@ -1,7 +1,10 @@
 let http = require('http');
+let https = require('https');
+const fs = require('fs');
 const log = require('../util/logger');
+const sslManager = require('../util/ssl-manager');
 
-function startServer(app) {
+async function startServer(app) {
     let port = normalizePort(process.env.FD_PORT || '3000');
     /**
      * Get port from environment and store in Express.
@@ -9,18 +12,38 @@ function startServer(app) {
     app.set('port', port);
 
     /**
-     * Create HTTP server.
+     * Create HTTPS server with SSL certificates.
      */
+    let server;
+    try {
+        // Ensure SSL certificates exist
+        const { keyPath, certPath } = await sslManager.ensureCertificates();
+        
+        // Read SSL certificates
+        const privateKey = fs.readFileSync(keyPath, 'utf8');
+        const certificate = fs.readFileSync(certPath, 'utf8');
+        
+        const credentials = {
+            key: privateKey,
+            cert: certificate
+        };
 
-    const server = http.createServer(app);
+        // Create HTTPS server
+        server = https.createServer(credentials, app);
+        log.info('HTTPS server created with SSL certificates');
+
+    } catch (sslError) {
+        log.error(`SSL setup failed: ${sslError.message}`);
+        throw sslError;
+    }
 
     /**
-     * Listen on provided port, on all network interfaces.
+     * Listen on provided port, on all network interfaces (0.0.0.0).
      */
     try {
         server.on('error', onError);
         server.on('listening', () => onListening(server));
-        server.listen(port);
+        server.listen(port, '0.0.0.0'); // Bind to all interfaces, not just localhost
         server.timeout = 0; // Disable timeout for WebSocket connections
         
         // Setup graceful shutdown handling
@@ -29,7 +52,8 @@ function startServer(app) {
         return server;
     }
     catch (e) {
-        log.error(`Failed to star server for remote monitoring`);
+        log.error(`Failed to start server for remote monitoring: ${e.message}`);
+        throw e;
     }
 }
 
@@ -82,7 +106,9 @@ function onListening(server) {
     let bind = typeof addr === 'string'
         ? 'pipe ' + addr
         : 'port ' + addr.port;
-    log.info(`HTTP service started on ${addr.port}. http://localhost:${addr.port}`);
+    
+    const protocol = server instanceof https.Server ? 'https' : 'http';
+    log.info(`${protocol.toUpperCase()} service started on ${addr.port}. ${protocol}://localhost:${addr.port}`);
 }
 
 /**

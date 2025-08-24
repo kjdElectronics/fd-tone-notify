@@ -55,11 +55,17 @@ const displayValue = computed(() => {
   console.log(`SecurePasswordField [${props.fieldId}]: modelValue="${props.modelValue}", showPassword=${showPassword.value}`)
   
   if (showPassword.value) {
-    // When showing, display the actual value
+    // When showing, don't display backend-masked passwords - show empty for new password entry
+    if (props.modelValue === '********') {
+      return ''
+    }
     return props.modelValue || ''
   } else {
-    // When hidden, show masked dots if there's a value
-    if (props.modelValue && props.modelValue !== '') {
+    // When hidden, show masked dots if there's a value (including backend-masked passwords)
+    if (props.modelValue && props.modelValue !== '' && props.modelValue !== '********') {
+      return '••••••••'
+    } else if (props.modelValue === '********') {
+      // Backend-masked password, show as dots
       return '••••••••'
     }
     return ''
@@ -72,7 +78,15 @@ function toggleShowPassword() {
 
 function handleInput(event) {
   if (showPassword.value) {
-    emit('update:modelValue', event.target.value)
+    const newValue = event.target.value
+    // Don't emit empty values when user clears a backend-masked password
+    // This prevents accidental password clearing
+    if (newValue === '' && props.modelValue === '********') {
+      // User cleared the field but started with a masked password
+      // Don't update the model - keep the mask
+      return
+    }
+    emit('update:modelValue', newValue)
   }
 }
 </script>

@@ -247,6 +247,12 @@ import {
 const managerSocketStore = useManagerSocketStore()
 const notificationStore = useNotificationStore()
 
+// Helper function to generate manager API URLs with correct protocol and hostname
+function getManagerApiUrl(endpoint) {
+  const protocol = window.location.protocol === 'https:' ? 'https' : 'http'
+  return `${protocol}://${window.location.hostname}:3001${endpoint}`
+}
+
 const loading = ref(true)
 const error = ref(null)
 const statusData = ref({})
@@ -265,7 +271,7 @@ async function loadStatus() {
   error.value = null
   
   try {
-    const response = await fetch('http://localhost:3001/status')
+    const response = await fetch(getManagerApiUrl('/status'))
     
     if (!response.ok) {
       throw new Error(`Failed to fetch status: ${response.statusText}`)

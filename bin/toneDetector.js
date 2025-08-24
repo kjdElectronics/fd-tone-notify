@@ -7,7 +7,7 @@ const {configureWebSocketEvents} = require("../server");
 const {startWebApp} = require('../server');
 const {AudioService} = require('../service/AudioService');
 
-function toneDetector({webServer=false}={}){
+async function toneDetector({webServer=false}={}){
     const audioInterface = new AudioService();
 
     const allTonesDetector = new AllToneDetectionService({
@@ -24,7 +24,7 @@ function toneDetector({webServer=false}={}){
     audioInterface.start();
     if(webServer){
         log.info(`Starting Web App`);
-        const app = startWebApp();
+        const app = await startWebApp();
         configureWebSocketEvents({detectionService: allTonesDetector.detectionService, wss: app.wss})
     }
 

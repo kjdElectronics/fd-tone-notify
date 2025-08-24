@@ -71,7 +71,7 @@ class WebSocketManager {
         // Send heartbeat every 30 seconds to all connected clients
         setInterval(() => {
             if (this.wss && this.clients.size > 0) {
-                logger.info(chalk.cyan(`[MANAGER] Sending heartbeat to ${this.clients.size} connected clients`));
+                logger.debug(chalk.cyan(`[MANAGER] Sending heartbeat to ${this.clients.size} connected clients`));
                 this.broadcast({
                     type: 'heartbeat',
                     data: {

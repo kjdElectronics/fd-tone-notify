@@ -392,7 +392,7 @@
           <div>
             <label class="label" for="ui-password">UI Password</label>
             <SecurePasswordField
-              v-model="config.secrets.UI_PASSWORD"
+              v-model="config.secrets.UI_PASSWORD_HASH"
               field-id="ui-password"
               placeholder="Enter UI access password"
             />
@@ -514,6 +514,12 @@ const notificationStore = useNotificationStore()
 const managerSocketStore = useManagerSocketStore()
 const systemStatus = useSystemStatus()
 
+// Helper function to generate manager API URLs with correct protocol and hostname
+function getManagerApiUrl(endpoint) {
+  const protocol = window.location.protocol === 'https:' ? 'https' : 'http'
+  return `${protocol}://${window.location.hostname}:3001${endpoint}`
+}
+
 // Use unified status system for manager availability
 const isManagerAvailable = systemStatus.isManagerAvailable
 
@@ -561,7 +567,7 @@ const config = ref({
     FD_SMTP_PASSWORD: '',
     FD_PUSHBULLET_API_KEY: '',
     FD_CORALOGIX_PRIVATE_KEY: '',
-    UI_PASSWORD: '',
+    UI_PASSWORD_HASH: '',
     AWS_ACCESS_KEY_ID: '',
     AWS_SECRET_ACCESS_KEY_ID: '',
     BUCKET_NAME: ''
@@ -662,7 +668,7 @@ async function saveConfig(restart = false) {
     // Handle restart separately if requested and manager is available
     if (restart && isManagerAvailable.value) {
       try {
-        const restartResponse = await fetch('http://localhost:3001/backend/restart', {
+        const restartResponse = await fetch(getManagerApiUrl('/backend/restart'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
         })
