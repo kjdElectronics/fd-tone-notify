@@ -6,7 +6,7 @@ const chalk = require('chalk');
 /**
  * Check if the default password is still in use and show reminder
  */
-async function checkDefaultPassword() {
+async function checkDefaultPassword(options = {}) {
     try {
         // Read secrets file
         const secretsPath = path.join(__dirname, '..', 'config', 'secrets.json');
@@ -37,9 +37,9 @@ async function checkDefaultPassword() {
             console.log('');
             console.log(chalk.blue('🔒 ') + chalk.yellow('SSL CERTIFICATE SETUP REQUIRED'));
             console.log(chalk.blue('🔒 ') + chalk.white('Before using the web interface:'));
-            console.log(chalk.blue('🔒 ') + chalk.white('1. Visit: ') + chalk.cyan('https://localhost:3000'));
+            console.log(chalk.blue('🔒 ') + chalk.white('1. Visit: ') + chalk.cyan(`https://localhost:${options.backendPort || 3000}`));
             console.log(chalk.blue('🔒 ') + chalk.white('2. Accept the self-signed certificate warning'));
-            console.log(chalk.blue('🔒 ') + chalk.white('3. Visit: ') + chalk.cyan('https://localhost:3001'));
+            console.log(chalk.blue('🔒 ') + chalk.white('3. Visit: ') + chalk.cyan(`https://localhost:${options.managerPort || 3001}`));
             console.log(chalk.blue('🔒 ') + chalk.white('4. Then use the web interface normally'));
             console.log(chalk.blue('🔒 ' + '='.repeat(60)));
             console.log('');

@@ -81,7 +81,7 @@ async function main() {
         await displayStartupSummary(processManager, statusMonitor, logAggregator, options);
         
         // Check if default password is in use and show reminder
-        await checkDefaultPassword();
+        await checkDefaultPassword(options);
         
         console.log(chalk.gray('\nProcess logs will appear below:'));
         logAggregator.logSeparator('LIVE PROCESS LOGS');

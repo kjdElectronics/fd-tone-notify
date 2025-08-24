@@ -311,7 +311,7 @@ class ProcessManager {
      * Get the detected UI port
      */
     getUIPort() {
-        return this.detectedPorts.ui || 5173; // Default fallback
+        return this.detectedPorts.ui || this.options.uiPort;
     }
 }
 
