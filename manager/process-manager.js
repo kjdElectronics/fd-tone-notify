@@ -213,9 +213,25 @@ class ProcessManager {
             // event handlers that are not cleaned up with the tone detection system. We should 
             // not need to force exit once event handler cleanup is properly implemented.
             
-            // Force kill immediately (skip graceful shutdown)
-            this.logAggregator.log('BACKEND', chalk.red('⚠️ Force killing backend process (event handler cleanup needed)'));
-            child.kill('SIGKILL');
+            // Try SIGTERM first, then force kill after short timeout
+            try {
+                child.kill('SIGTERM');
+                this.logAggregator.log('BACKEND', chalk.yellow('Attempting graceful shutdown...'));
+            } catch (e) {
+                // Process might already be dead
+            }
+            
+            // Force kill after very short timeout (since graceful shutdown is broken)
+            setTimeout(() => {
+                if (this.processes.backend === child) {
+                    this.logAggregator.log('BACKEND', chalk.red('⚠️ Force killing backend process (event handler cleanup needed)'));
+                    try {
+                        child.kill('SIGKILL');
+                    } catch (e) {
+                        // Process might already be dead
+                    }
+                }
+            }, 1000);
         });
     }
 
@@ -241,16 +257,28 @@ class ProcessManager {
             
             child.once('exit', onExit);
             
-            // Send SIGTERM
-            child.kill('SIGTERM');
+            // Send termination signal (Windows-compatible)
+            if (process.platform === 'win32') {
+                // On Windows, try to gracefully close Vite
+                child.kill('SIGTERM');
+                // Also try sending Ctrl+C equivalent
+                try {
+                    child.kill('SIGINT');
+                } catch (e) {
+                    // Ignore if process already dead
+                }
+            } else {
+                child.kill('SIGTERM');
+            }
             
-            // Force kill after timeout
+            // Force kill after timeout (shorter on Windows due to signal handling issues)
+            const timeout = process.platform === 'win32' ? 3000 : 5000;
             setTimeout(() => {
                 if (this.processes.ui === child) {
                     this.logAggregator.log('UI', chalk.red('⚠️ Force killing UI process'));
                     child.kill('SIGKILL');
                 }
-            }, 5000);
+            }, timeout);
         });
     }
 
@@ -286,6 +314,9 @@ class ProcessManager {
         }
         
         await Promise.all(promises);
+
+        //Wait to make sure there is exits
+        await new Promise(resolve => setTimeout(resolve, 2000));
     }
 
     /**

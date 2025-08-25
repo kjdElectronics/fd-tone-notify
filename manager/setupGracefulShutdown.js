@@ -3,82 +3,6 @@ const chalk = require('chalk');
 let shuttingDown = false;
 
 function setupGracefulShutdown({processManager, apiServer}) {
-    const gracefulShutdown = async (signal, isException = false) => {
-        if (shuttingDown) {
-            console.log(chalk.yellow(`Already shutting down, ignoring ${signal}`));
-            return;
-        }
-
-        shuttingDown = true;
-
-        if (isException) {
-            console.log(chalk.red.bold(`\n💥 ${signal} - Starting emergency shutdown...`));
-        } else {
-            console.log(chalk.yellow(`\n🛑 Received ${signal}. Starting graceful shutdown...`));
-        }
-
-        try {
-            // Create a timeout promise that will force exit after 10 seconds
-            const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => {
-                    reject(new Error('Graceful shutdown timeout after 10 seconds'));
-                }, 5000);
-            });
-
-            // Create the shutdown promise
-            const shutdownPromise = async () => {
-                // Stop all child processes
-                if (processManager) {
-                    await processManager.stopAll();
-                }
-
-                // Stop manager API server
-                if (apiServer) {
-                    await apiServer.stop();
-                }
-            };
-
-            // Race between shutdown completion and timeout - Fail the shutdown if we do not actually shutdonw
-            await Promise.race([shutdownPromise(), timeoutPromise]);
-
-            if (isException) {
-                console.log(chalk.red.bold('❌ Uncaught Exception - See Logs Above'));
-                process.exit(1);
-            } else {
-                console.log(chalk.green('✅ Graceful shutdown completed'));
-                process.exit(0);
-            }
-
-        } catch (error) {
-            if (error.message.includes('timeout')) {
-                console.error(chalk.red('⚠️ Graceful shutdown timed out - force killing child processes'));
-
-                // Force kill all child processes
-                if (processManager) {
-                    try {
-                        const processes = processManager.processes;
-                        if (processes.backend && processes.backend.pid) {
-                            console.error(chalk.red(`Force killing backend process (PID: ${processes.backend.pid})`));
-                            process.kill(processes.backend.pid, 'SIGKILL');
-                        }
-                        if (processes.ui && processes.ui.pid) {
-                            console.error(chalk.red(`Force killing UI process (PID: ${processes.ui.pid})`));
-                            process.kill(processes.ui.pid, 'SIGKILL');
-                        }
-                    } catch (killError) {
-                        console.error(chalk.red('Error force killing processes:'), killError.message);
-                    }
-                }
-
-                console.error(chalk.red('Forcing manager exit'));
-                process.exit(1);
-            } else {
-                console.error(chalk.red('❌ Error during shutdown:'), error.message);
-                process.exit(1);
-            }
-        }
-    };
-
     // Handle normal signals
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));
@@ -137,6 +61,92 @@ function setupGracefulShutdown({processManager, apiServer}) {
         }
         gracefulShutdown('Unhandled Rejection', true);
     });
+}
+
+async function gracefulShutdown({signal, isException = false, processManager, apiServer}) {
+    if (shuttingDown) {
+        console.log(chalk.yellow(`Already shutting down, ignoring ${signal}`));
+        return;
+    }
+
+    shuttingDown = true;
+
+    if (isException) {
+        console.log(chalk.red.bold(`\n💥 ${signal} - Starting emergency shutdown...`));
+    } else {
+        console.log(chalk.yellow(`\n🛑 Received ${signal}. Starting graceful shutdown...`));
+    }
+
+    try {
+        // Create a timeout promise that will force exit after 10 seconds
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => {
+                reject(new Error('Graceful shutdown timeout after 10 seconds'));
+            }, 5000);
+        });
+
+        // Create the shutdown promise
+        const shutdownPromise = async () => {
+            // Stop all child processes
+            if (processManager) {
+                await processManager.stopAll();
+            }
+
+            // Stop manager API server
+            if (apiServer) {
+                await apiServer.stop();
+            }
+        };
+
+        // Race between shutdown completion and timeout - Fail the shutdown if we do not actually shutdonw
+        await Promise.race([shutdownPromise(), timeoutPromise]);
+
+        if (isException) {
+            console.log(chalk.red.bold('❌ Uncaught Exception - See Logs Above'));
+            process.exit(1);
+        } else {
+            console.log(chalk.green('✅ Graceful shutdown completed'));
+            process.exit(0);
+        }
+
+    } catch (error) {
+        if (error.message.includes('timeout')) {
+            console.error(chalk.red('⚠️ Graceful shutdown timed out - force killing child processes'));
+
+            // Force kill all child processes
+            if (processManager) {
+                try {
+                    const processes = processManager.processes;
+                    if (processes.backend && processes.backend.pid) {
+                        console.error(chalk.red(`Force killing backend process (PID: ${processes.backend.pid})`));
+                        process.kill(processes.backend.pid, 'SIGKILL');
+                    }
+                    if (processes.ui && processes.ui.pid) {
+                        console.error(chalk.red(`Force killing UI process (PID: ${processes.ui.pid})`));
+                        if (process.platform === 'win32') {
+                            // On Windows, kill the entire process tree to ensure Vite any child processes are terminated
+                            try {
+                                require('child_process').execSync(`taskkill /pid ${processes.ui.pid} /T /F`, { stdio: 'ignore' });
+                            } catch (e) {
+                                // Fallback to regular kill
+                                process.kill(processes.ui.pid, 'SIGKILL');
+                            }
+                        } else {
+                            process.kill(processes.ui.pid, 'SIGKILL');
+                        }
+                    }
+                } catch (killError) {
+                    console.error(chalk.red('Error force killing processes:'), killError.message);
+                }
+            }
+
+            console.error(chalk.red('Forcing manager exit'));
+            process.exit(1);
+        } else {
+            console.error(chalk.red('❌ Error during shutdown:'), error.message);
+            process.exit(1);
+        }
+    }
 }
 
 module.exports = { setupGracefulShutdown };

@@ -77,6 +77,9 @@ async function main() {
             console.log(chalk.redBright.bold('\n❌ FD Tone Notify Has Not Fully Started. Check Sub-system status below and check for errors above!'));
         }
         
+        // Wait for Vite port detection to complete
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
         // Display status table
         await displayStartupSummary(processManager, statusMonitor, logAggregator, options);
         
