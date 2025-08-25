@@ -342,7 +342,7 @@ class ProcessManager {
      * Get the detected UI port
      */
     getUIPort() {
-        return this.detectedPorts.ui || this.options.uiPort;
+        return this.detectedPorts.ui;
     }
 }
 

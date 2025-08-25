@@ -136,9 +136,6 @@ class LogAggregator {
         // Remove timestamp if it looks like one (to avoid duplication)
         cleanLine = cleanLine.replace(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\s*/, '');
         cleanLine = cleanLine.replace(/^\w{3}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2}\s+/, '');
-        
-        // Remove log level prefixes that might be duplicated
-        cleanLine = cleanLine.replace(/^(info|error|warn|warning|debug|verbose):\s*/i, '');
 
         this.log(processName, cleanLine, level);
     }
