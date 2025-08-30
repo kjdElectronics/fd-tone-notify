@@ -53,14 +53,27 @@
           <div
             v-for="detection in socketStore.systemStatus.detections"
             :key="`detection-${detection.timestamp}`"
-            class="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg"
+            :class="detection.type === 'discovery' 
+              ? 'flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg'
+              : 'flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg'"
           >
             <div class="flex items-center space-x-3">
-              <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+              <div 
+                :class="detection.type === 'discovery' 
+                  ? 'w-2 h-2 bg-gray-500 rounded-full'
+                  : 'w-2 h-2 bg-green-500 rounded-full'"
+              ></div>
               <div>
-                <div class="font-medium">{{ detection.detector?.name || 'Unknown Detector' }}</div>
+                <div 
+                  :class="detection.type === 'discovery' 
+                    ? 'font-medium text-gray-700'
+                    : 'font-medium'"
+                >
+                  {{ detection.detector?.name || 'Unknown Detector' }}
+                  <span v-if="detection.type === 'discovery'" class="text-xs text-gray-500 ml-2">(Discovery)</span>
+                </div>
                 <div class="text-sm text-gray-600">
-                  Tones: {{ detection.tones?.join(', ') || 'N/A' }}
+                  Tones: {{ detection.tones?.join(', ') || 'N/A' }} Hz
                 </div>
               </div>
             </div>

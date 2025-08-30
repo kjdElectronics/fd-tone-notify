@@ -1,4 +1,5 @@
 const {DetectionService} = require("../service/DetectionService");
+const {AllToneDetectionService} = require("../service/AllToneDetectionService");
 const config = require("config");
 const log = require('../util/logger');
 const {configureWebSocketEvents} = require("../server");
@@ -40,6 +41,24 @@ async function fdToneNotify({webServer=false}={}){
         detectionService.addToneDetector(new TonesDetectorConfig(options));
     });
 
+    // Initialize AllToneDetectionService if enabled
+    let allToneDetectionService = null;
+    if (config.allToneDetector && config.allToneDetector.enabled) {
+        log.info(`Initializing All Tone Detector - Range: ${config.allToneDetector.startFreq}Hz to ${config.allToneDetector.endFreq}Hz`);
+        allToneDetectionService = new AllToneDetectionService({
+            startFreq: config.allToneDetector.startFreq,
+            endFreq: config.allToneDetector.endFreq,
+            sampleRate: config.audio.sampleRate,
+            tolerancePercent: config.allToneDetector.tolerancePercent,
+            rangeOverlapModifier: config.allToneDetector.rangeOverlapModifier,
+            matchThreshold: config.allToneDetector.matchThreshold,
+            audioInterface: audioInterface,
+            frequencyScaleFactor: config.audio.frequencyScaleFactor,
+            silenceAmplitude: config.audio.silenceAmplitude,
+            logLevel: process.env.FD_LOG_LEVEL || "info"
+        });
+    }
+
     //Init the Auto Cleaning Service to get rid of old recordings (Cofnig driven from env vars)
     initRecordingAutoCleaningService();
 
@@ -48,7 +67,7 @@ async function fdToneNotify({webServer=false}={}){
     if(webServer){
         log.info(`Starting Web App`);
         const app = await startWebApp();
-        configureWebSocketEvents({detectionService, wss: app.wss})
+        configureWebSocketEvents({detectionService, allToneDetectionService, wss: app.wss})
     }
 
     setInterval(() => log.silly("FD Tone Notify Heartbeat"), 60*60*1000);

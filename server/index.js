@@ -133,7 +133,7 @@ function configureWss(wss){
 }
 
 
-function configureWebSocketEvents({detectionService, wss}){
+function configureWebSocketEvents({detectionService, allToneDetectionService, wss}){
     detectionService.on('audio', data => {
         wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
@@ -160,8 +160,30 @@ function configureWebSocketEvents({detectionService, wss}){
         log.info('Sending toneDetected to ws clients');
     });
 
+    // Handle multiToneDetected events from AllToneDetectionService if enabled
+    if (allToneDetectionService) {
+        allToneDetectionService.on('multiToneDetected', data => {
+            wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                    const message = {
+                        type: 'multiToneDetected', 
+                        data: {
+                            tones: data,
+                            timestamp: new Date().toISOString(),
+                            detector: {
+                                name: 'All Tone Detector',
+                                type: 'discovery'
+                            }
+                        }
+                    };
+                    client.send(JSON.stringify(message));
+                }
+            });
+            log.info(`Sending multiToneDetected to ws clients: ${data.map(f => `${f}Hz`).join(', ')}`);
+        });
+    }
+
     // Add function to broadcast log messages
-    //TODO - Determine if needed
     function broadcastLog(level, message, data = {}) {
         wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {

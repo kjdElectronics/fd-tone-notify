@@ -264,7 +264,8 @@ export const useSocketStore = defineStore('socket', () => {
         // Handle tone detection events
         systemStatus.detections.push({
           ...data,
-          timestamp: timestamp
+          timestamp: timestamp,
+          type: 'configured'
         })
         
         // Keep only last 100 detections
@@ -280,6 +281,30 @@ export const useSocketStore = defineStore('socket', () => {
         useNotificationStore().addNotification({
           type: 'success',
           message: `Tone detected: ${data.detector?.name || 'Unknown'}`
+        })
+        break
+        
+      case 'multiToneDetected':
+        // Handle multi-tone detection events (discovered tones)
+        systemStatus.detections.push({
+          ...data,
+          timestamp: timestamp,
+          type: 'discovery'
+        })
+        
+        // Keep only last 100 detections
+        if (systemStatus.detections.length > 100) {
+          systemStatus.detections = systemStatus.detections.slice(-100)
+        }
+        
+        systemStatus.statistics.totalDetections++
+        backendStatus.running = true
+        backendStatus.lastHeartbeat = timestamp
+        
+        // Show notification for new discovery (less prominent)
+        useNotificationStore().addNotification({
+          type: 'info',
+          message: `Discovered tones: ${data.tones?.join(', ') || 'Unknown'} Hz`
         })
         break
         

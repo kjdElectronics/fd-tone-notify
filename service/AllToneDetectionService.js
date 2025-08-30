@@ -2,12 +2,13 @@ const {DetectionService} = require("./DetectionService");
 const EventEmitter = require('events');
 const log = require('../util/logger');
 const {TonesDetectorConfig} = require("../obj/config/TonesDetectorConfig");
+const {decodeRawAudioBuffer} = require("../util/util");
 
 class AllToneDetectionService extends EventEmitter{
     //rangeOverlapModifier is a value between 1-2 that determines how much
     // overlap is between detection ranges. Default recommend value=1.8
     constructor({startFreq, endFreq, sampleRate, tolerancePercent, rangeOverlapModifier=1.8, logLevel="silly",
-                    audioInterface, matchThreshold=8, frequencyScaleFactor=1, silenceAmplitude}) {
+                    audioInterface, matchThreshold=8, frequencyScaleFactor=1, silenceAmplitude, fileMode=false}) {
         super();
 
         this.startFreq = startFreq;
@@ -21,9 +22,11 @@ class AllToneDetectionService extends EventEmitter{
             audioInterface,
             frequencyScaleFactor,
             silenceAmplitude,
-            areNotificationsEnabled: false
+            areNotificationsEnabled: false,
+            fileMode
         });
 
+        this.fileMode = fileMode;
         this._matches = [];
         this._detectors = [];
         this._timeout = null;
@@ -31,6 +34,19 @@ class AllToneDetectionService extends EventEmitter{
         this.logLevel = logLevel;
 
         this._initDetectors();
+    }
+
+    /**
+     * Returns a promise that polls the service every 100 ms waiting for it to be finished processing
+     * @returns {Promise<void>}
+     */
+    async waitForProcessingToComplete(){
+        while(this.detectionService.isLocked){
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        while(this._timeout !== null && this._matches.length !== 0){
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
     }
 
     _initDetectors(){
@@ -66,7 +82,9 @@ class AllToneDetectionService extends EventEmitter{
                 this.emit('multiToneDetected', multiToneMatch);
             }
             this._matches = [];
-        }, 3000);
+            clearTimeout(this._timeout);
+            this._timeout = null;
+        }, this.fileMode ? 200 : 3000); //Shorter reset when processing file data
     }
 
     _condenseMatches(values){
@@ -90,6 +108,19 @@ class AllToneDetectionService extends EventEmitter{
         const upperLimit = value + (value * (this.tolerancePercent * 1.25));
         const lowerLimit = value - (value * (this.tolerancePercent * 1.25));
         return testValue >= lowerLimit && testValue <= upperLimit;
+    }
+
+    /**
+     * Process audio data directly (for file mode)
+     * @param {Object} audioData - Audio data object
+     * @param {number} audioData.timestamp - Timestamp in seconds
+     * @param {string} audioData.filePath - Path to the audio file being processed
+     * @param {Buffer} audioData.audioBuffer - Raw audio buffer data
+     * @param {number} [audioData.duration] - Duration of the audio chunk (optional)
+     * @param {number} [audioData.chunkIndex] - Index of the audio chunk (optional)
+     */
+    processAudioData(audioData) {
+        this.detectionService.processAudioData(audioData);
     }
 
     //Method used for testing

@@ -251,6 +251,18 @@
             />
             <p class="help-text">Default lockout time after detection (milliseconds)</p>
           </div>
+
+          <div class="md:col-span-2">
+            <label class="label flex items-center">
+              <input
+                v-model="config.allToneDetector.enabled"
+                type="checkbox"
+                class="mr-2"
+              />
+              Enable All Tone Detector
+            </label>
+            <p class="help-text">This feature will help you identify new tones that you have not setup notifications for. Detections will be shown in the UI only and no notifications will be sent. Marginal performance impact.</p>
+          </div>
         </div>
       </div>
 
@@ -547,6 +559,14 @@ const config = ref({
     defaultLockoutTimeoutMs: 7000,
     isRecordingEnabled: true
   },
+  allToneDetector: {
+    enabled: true,
+    startFreq: 100,
+    endFreq: 3000,
+    tolerancePercent: 0.05,
+    matchThreshold: 8,
+    rangeOverlapModifier: 1.8
+  },
   recording: {
     directory: './recordings',
     autoDeleteOlderThanDays: 7
@@ -590,6 +610,7 @@ async function loadConfig() {
     config.value = {
       audio: { ...config.value.audio, ...configuration.audio },
       detection: { ...config.value.detection, ...configuration.detection },
+      allToneDetector: { ...config.value.allToneDetector, ...configuration.allToneDetector },
       recording: { ...config.value.recording, ...configuration.recording },
       email: { ...config.value.email, ...configuration.email },
       coralogix: { ...config.value.coralogix, ...configuration.coralogix },
@@ -638,6 +659,14 @@ async function saveConfig(restart = false) {
       FD_DEFAULT_RESET_TIMEOUT_MS: config.value.detection.defaultResetTimeoutMs,
       FD_DEFAULT_LOCKOUT_TIMEOUT_MS: config.value.detection.defaultLockoutTimeoutMs,
       FD_IS_RECORDING_ENABLED: config.value.detection.isRecordingEnabled,
+      
+      // All Tone Detector settings
+      FD_ALL_TONE_DETECTOR_ENABLED: config.value.allToneDetector.enabled,
+      FD_ALL_TONE_DETECTOR_START_FREQ: config.value.allToneDetector.startFreq,
+      FD_ALL_TONE_DETECTOR_END_FREQ: config.value.allToneDetector.endFreq,
+      FD_ALL_TONE_DETECTOR_TOLERANCE_PERCENT: config.value.allToneDetector.tolerancePercent,
+      FD_ALL_TONE_DETECTOR_MATCH_THRESHOLD: config.value.allToneDetector.matchThreshold,
+      FD_ALL_TONE_DETECTOR_RANGE_OVERLAP_MODIFIER: config.value.allToneDetector.rangeOverlapModifier,
       
       // Email settings
       FD_EMAIL_FROM: config.value.email.from,

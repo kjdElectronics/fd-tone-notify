@@ -78,6 +78,18 @@
       <div class="mt-6 space-y-4">
         <div class="flex items-center space-x-2">
           <input
+            v-model="enableAllToneDetector"
+            id="enableAllToneDetector"
+            type="checkbox"
+            class="rounded border-gray-300 text-fire-600 focus:ring-fire-500"
+          />
+          <label for="enableAllToneDetector" class="text-sm font-medium text-gray-700">
+            All Tone Detector (discover new tones in uploaded files)
+          </label>
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <input
             v-model="processNotifications"
             id="processNotifications"
             type="checkbox"
@@ -120,18 +132,22 @@
       </h2>
 
       <!-- Analysis Summary -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div class="bg-blue-50 p-4 rounded-lg">
-          <div class="text-2xl font-bold text-blue-600">{{ analysisResults.detections?.length || 0 }}</div>
-          <div class="text-sm text-blue-800">Tone Detections</div>
-        </div>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div class="bg-green-50 p-4 rounded-lg">
-          <div class="text-2xl font-bold text-green-600">{{ analysisResults.duration || 'N/A' }}s</div>
-          <div class="text-sm text-green-800">File Duration</div>
+          <div class="text-2xl font-bold text-green-600">{{ analysisResults.detections?.length || 0 }}</div>
+          <div class="text-sm text-green-800">Configured Detections</div>
+        </div>
+        <div class="bg-gray-50 p-4 rounded-lg">
+          <div class="text-2xl font-bold text-gray-600">{{ analysisResults.allToneDetections?.length || 0 }}</div>
+          <div class="text-sm text-gray-800">Discovered Tones</div>
+        </div>
+        <div class="bg-blue-50 p-4 rounded-lg">
+          <div class="text-2xl font-bold text-blue-600">{{ analysisResults.duration ? Number(analysisResults.duration).toFixed(2) : 'N/A' }}s</div>
+          <div class="text-sm text-blue-800">File Duration</div>
         </div>
         <div class="bg-purple-50 p-4 rounded-lg">
-          <div class="text-2xl font-bold text-purple-600">{{ analysisResults.detectors?.length || detectorCount }}</div>
-          <div class="text-sm text-purple-800">Detectors Used</div>
+          <div class="text-2xl font-bold text-purple-600">{{ analysisResults.processingTimeMs ? (analysisResults.processingTimeMs / 1000).toFixed(2) : 'N/A' }}s</div>
+          <div class="text-sm text-purple-800">Processing Time</div>
         </div>
       </div>
 
@@ -163,7 +179,35 @@
         </div>
       </div>
 
-      <div v-else class="text-center py-8 text-gray-500">
+      <!-- Discovered Tones Results -->
+      <div v-if="analysisResults.allToneDetections && analysisResults.allToneDetections.length > 0" class="mt-8">
+        <h3 class="font-medium text-gray-900 mb-3">Discovered Tones (All Tone Detector)</h3>
+        <div class="space-y-3">
+          <div
+            v-for="(detection, index) in analysisResults.allToneDetections"
+            :key="`all-tone-${index}`"
+            class="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg"
+          >
+            <div class="flex items-center space-x-3">
+              <div class="w-2 h-2 bg-gray-500 rounded-full"></div>
+              <div>
+                <div class="font-medium text-gray-700">{{ detection.detector || 'All Tone Detector' }}</div>
+                <div class="text-sm text-gray-600">
+                  Discovered Tones: {{ (detection.tones || []).join(', ') || 'N/A' }} Hz
+                </div>
+                <div class="text-sm text-gray-500">
+                  Match: {{ (detection.matchAverages || []).map(m => parseFloat(m).toFixed(1)).join(', ') || 'N/A' }} Hz
+                </div>
+              </div>
+            </div>
+            <div class="text-xs text-gray-500">
+              {{ detection.timestamp || 'N/A' }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-else-if="(!analysisResults.detections || analysisResults.detections.length === 0) && (!analysisResults.allToneDetections || analysisResults.allToneDetections.length === 0)" class="text-center py-8 text-gray-500">
         <ExclamationTriangleIcon class="w-12 h-12 mx-auto mb-2 text-gray-300" />
         <p>No tones detected in the uploaded file</p>
         <p class="text-sm">The file was analyzed but no matching tone patterns were found</p>
@@ -238,6 +282,7 @@ const authStore = useAuthStore()
 // Reactive data
 const selectedFile = ref(null)
 const isDragOver = ref(false)
+const enableAllToneDetector = ref(false)
 const processNotifications = ref(false)
 const isAnalyzing = ref(false)
 const analysisResults = ref(null)
@@ -345,6 +390,7 @@ async function analyzeFile() {
     const formData = new FormData()
     formData.append('file', selectedFile.value) // API expects 'file' not 'audioFile'
     formData.append('enableNotifications', processNotifications.value.toString())
+    formData.append('enableAllToneDetector', enableAllToneDetector.value.toString())
     
     // Make API request to existing detect-tones endpoint
     const response = await api.post('/detect-tones', formData, {
@@ -360,16 +406,20 @@ async function analyzeFile() {
       analysisResults.value = {
         success: true,
         detections: response.data.detections || [],
+        allToneDetections: response.data.allToneDetections || [],
         duration: response.data.durationSeconds,
         filename: response.data.filename,
         processed: response.data.processed,
-        requestId: response.data.requestId
+        requestId: response.data.requestId,
+        processingTimeMs: response.data.processingTimeMs
       }
       
       const detectionCount = response.data.detections?.length || 0
+      const allToneCount = response.data.allToneDetections?.length || 0
+      const totalCount = detectionCount + allToneCount
       notificationStore.addNotification({
         type: 'success',
-        message: `Analysis complete! Found ${detectionCount} tone detection${detectionCount !== 1 ? 's' : ''}`
+        message: `Analysis complete! Found ${detectionCount} configured detection${detectionCount !== 1 ? 's' : ''} and ${allToneCount} discovered tone${allToneCount !== 1 ? 's' : ''}`
       })
     } else {
       throw new Error(response.data.error || 'Analysis failed')

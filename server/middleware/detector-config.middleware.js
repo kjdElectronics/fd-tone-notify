@@ -10,6 +10,7 @@ function parseDetectorConfig(req, res, next) {
     try {
         // Parse and validate request options
         const enableNotifications = parseBoolean(req.body.enableNotifications);
+        const enableAllToneDetector = parseBoolean(req.body.enableAllToneDetector);
         const customDetectors = parseCustomDetectors(req.body.detectors);
         const globalMatchThreshold = parseNumericParam(req.body.matchThreshold, 'matchThreshold', 1, 100);
         const globalTolerancePercent = parseNumericParam(req.body.tolerancePercent, 'tolerancePercent', 0, 1);
@@ -39,6 +40,7 @@ function parseDetectorConfig(req, res, next) {
         // Attach parsed configuration to request object
         req.detectorConfig = {
             enableNotifications,
+            enableAllToneDetector,
             customDetectors: !!customDetectors,
             globalOverrides: {
                 matchThreshold: globalMatchThreshold,

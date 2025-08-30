@@ -101,6 +101,14 @@
         }
       ]
     },
+  "allToneDetector": {
+    "enabled": true,
+    "startFreq": 100,
+    "endFreq": 3000,
+    "tolerancePercent": 0.05,
+    "matchThreshold": 8,
+    "rangeOverlapModifier": 1.8
+  },
   "recording": {
     "directory": "./recordings",
     "autoDeleteOlderThanDays": 7

@@ -6,6 +6,7 @@ const { ErrorWithStatusCode } = require('../../util/ErrorWithStatusCode');
 const { TonesDetectorConfig } = require('../../obj/config/TonesDetectorConfig');
 const { AudioFileService } = require('../../service/AudioFileService');
 const { DetectionService } = require('../../service/DetectionService');
+const { AllToneDetectionService } = require('../../service/AllToneDetectionService');
 const config = require('config');
 
 /**
@@ -32,7 +33,7 @@ async function detectTones(req, res) {
     log.info(`Processing uploaded file: ${originalFilename} (${requestId})`);
 
     // Get parsed detector configuration from middleware
-    const { enableNotifications, customDetectors, globalOverrides, detectorConfigs } = req.detectorConfig;
+    const { enableNotifications, enableAllToneDetector, customDetectors, globalOverrides, detectorConfigs } = req.detectorConfig;
 
     // Initialize audio file service
     const audioFileService = new AudioFileService({
@@ -59,8 +60,29 @@ async function detectTones(req, res) {
         log.debug(`API: Added detector for ${detectorConfigObj.name} with tones ${detectorConfigObj.tones.map(v => `${v}Hz`).join(', ')}`);
     });
 
+    // Initialize AllToneDetectionService if enabled
+    let allToneDetectionService = null;
+    if (enableAllToneDetector && config.allToneDetector) {
+        allToneDetectionService = new AllToneDetectionService({
+            startFreq: config.allToneDetector.startFreq,
+            endFreq: config.allToneDetector.endFreq,
+            sampleRate: config.audio.sampleRate,
+            tolerancePercent: config.allToneDetector.tolerancePercent,
+            rangeOverlapModifier: config.allToneDetector.rangeOverlapModifier,
+            matchThreshold: config.allToneDetector.matchThreshold,
+            audioInterface: null, // File mode
+            frequencyScaleFactor: config.audio.frequencyScaleFactor,
+            silenceAmplitude: config.audio.silenceAmplitude,
+            logLevel: process.env.FD_LOG_LEVEL || "info",
+            fileMode: true
+        });
+        
+        log.debug(`API: Initialized All Tone Detector for range ${config.allToneDetector.startFreq}Hz to ${config.allToneDetector.endFreq}Hz`);
+    }
+
     // Track detections
     const detections = [];
+    const allToneDetections = [];
 
     // Listen for tone detections
     const detectionListener = (detection) => {
@@ -79,13 +101,48 @@ async function detectTones(req, res) {
 
     detectionService.on('toneDetected', detectionListener);
 
+    // Listen for multi-tone detections if AllToneDetector is enabled
+    let multiToneDetectionListener = null;
+    let lastAudioTimestamp = 0; // Track the most recent audio chunk timestamp
+    
+    if (allToneDetectionService) {
+        multiToneDetectionListener = (tones) => {
+            // Use the most recent audio timestamp for multi-tone detections
+            // This approximates when the tones were detected in the audio file
+            const detectionData = {
+                detector: 'All Tone Detector',
+                tones: tones,
+                timestamp: formatTimestamp(lastAudioTimestamp),
+                timestampSeconds: lastAudioTimestamp,
+                matchAverages: tones,
+                message: `Multi-tone detection: ${tones.map(f => `${f}Hz`).join(', ')}`,
+                type: 'discovery'
+            };
+            
+            allToneDetections.push(detectionData);
+            log.info(`API multi-tone detection: ${tones.map(f => `${f}Hz`).join(', ')} at ~${lastAudioTimestamp}s (${requestId})`);
+        };
+
+        allToneDetectionService.on('multiToneDetected', multiToneDetectionListener);
+    }
+
     // Process audio chunks
     audioFileService.on('audioData', (audioData) => {
-        detectionService.processAudioData({
+        const audioDataParams = {
             timestamp: audioData.timestamp,
             filePath: audioData.filePath,
             audioBuffer: audioData.audioBuffer
-        });
+        }
+
+        // Update the most recent timestamp for AllToneDetector
+        lastAudioTimestamp = audioData.timestamp;
+
+        detectionService.processAudioData(audioDataParams);
+
+        // Also process through AllToneDetectionService if enabled
+        if (allToneDetectionService) {
+            allToneDetectionService.processAudioData(audioDataParams)
+        }
     });
 
     try {
@@ -95,8 +152,16 @@ async function detectTones(req, res) {
         //Wait for the detection service (Note: This is a polling loop internally)
         await detectionService.waitForProcessingToComplete();
         
-        // Clean up event listener
+        // Also wait for AllToneDetectionService to complete if enabled
+        if (allToneDetectionService) {
+            await allToneDetectionService.waitForProcessingToComplete();
+        }
+        
+        // Clean up event listeners
         detectionService.removeListener('toneDetected', detectionListener);
+        if (allToneDetectionService && multiToneDetectionListener) {
+            allToneDetectionService.removeListener('multiToneDetected', multiToneDetectionListener);
+        }
         
         // Get file duration
         const status = audioFileService.getStatus();
@@ -111,16 +176,18 @@ async function detectTones(req, res) {
             duration: formatDuration(status.totalDuration),
             durationSeconds: status.totalDuration,
             detections,
+            allToneDetections,
             processingTimeMs: processingTime,
             detectorsUsed: detectorConfigs.length,
             customConfiguration: {
                 enableNotifications,
+                enableAllToneDetector,
                 customDetectors,
                 globalOverrides
             }
         };
 
-        log.info(`API tone detection completed: ${detections.length} detections in ${processingTime}ms (${requestId})`);
+        log.info(`API tone detection completed: ${detections.length} detections, ${allToneDetections.length} multi-tone detections in ${processingTime}ms (${requestId})`);
         res.json(response);
 
     } catch (processingError) {

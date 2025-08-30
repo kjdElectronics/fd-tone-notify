@@ -78,20 +78,26 @@ class DetectionService extends EventEmitter{
     }
 
     __getToneDetectionLock({tonesDetector}){
-        const lock = `${tonesDetector.name}-${uuidv4()}`;
-        this._toneDetectionLocks[lock] = this._toneDetectionLocks[tonesDetector.name] || {};
+        const lockName = `${tonesDetector.name}-${uuidv4()}`;
+        const lock = {
+            name: lockName,
+            release: () => {
+                log.debug(`Detection Service: Releasing lock ${lockName}`);
+                delete this._toneDetectionLocks[lockName];
+            },
+            toString: () => lockName,
+        };
+
+        this._toneDetectionLocks[lockName] = lock;
         log.debug(`Detection Service: Acquiring lock ${lock}`);
 
-        return {
-            lock,
-            release: () => {
-                log.debug(`Detection Service: Releasing lock ${lock}`);
-                delete this._toneDetectionLocks[lock];
-            }
-        }
+        return lock;
     }
 
     __processData(decodedData){
+        const lock = this.__getToneDetectionLock({tonesDetector: {name: "PROCESSING_DATA_LOCK"}});
+        log.debug(`Detection Service: Acquiring lock ${lock}`);
+
         const dataChunks = this._audioProcessor.chunkAudioData(decodedData);
         dataChunks.forEach(chunk => {
             const {pitch, clarity} = this._audioProcessor.getPitchWithClarity(chunk);
@@ -99,6 +105,8 @@ class DetectionService extends EventEmitter{
                 tonesDetector.processValues({pitchValues:[pitch], raw: chunk})
             })
         });
+
+        lock.release();
     }
 
     addToneDetector(tonesDetectorConfig) {
