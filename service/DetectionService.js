@@ -95,8 +95,11 @@ class DetectionService extends EventEmitter{
     }
 
     __processData(decodedData){
-        const lock = this.__getToneDetectionLock({tonesDetector: {name: "PROCESSING_DATA_LOCK"}});
-        log.debug(`Detection Service: Acquiring lock ${lock}`);
+        let lock;
+        if(this._fileMode) { //Only need this for file mode. In mic mode, timeouts handle it
+            lock = this.__getToneDetectionLock({tonesDetector: {name: "PROCESSING_DATA_LOCK"}});
+            log.debug(`Detection Service: Acquiring lock ${lock}`);
+        }
 
         const dataChunks = this._audioProcessor.chunkAudioData(decodedData);
         dataChunks.forEach(chunk => {
@@ -106,7 +109,8 @@ class DetectionService extends EventEmitter{
             })
         });
 
-        lock.release();
+        if(lock)
+            lock.release();
     }
 
     addToneDetector(tonesDetectorConfig) {
