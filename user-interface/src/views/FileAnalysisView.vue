@@ -146,7 +146,7 @@
           <div class="text-sm text-blue-800">File Duration</div>
         </div>
         <div class="bg-purple-50 p-4 rounded-lg">
-          <div class="text-2xl font-bold text-purple-600">{{ analysisResults.processingTimeMs ? (analysisResults.processingTimeMs / 1000).toFixed(2) : 'N/A' }}s</div>
+          <div class="text-2xl font-bold text-purple-600">{{ analysisResults.processingTimeMs || 'N/A' }}ms</div>
           <div class="text-sm text-purple-800">Processing Time</div>
         </div>
       </div>
@@ -282,7 +282,7 @@ const authStore = useAuthStore()
 // Reactive data
 const selectedFile = ref(null)
 const isDragOver = ref(false)
-const enableAllToneDetector = ref(false)
+const enableAllToneDetector = ref(true)
 const processNotifications = ref(false)
 const isAnalyzing = ref(false)
 const analysisResults = ref(null)

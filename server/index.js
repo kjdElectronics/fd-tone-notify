@@ -162,14 +162,18 @@ function configureWebSocketEvents({detectionService, allToneDetectionService, ws
 
     // Handle multiToneDetected events from AllToneDetectionService if enabled
     if (allToneDetectionService) {
-        allToneDetectionService.on('multiToneDetected', data => {
+        allToneDetectionService.on('multiToneDetected', eventData => {
+            // Extract data from the event - could be legacy format (just tones array) or new format (object with tones and timestamp)
+            const tones = Array.isArray(eventData) ? eventData : eventData.tones;
+            const detectionTimestamp = Array.isArray(eventData) ? new Date().toISOString() : (eventData.timestamp ? new Date(eventData.timestamp * 1000).toISOString() : new Date().toISOString());
+            
             wss.clients.forEach(client => {
                 if (client.readyState === WebSocket.OPEN) {
                     const message = {
                         type: 'multiToneDetected', 
                         data: {
-                            tones: data,
-                            timestamp: new Date().toISOString(),
+                            tones: tones,
+                            timestamp: detectionTimestamp,
                             detector: {
                                 name: 'All Tone Detector',
                                 type: 'discovery'
@@ -179,7 +183,7 @@ function configureWebSocketEvents({detectionService, allToneDetectionService, ws
                     client.send(JSON.stringify(message));
                 }
             });
-            log.info(`Sending multiToneDetected to ws clients: ${data.map(f => `${f}Hz`).join(', ')}`);
+            log.info(`Sending multiToneDetected to ws clients: ${tones.map(f => `${f}Hz`).join(', ')}`);
         });
     }
 

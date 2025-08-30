@@ -30,6 +30,7 @@ class AllToneDetectionService extends EventEmitter{
         this._matches = [];
         this._detectors = [];
         this._timeout = null;
+        this._lastDetectionTimestamp = null; // Track when the first tone in a sequence was detected
 
         this.logLevel = logLevel;
 
@@ -66,7 +67,13 @@ class AllToneDetectionService extends EventEmitter{
             this._detectors.push(detector);
             detector.on("toneDetected", args => {
                 clearTimeout(this._timeout);
-                const {matchAverages} = args;
+                const {matchAverages, timestamp} = args;
+                
+                // If this is the first tone in a sequence, record the timestamp
+                if (this.fileMode ) {
+                    this._lastDetectionTimestamp = this.detectionService.currentTimeStamp;
+                }
+                
                 this._matches.push(matchAverages[0]);
                 this._timeout = this._setResetTimeout();
             });
@@ -78,13 +85,20 @@ class AllToneDetectionService extends EventEmitter{
             let multiToneMatch = this._matches.map(f => Math.round(f));
             multiToneMatch = this._condenseMatches(multiToneMatch); //Filter adjacent similar values
             if (multiToneMatch.length > 1) {//Multi Tone Match Found
-                log.crit(`ALL TONE DETECTOR MUTLI-TONE DETECTED: ${multiToneMatch.map(f => `${f}Hz`).join(", ")}`);
-                this.emit('multiToneDetected', multiToneMatch);
+                const detectionTimestamp = this._lastDetectionTimestamp || 0; // Fallback to 0 if no timestamp
+                log.crit(`ALL TONE DETECTOR MUTLI-TONE DETECTED: ${multiToneMatch.map(f => `${f}Hz`).join(", ")} at ${detectionTimestamp}s`);
+                
+                // Include timestamp information in the event
+                this.emit('multiToneDetected', {
+                    tones: multiToneMatch,
+                    timestamp: detectionTimestamp
+                });
             }
             this._matches = [];
+            this._lastDetectionTimestamp = null; // Reset for next sequence
             clearTimeout(this._timeout);
             this._timeout = null;
-        }, this.fileMode ? 200 : 3000); //Shorter reset when processing file data
+        }, this.fileMode ? 50 : 3000); //Shorter reset when processing file data
     }
 
     _condenseMatches(values){

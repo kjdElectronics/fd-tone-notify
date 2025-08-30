@@ -103,24 +103,25 @@ async function detectTones(req, res) {
 
     // Listen for multi-tone detections if AllToneDetector is enabled
     let multiToneDetectionListener = null;
-    let lastAudioTimestamp = 0; // Track the most recent audio chunk timestamp
     
     if (allToneDetectionService) {
-        multiToneDetectionListener = (tones) => {
-            // Use the most recent audio timestamp for multi-tone detections
-            // This approximates when the tones were detected in the audio file
+        multiToneDetectionListener = (eventData) => {
+            // Extract data from the event - could be legacy format (just tones array) or new format (object with tones and timestamp)
+            const tones = Array.isArray(eventData) ? eventData : eventData.tones;
+            const detectionTimestamp = Array.isArray(eventData) ? 0 : (eventData.timestamp || 0);
+            
             const detectionData = {
                 detector: 'All Tone Detector',
                 tones: tones,
-                timestamp: formatTimestamp(lastAudioTimestamp),
-                timestampSeconds: lastAudioTimestamp,
+                timestamp: formatTimestamp(detectionTimestamp),
+                timestampSeconds: detectionTimestamp,
                 matchAverages: tones,
                 message: `Multi-tone detection: ${tones.map(f => `${f}Hz`).join(', ')}`,
                 type: 'discovery'
             };
             
             allToneDetections.push(detectionData);
-            log.info(`API multi-tone detection: ${tones.map(f => `${f}Hz`).join(', ')} at ~${lastAudioTimestamp}s (${requestId})`);
+            log.info(`API multi-tone detection: ${tones.map(f => `${f}Hz`).join(', ')} at ${detectionTimestamp}s (${requestId})`);
         };
 
         allToneDetectionService.on('multiToneDetected', multiToneDetectionListener);
@@ -133,9 +134,6 @@ async function detectTones(req, res) {
             filePath: audioData.filePath,
             audioBuffer: audioData.audioBuffer
         }
-
-        // Update the most recent timestamp for AllToneDetector
-        lastAudioTimestamp = audioData.timestamp;
 
         detectionService.processAudioData(audioDataParams);
 

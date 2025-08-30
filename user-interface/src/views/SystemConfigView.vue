@@ -258,6 +258,7 @@
                 v-model="config.allToneDetector.enabled"
                 type="checkbox"
                 class="mr-2"
+                checked
               />
               Enable All Tone Detector
             </label>

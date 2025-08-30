@@ -226,6 +226,12 @@ class DetectionService extends EventEmitter{
         this.__processData(decoded);
     }
 
+    get currentTimeStamp(){
+        if(!this._fileMode)
+            throw new Error('currentTimeStamp can only be used in file mode');
+        return this._currentTimestamp;
+    }
+
 }
 
 module.exports = {DetectionService};
