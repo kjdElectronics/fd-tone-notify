@@ -276,12 +276,6 @@ export const useSocketStore = defineStore('socket', () => {
         systemStatus.statistics.totalDetections++
         backendStatus.running = true
         backendStatus.lastHeartbeat = timestamp
-        
-        // Show notification for new detection
-        useNotificationStore().addNotification({
-          type: 'success',
-          message: `Tone detected: ${data.detector?.name || 'Unknown'}`
-        })
         break
         
       case 'multiToneDetected':
@@ -300,12 +294,6 @@ export const useSocketStore = defineStore('socket', () => {
         systemStatus.statistics.totalDetections++
         backendStatus.running = true
         backendStatus.lastHeartbeat = timestamp
-        
-        // Show notification for new discovery (less prominent)
-        useNotificationStore().addNotification({
-          type: 'info',
-          message: `Discovered tones: ${data.tones?.join(', ') || 'Unknown'} Hz`
-        })
         break
         
       case 'data':

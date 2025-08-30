@@ -24,6 +24,9 @@ const corsOptions = {
     credentials: true // Allow credentials (cookies, authorization headers)
 };
 
+// Module-level WebSocket server reference for use by other modules
+let globalWss = null;
+
 async function startWebApp() {
     let app = express();
     
@@ -49,6 +52,7 @@ async function startWebApp() {
     configureWss(wss);
 
     app.wss = wss;
+    globalWss = wss; // Store reference for global access
 
     log.info('WebSocket server configured and attached to HTTP server');
     return app;
@@ -208,4 +212,9 @@ function configureWebSocketEvents({detectionService, allToneDetectionService, ws
     wss.broadcastLog = broadcastLog;
 }
 
-module.exports = {startWebApp, configureWebSocketEvents };
+// Function to get the global WebSocket server instance
+function getWebSocketServer() {
+    return globalWss;
+}
+
+module.exports = {startWebApp, configureWebSocketEvents, getWebSocketServer };

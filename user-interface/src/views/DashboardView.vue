@@ -66,28 +66,12 @@
             <p class="text-sm">Detections will appear here in real-time</p>
           </div>
           
-          <div
+          <DetectionItem
             v-for="detection in recentDetections"
             :key="detection.id || detection.timestamp"
-            class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-          >
-            <div class="flex items-center space-x-3">
-              <div class="w-3 h-3 bg-fire-500 rounded-full pulse-fire"></div>
-              <div>
-                <p class="font-medium text-gray-900">
-                  {{ detection.detector?.name || 'Unknown Detector' }}
-                </p>
-                <p class="text-sm text-gray-500">
-                  Tones: {{ (detection.detector?.tones || []).map(t => `${t}Hz`).join(', ') }}
-                </p>
-              </div>
-            </div>
-            <div class="text-right">
-              <p class="text-sm text-gray-600">
-                {{ formatTime(detection.timestamp) }}
-              </p>
-            </div>
-          </div>
+            :detection="detection"
+            :showMatchAverages="false"
+          />
         </div>
       </div>
 
@@ -157,6 +141,7 @@ import { computed } from 'vue'
 import { useSocketStore } from '../stores/socket'
 import { useSystemStatus } from '../composables/useSystemStatus'
 import SystemStatusCard from '../components/SystemStatusCard.vue'
+import DetectionItem from '../components/DetectionItem.vue'
 import {
   CheckCircleIcon,
   SpeakerWaveIcon,

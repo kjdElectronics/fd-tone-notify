@@ -50,37 +50,12 @@
           No tone detections yet. Waiting for activity...
         </div>
         <div v-else class="space-y-2 max-h-64 overflow-y-auto">
-          <div
+          <DetectionItem
             v-for="detection in socketStore.systemStatus.detections"
             :key="`detection-${detection.timestamp}`"
-            :class="detection.type === 'discovery' 
-              ? 'flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg'
-              : 'flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg'"
-          >
-            <div class="flex items-center space-x-3">
-              <div 
-                :class="detection.type === 'discovery' 
-                  ? 'w-2 h-2 bg-gray-500 rounded-full'
-                  : 'w-2 h-2 bg-green-500 rounded-full'"
-              ></div>
-              <div>
-                <div 
-                  :class="detection.type === 'discovery' 
-                    ? 'font-medium text-gray-700'
-                    : 'font-medium'"
-                >
-                  {{ detection.detector?.name || 'Unknown Detector' }}
-                  <span v-if="detection.type === 'discovery'" class="text-xs text-gray-500 ml-2">(Discovery)</span>
-                </div>
-                <div class="text-sm text-gray-600">
-                  Tones: {{ detection.tones?.join(', ') || 'N/A' }} Hz
-                </div>
-              </div>
-            </div>
-            <div class="text-xs text-gray-500">
-              {{ formatTime(detection.timestamp) }}
-            </div>
-          </div>
+            :detection="detection"
+            :showMatchAverages="false"
+          />
         </div>
       </div>
     </div>
@@ -150,6 +125,7 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useSocketStore } from '../stores/socket'
 import { useManagerSocketStore } from '../stores/manager-socket'
+import DetectionItem from '../components/DetectionItem.vue'
 import { 
   SpeakerWaveIcon, 
   DocumentTextIcon 
@@ -203,12 +179,16 @@ const allLogs = computed(() => {
   
   // Add detection events as logs (always show detections as they're important)
   socketStore.systemStatus.detections.forEach((detection, index) => {
+    // Get tones from the correct location based on detection type
+    const tones = detection.detector?.tones || detection.tones || []
+    const tonesDisplay = tones.length > 0 ? `${tones.join(', ')} Hz` : 'N/A Hz'
+    
     logs.push({
       id: `detection-${index}-${detection.timestamp}`,
       timestamp: detection.timestamp,
       type: 'detection',
       level: 'info', // Treat detections as info level
-      message: `Tone detected by ${detection.detector?.name || 'Unknown'}: ${detection.tones?.join(', ') || 'N/A'}`
+      message: `Tone detected by ${detection.detector?.name || 'Unknown'}: ${tonesDisplay}`
     })
   })
   

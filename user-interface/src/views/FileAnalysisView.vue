@@ -155,27 +155,12 @@
       <div v-if="analysisResults.detections && analysisResults.detections.length > 0">
         <h3 class="font-medium text-gray-900 mb-3">Detected Tones</h3>
         <div class="space-y-3">
-          <div
-            v-for="(detection, index) in analysisResults.detections"
+          <DetectionItem
+            v-for="(detection, index) in formattedDetections"
             :key="index"
-            class="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg"
-          >
-            <div class="flex items-center space-x-3">
-              <div class="w-2 h-2 bg-green-500 rounded-full"></div>
-              <div>
-                <div class="font-medium">{{ detection.detector || 'Unknown Detector' }}</div>
-                <div class="text-sm text-gray-600">
-                  Tones: {{ (detection.tones || []).join(', ') || 'N/A' }} Hz
-                </div>
-                <div class="text-sm text-gray-500">
-                  Match: {{ (detection.matchAverages || []).map(m => parseFloat(m).toFixed(1)).join(', ') || 'N/A' }} Hz
-                </div>
-              </div>
-            </div>
-            <div class="text-xs text-gray-500">
-              {{ detection.timestamp || 'N/A' }}
-            </div>
-          </div>
+            :detection="detection"
+            :showMatchAverages="true"
+          />
         </div>
       </div>
 
@@ -183,27 +168,12 @@
       <div v-if="analysisResults.allToneDetections && analysisResults.allToneDetections.length > 0" class="mt-8">
         <h3 class="font-medium text-gray-900 mb-3">Discovered Tones (All Tone Detector)</h3>
         <div class="space-y-3">
-          <div
-            v-for="(detection, index) in analysisResults.allToneDetections"
+          <DetectionItem
+            v-for="(detection, index) in formattedAllToneDetections"
             :key="`all-tone-${index}`"
-            class="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg"
-          >
-            <div class="flex items-center space-x-3">
-              <div class="w-2 h-2 bg-gray-500 rounded-full"></div>
-              <div>
-                <div class="font-medium text-gray-700">{{ detection.detector || 'All Tone Detector' }}</div>
-                <div class="text-sm text-gray-600">
-                  Discovered Tones: {{ (detection.tones || []).join(', ') || 'N/A' }} Hz
-                </div>
-                <div class="text-sm text-gray-500">
-                  Match: {{ (detection.matchAverages || []).map(m => parseFloat(m).toFixed(1)).join(', ') || 'N/A' }} Hz
-                </div>
-              </div>
-            </div>
-            <div class="text-xs text-gray-500">
-              {{ detection.timestamp || 'N/A' }}
-            </div>
-          </div>
+            :detection="detection"
+            :showMatchAverages="true"
+          />
         </div>
       </div>
 
@@ -267,6 +237,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useNotificationStore } from '../stores/notifications'
 import { useAuthStore } from '../stores/auth'
 import api from '../utils/api'
+import DetectionItem from '../components/DetectionItem.vue'
 import { 
   DocumentArrowUpIcon,
   CloudArrowUpIcon,
@@ -289,6 +260,32 @@ const analysisResults = ref(null)
 const analysisError = ref(null)
 const fileInput = ref(null)
 const detectorCount = ref(0)
+
+// Format detections for the DetectionItem component
+const formattedDetections = computed(() => {
+  if (!analysisResults.value?.detections) return []
+  
+  return analysisResults.value.detections.map(detection => ({
+    ...detection,
+    type: 'configured',
+    detector: {
+      name: detection.detector,
+      tones: detection.tones
+    }
+  }))
+})
+
+const formattedAllToneDetections = computed(() => {
+  if (!analysisResults.value?.allToneDetections) return []
+  
+  return analysisResults.value.allToneDetections.map(detection => ({
+    ...detection,
+    type: 'discovery',
+    detector: {
+      name: detection.detector || 'All Tone Detector'
+    }
+  }))
+})
 
 // Load detector count from config
 async function loadDetectorConfig() {

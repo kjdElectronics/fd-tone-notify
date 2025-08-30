@@ -1,5 +1,6 @@
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
+const WebSocket = require('ws');
 const log = require('../../util/logger');
 const { formatTimestamp, formatDuration } = require('../../util/formatters');
 const { ErrorWithStatusCode } = require('../../util/ErrorWithStatusCode');
@@ -7,6 +8,7 @@ const { TonesDetectorConfig } = require('../../obj/config/TonesDetectorConfig');
 const { AudioFileService } = require('../../service/AudioFileService');
 const { DetectionService } = require('../../service/DetectionService');
 const { AllToneDetectionService } = require('../../service/AllToneDetectionService');
+const { getWebSocketServer } = require('../index');
 const config = require('config');
 
 /**
@@ -97,6 +99,21 @@ async function detectTones(req, res) {
         
         detections.push(detectionData);
         log.info(`API detection: ${detection.detector.name} detected at ${detectionData.timestamp} (${requestId})`);
+        
+        // Forward detection to WebSocket clients for real-time dashboard updates
+        const wss = getWebSocketServer();
+        if (wss) {
+            wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                    const message = {
+                        type: 'toneDetected', 
+                        data: detection // Send the raw detection data to match main system format
+                    };
+                    client.send(JSON.stringify(message));
+                }
+            });
+            log.info(`API: Forwarded toneDetected to WebSocket clients for ${detection.detector.name}`);
+        }
     };
 
     detectionService.on('toneDetected', detectionListener);
@@ -122,6 +139,28 @@ async function detectTones(req, res) {
             
             allToneDetections.push(detectionData);
             log.info(`API multi-tone detection: ${tones.map(f => `${f}Hz`).join(', ')} at ${detectionTimestamp}s (${requestId})`);
+            
+            // Forward multi-tone detection to WebSocket clients for real-time dashboard updates
+            const wss = getWebSocketServer();
+            if (wss) {
+                wss.clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        const message = {
+                            type: 'multiToneDetected', 
+                            data: {
+                                tones: tones,
+                                timestamp: detectionTimestamp > 0 ? new Date(detectionTimestamp * 1000).toISOString() : new Date().toISOString(),
+                                detector: {
+                                    name: 'All Tone Detector',
+                                    type: 'discovery'
+                                }
+                            }
+                        };
+                        client.send(JSON.stringify(message));
+                    }
+                });
+                log.info(`API: Forwarded multiToneDetected to WebSocket clients: ${tones.map(f => `${f}Hz`).join(', ')}`);
+            }
         };
 
         allToneDetectionService.on('multiToneDetected', multiToneDetectionListener);
