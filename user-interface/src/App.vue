@@ -48,6 +48,37 @@
               <span class="text-xs text-gray-500">{{ systemStatus.backendStatus.value.text }}</span>
             </div>
             
+            <!-- SSL Status Lights (only show if certificates need attention) -->
+            <div v-if="sslStatus.needsSSLSetup.value" class="space-y-2 pt-2 border-t border-gray-200">
+              <div class="text-xs text-gray-500 font-medium">SSL Certificate Setup</div>
+              
+              <!-- Backend SSL Status -->
+              <div 
+                v-if="sslStatus.backendSSLStatus.value === 'invalid'" 
+                class="flex items-center justify-between cursor-pointer hover:bg-gray-50 rounded p-1"
+                @click="openSSLSetupUrl(sslStatus.getBackendSSLUrl())"
+              >
+                <div class="flex items-center space-x-2">
+                  <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                  <span class="text-sm font-medium text-red-700">Backend SSL</span>
+                </div>
+                <span class="text-xs text-red-600">Setup Required</span>
+              </div>
+              
+              <!-- Manager SSL Status -->
+              <div 
+                v-if="sslStatus.managerSSLStatus.value === 'invalid'" 
+                class="flex items-center justify-between cursor-pointer hover:bg-gray-50 rounded p-1"
+                @click="openSSLSetupUrl(sslStatus.getManagerSSLUrl())"
+              >
+                <div class="flex items-center space-x-2">
+                  <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                  <span class="text-sm font-medium text-red-700">Manager SSL</span>
+                </div>
+                <span class="text-xs text-red-600">Setup Required</span>
+              </div>
+            </div>
+            
             
             <!-- Control Buttons -->
             <div class="flex space-x-2">
@@ -157,6 +188,7 @@ import { useSocketStore } from './stores/socket'
 import { useManagerSocketStore } from './stores/manager-socket'
 import { useNotificationStore } from './stores/notifications'
 import { useSystemStatus } from './composables/useSystemStatus'
+import { useSSLStatus } from './composables/useSSLStatus'
 import LoginView from './views/LoginView.vue'
 import NotificationToast from './components/NotificationToast.vue'
 import api from './utils/api'
@@ -182,6 +214,7 @@ const socketStore = useSocketStore()
 const managerSocketStore = useManagerSocketStore()
 const notificationStore = useNotificationStore()
 const systemStatus = useSystemStatus()
+const sslStatus = useSSLStatus()
 
 const controlLoading = ref(false)
 const showManualModal = ref(false)
@@ -419,6 +452,12 @@ async function stopBackend() {
 function logout() {
   authStore.logout()
   socketStore.disconnect()
+}
+
+// SSL certificate setup function
+function openSSLSetupUrl(url) {
+  // Open SSL setup page in a new tab
+  window.open(url, '_blank')
 }
 
 onMounted(() => {

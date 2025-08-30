@@ -11,7 +11,7 @@
 require('dotenv').config();
 const { program } = require('commander');
 const chalk = require('chalk');
-const { checkDefaultPassword } = require('../util/password-checker');
+const { checkDefaultPassword, selfSignedSSLWarming} = require('../util/security-reminders');
 
 const ProcessManager = require('../manager/process-manager');
 const LogAggregator = require('../manager/log-aggregator');
@@ -82,9 +82,18 @@ async function main() {
         
         // Display status table
         await displayStartupSummary(processManager, statusMonitor, logAggregator, options);
+
+        const ports = {
+            ui: processManager?.detectedPorts?.ui,
+            backend: processManager.options?.backendPort,
+            manager: processManager.options?.managerPort
+        }
         
-        // Check if default password is in use and show reminder
-        await checkDefaultPassword(options);
+        // Check if default password is in use and show message to user
+        await checkDefaultPassword(ports);
+
+        // Self Signed SSL Cert Warning
+        await selfSignedSSLWarming(ports);
         
         console.log(chalk.gray('\nProcess logs will appear below:'));
         logAggregator.logSeparator('LIVE PROCESS LOGS');

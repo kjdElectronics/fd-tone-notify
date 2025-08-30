@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>FD Tone Notify Backend Service</title>
+    <title>FD Tone Notify Manager Service</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
           crossorigin="anonymous">
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -50,7 +50,7 @@
         }
         .ssl-link {
             display: inline-block;
-            background: #007bff;
+            background: #6f42c1;
             color: white;
             padding: 12px 24px;
             border-radius: 8px;
@@ -59,7 +59,7 @@
             transition: background-color 0.3s;
         }
         .ssl-link:hover {
-            background: #0056b3;
+            background: #5a2d91;
             color: white;
             text-decoration: none;
         }
@@ -83,19 +83,19 @@
 <body>
     <div class="ssl-setup-card">
         <div class="checkmark">✓</div>
-        <h1 class="service-title">FD Tone Notify Backend Service</h1>
+        <h1 class="service-title">FD Tone Notify Manager Service</h1>
         <p class="subtitle">If you are seeing this page the SSL setup has been completed.</p>
-        
+
         <div class="next-step">
-            <div class="step-title">Complete SSL Setup:</div>
-            <p>Visit the FD Tone Notify Manager Service to accept that SSL certificate:</p>
-            <a href="#" id="manager-link" class="ssl-link">Accept Manager SSL Certificate</a>
+            <div class="step-title">Access the Application:</div>
+            <p>Navigate to the main UI to start using FD Tone Notify:</p>
+            <a href="#" id="ui-link" class="ui-link">Go to FD Tone Notify UI</a>
         </div>
         
         <div class="next-step">
-            <div class="step-title">Access the Application:</div>
-            <p>Once SSL certificates are accepted, navigate to the main UI:</p>
-            <a href="#" id="ui-link" class="ui-link">Go to FD Tone Notify UI</a>
+            <div class="step-title">Haven't Setup the Backend Service yet?</div>
+            <p>Return to the backend service if needed to verify that SSL Certificate has been accepted:</p>
+            <a href="#" id="backend-link" class="ssl-link">Go to Backend Service</a>
         </div>
     </div>
 
@@ -103,13 +103,13 @@
         // Detect the current hostname and update links dynamically
         const hostname = window.location.hostname;
         
-        // Update manager link - assume manager is on port 3001
-        const managerLink = document.getElementById('manager-link');
-        managerLink.href = `https://${hostname}:3001/`;
-        
         // Update UI link - assume UI is on port 3003
         const uiLink = document.getElementById('ui-link');
         uiLink.href = `https://${hostname}:3003/`;
+        
+        // Update backend link - assume backend is on port 3000
+        const backendLink = document.getElementById('backend-link');
+        backendLink.href = `https://${hostname}:3000/`;
     </script>
 </body>
 </html>

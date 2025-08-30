@@ -129,6 +129,9 @@ class ApiServer {
      * Setup HTTP routes
      */
     setupRoutes() {
+        // Serve static files (SSL confirmation page)
+        this.app.use(express.static(__dirname + '/public'));
+
         // Setup health routes
         const healthRoutes = new HealthRoutes(this.statusMonitor);
         this.app.use('/', healthRoutes.setupRoutes());

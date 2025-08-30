@@ -6,7 +6,7 @@ const chalk = require('chalk');
 /**
  * Check if the default password is still in use and show reminder
  */
-async function checkDefaultPassword(options = {}) {
+async function checkDefaultPassword(ports = {}) {
     try {
         // Read secrets file
         const secretsPath = path.join(__dirname, '..', 'config', 'secrets.json');
@@ -34,16 +34,6 @@ async function checkDefaultPassword(options = {}) {
             console.log(chalk.yellow('⚠️  ') + chalk.white('Please change this via the web interface!'));
             console.log(chalk.yellow('⚠️  ') + chalk.white('Go to: System Configuration > Security Settings'));
             console.log(chalk.yellow('⚠️  ' + '='.repeat(60)));
-            console.log('');
-            console.log(chalk.blue('🔒 ') + chalk.yellow('SSL CERTIFICATE SETUP REQUIRED'));
-            console.log(chalk.blue('🔒 ') + chalk.white('Before using the web interface:'));
-            console.log(chalk.blue('🔒 ') + chalk.white('1. Visit: ') + chalk.cyan(`https://localhost:${options.backendPort || 3000}`));
-            console.log(chalk.blue('🔒 ') + chalk.white('2. Accept the self-signed certificate warning'));
-            console.log(chalk.blue('🔒 ') + chalk.white('3. Visit: ') + chalk.cyan(`https://localhost:${options.managerPort || 3001}`));
-            console.log(chalk.blue('🔒 ') + chalk.white('4. Then use the web interface normally'));
-            console.log(chalk.blue('🔒 ' + '='.repeat(60)));
-            console.log('');
-            
             return true;
         }
         
@@ -55,4 +45,17 @@ async function checkDefaultPassword(options = {}) {
     }
 }
 
-module.exports = { checkDefaultPassword };
+async function selfSignedSSLWarming(ports = {}){
+    console.log('');
+    console.log(chalk.blue('🔒 ') + chalk.yellow('SELF SINGED SSL CERTIFICATE SETUP REQUIRED'));
+    console.log(chalk.blue('🔒 ') + chalk.white('Before using the web interface:'));
+    console.log(chalk.blue('🔒 ') + chalk.white('1. Visit: ') + chalk.cyan(`https://localhost:${ports.backend}`));
+    console.log(chalk.blue('🔒 ') + chalk.white('2. Accept the self-signed certificate warning'));
+    console.log(chalk.blue('🔒 ') + chalk.white('3. Visit: ') + chalk.cyan(`https://localhost:${ports.manager}`));
+    console.log(chalk.blue('🔒 ') + chalk.white('4. Accept the self-signed certificate warning'));
+    console.log(chalk.blue('🔒 ') + chalk.white(`5. Then use the web interface at Open web interface at ${chalk.white(`https://localhost:${ports.ui}`)} and use normally`));
+    console.log(chalk.blue('🔒 ' + '='.repeat(60)));
+    console.log('');
+}
+
+module.exports = { checkDefaultPassword, selfSignedSSLWarming };
