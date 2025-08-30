@@ -26,16 +26,24 @@ Before using FD Tone Notify certain software needs to be installed so FD Tone No
  prompt (cmd.exe) and type sox. If everything is working information on using sox will be printed to the console. If the
  path is not setup correctly an error "sox is not recognized" will display. If this error persists try restarting the
  computer and checking that the PATH was setup correctly.
-
+3. [Install OpenSSL](https://slproweb.com/products/Win32OpenSSL.html): Once openssl is installed you must 
+add it to your path. In the Start Menu search for "Edit the system environment variables". 
+4. In the bottom right, click "Environment Variables" button 
+5. On the bottom section "System Variables" section find the "Path" entry and click the Edit button.
+6. Find the install directory of openssl.exe. Typically, "C:\Program Files\OpenSSL-Win64\bin". 
+7. Click New and paste in the install directory.
+8. Open a NEW terminal/cmd.exe window (Will not work if it was previously open). Then type openssl version.
+   You should see something like `OpenSSL 3.5.2 5 Aug 2025 (Library: OpenSSL 3.5.2 5 Aug 2025)`. If you receive
+an error there is likely a problem with the path setup
 ### Linux and Raspberry Pi
  **:warning: The Raspberry Pi does not support audio input by default. A USB sound card is required. This [USB Sound Card](https://amzn.to/30gsWJH) has been
  tested and works well.**
 
- 1. Install ALSA
+ 1. Install ALSA and openssl
      ```
      sudo apt-get update
      sudo apt-get upgrade
-     sudo apt-get install alsa-base alsa-utils
+     sudo apt-get install alsa-base alsa-utils openssl
      ```
  2.Copy `config/asound.conf` to `/etc/asound.conf`. 
  This configures a `dsnoop` audio input that is a copy of hardware device `hw:1,0`. 

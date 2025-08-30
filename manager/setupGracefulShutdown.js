@@ -3,6 +3,10 @@ const chalk = require('chalk');
 let shuttingDown = false;
 
 function setupGracefulShutdown({processManager, apiServer}) {
+    const gracefulShutdown = async (signal, isException = false) => {
+       return _gracefulShutdown({signal, isException, processManager, apiServer});
+    };
+
     // Handle normal signals
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));
@@ -63,7 +67,7 @@ function setupGracefulShutdown({processManager, apiServer}) {
     });
 }
 
-async function gracefulShutdown({signal, isException = false, processManager, apiServer}) {
+async function _gracefulShutdown({signal, isException = false, processManager, apiServer}) {
     if (shuttingDown) {
         console.log(chalk.yellow(`Already shutting down, ignoring ${signal}`));
         return;

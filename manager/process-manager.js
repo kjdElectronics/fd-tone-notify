@@ -120,7 +120,7 @@ class ProcessManager {
                 if (this.processStatus.backend === 'starting') {
                     this.logAggregator.log('BACKEND', chalk.green('Backend startup completed'), 'success');
                 }
-            }, 3000);
+            }, 500);
         });
     }
 
@@ -257,22 +257,16 @@ class ProcessManager {
             
             child.once('exit', onExit);
             
-            // Send termination signal (Windows-compatible)
+            // We need to call task kill on windows for the UI
             if (process.platform === 'win32') {
-                // On Windows, try to gracefully close Vite
-                child.kill('SIGTERM');
-                // Also try sending Ctrl+C equivalent
-                try {
-                    child.kill('SIGINT');
-                } catch (e) {
-                    // Ignore if process already dead
-                }
+                const args = ['/PID', this.processes.ui.pid, '/T', '/F']; // /T = entire tree, /F = force
+                const child = spawn('taskkill', args);
             } else {
                 child.kill('SIGTERM');
             }
             
             // Force kill after timeout (shorter on Windows due to signal handling issues)
-            const timeout = process.platform === 'win32' ? 3000 : 5000;
+            const timeout = 2000;
             setTimeout(() => {
                 if (this.processes.ui === child) {
                     this.logAggregator.log('UI', chalk.red('⚠️ Force killing UI process'));

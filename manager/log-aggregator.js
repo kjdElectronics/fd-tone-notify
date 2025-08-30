@@ -128,10 +128,7 @@ class LogAggregator {
         }
 
         // Clean up the line
-        let cleanLine = line;
-        
-        // Remove ANSI color codes if present
-        cleanLine = cleanLine.replace(/\x1b\[[0-9;]*m/g, '');
+        let cleanLine = this.stripAnsiCodes(line);
         
         // Remove timestamp if it looks like one (to avoid duplication)
         cleanLine = cleanLine.replace(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\s*/, '');
@@ -144,6 +141,9 @@ class LogAggregator {
      * Detect Vite dev server port from log output
      */
     detectVitePort(line, processManager) {
+        // Strip ANSI color codes from the line before processing
+        const cleanLine = this.stripAnsiCodes(line);
+
         // Look for Vite's local server URL patterns
         const vitePatterns = [
             /➜\s+Local:\s+https?:\/\/localhost:(\d+)/i,
@@ -153,8 +153,11 @@ class LogAggregator {
             /ready in.*Local.*:(\d+)/i
         ];
 
-        for (const pattern of vitePatterns) {
-            const match = line.match(pattern);
+        // Test patterns against clean line
+        for (let i = 0; i < vitePatterns.length; i++) {
+            const pattern = vitePatterns[i];
+            const match = cleanLine.match(pattern);
+
             if (match && match[1]) {
                 const port = parseInt(match[1]);
                 if (port && port !== processManager.detectedPorts.ui) {
@@ -233,6 +236,16 @@ class LogAggregator {
         } else {
             logger.info(chalk.cyan(line));
         }
+    }
+
+    /**
+     * Strip ANSI color codes from a string
+     * @param {string} str - String that may contain ANSI codes
+     * @returns {string} - Clean string without ANSI codes
+     */
+    stripAnsiCodes(str) {
+        // Remove ANSI escape sequences (color codes, formatting, etc.)
+        return str.replace(/\x1b\[[0-9;]*[mGKHJF]/g, '');
     }
 
 }
