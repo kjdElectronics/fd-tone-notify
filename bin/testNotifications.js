@@ -1,46 +1,30 @@
 const log = require('../util/logger');
-const {sendPostRecordingNotifications} = require("../notifiers");
-const {sendPreRecordingNotifications} = require("../notifiers");
-const {TonesDetector} = require("../obj/TonesDetector");
-const {NotificationParams} = require("../obj/NotificationParams");
-const fs = require('fs');
-const config = require("config");
+const { NotificationTestService } = require('../service/NotificationTestService');
 
 async function testNotifications(){
-    const detectors =  config.detection.detectors.map(d => new TonesDetector(d));
-    log.info(`Send TEST Pre Recording Notifications`);
-    fs.writeFileSync('test-empty-recording.wav', "data");
-
-    const timestamp = new Date().getTime();
-    for (let i = 0; i < detectors.length; i++) {
-        const detector = detectors[i];
-        const params = new NotificationParams(
-            {
-                detector,
-                timestamp,
-                notifications: detector.notifications,
-                filename: "test-empty-recording.wav",
-                attachFile: false,
-                message: "TEST NOTIFICATION",
-                isTest: true
-            }
-        );
-
-        try {
-            await sendPreRecordingNotifications(params);
-            log.info(`All TEST Pre Recording Notifications Sent for ${detector.name}`)
+    const testService = new NotificationTestService();
+    
+    try {
+        const result = await testService.testAllNotifications();
+        
+        if (result.success) {
+            log.info(`TEST notifications completed successfully`);
+            log.info(`Tested ${result.detectorsWithNotifications} detector(s): ${result.successCount}/${result.totalTested} successful, ${result.totalNotificationsSent} total notifications sent`);
+            
+            // Log individual results for detail
+            result.results.forEach(testResult => {
+                if (testResult.success) {
+                    log.info(`✅ ${testResult.detector} - ${testResult.timing} (${testResult.notificationTypes.join(', ')})`);
+                } else {
+                    log.error(`❌ ${testResult.detector} - ${testResult.timing}: ${testResult.error}`);
+                }
+            });
+        } else {
+            log.warn('No notifications were configured to test');
         }
-        catch (err){
-            log.error(`Failed to send all TEST Pre Recording Notifications for ${detector.name}`);
-        }
-
-        try {
-            await sendPostRecordingNotifications(params);
-            log.info(`All TEST POST Recording Notifications Sent for ${detector.name}`)
-        }
-        catch (err){
-            log.error(`Failed to send all TEST POST Recording Notifications for ${detector.name}`);
-        }
+    } catch (error) {
+        log.error(`Failed to test notifications: ${error.message}`);
+        throw error;
     }
 }
 

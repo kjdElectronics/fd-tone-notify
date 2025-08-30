@@ -240,51 +240,33 @@ async function testAllNotifications() {
   testing.value = true
   
   try {
-    // TODO: Replace with actual API call when implemented
-    // Simulate API call for now
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    const response = await api.post('/notifications/test', { testAll: true })
     
-    // Add simulated test results
-    const detectors = config.value.detection?.detectors || []
-    detectors.forEach((detector, detectorIndex) => {
-      // Test pre-recording notifications
-      const preNotifications = detector.notifications?.preRecording || {}
-      Object.entries(preNotifications).forEach(([type, notifications]) => {
-        if (Array.isArray(notifications) && notifications.length > 0) {
-          testResults.value.unshift({
-            detector: detector.name,
-            type: type,
-            timing: 'pre-recording',
-            success: Math.random() > 0.2, // 80% success rate for demo
-            timestamp: new Date().toISOString()
-          })
-        }
+    if (response.data.success) {
+      // Add API results to test results display
+      response.data.results.forEach(result => {
+        testResults.value.unshift({
+          detector: result.detector,
+          type: 'all',
+          timing: result.timing,
+          success: result.success,
+          timestamp: result.timestamp,
+          error: result.error
+        })
       })
       
-      // Test post-recording notifications
-      const postNotifications = detector.notifications?.postRecording || {}
-      Object.entries(postNotifications).forEach(([type, notifications]) => {
-        if (Array.isArray(notifications) && notifications.length > 0) {
-          testResults.value.unshift({
-            detector: detector.name,
-            type: type,
-            timing: 'post-recording',
-            success: Math.random() > 0.2, // 80% success rate for demo
-            timestamp: new Date().toISOString()
-          })
-        }
+      notificationStore.addNotification({
+        type: 'success',
+        message: response.data.message
       })
-    })
-    
-    notificationStore.addNotification({
-      type: 'info',
-      message: `Tested ${totalNotifications.value} notifications across ${totalDetectors.value} detectors`
-    })
+    } else {
+      throw new Error(response.data.error || 'Unknown error')
+    }
   } catch (err) {
     console.error('Failed to test notifications:', err)
     notificationStore.addNotification({
       type: 'error',
-      message: 'Failed to test notifications'
+      message: err.response?.data?.error || err.message || 'Failed to test notifications'
     })
   } finally {
     testing.value = false
@@ -294,21 +276,55 @@ async function testAllNotifications() {
 // Handle individual notification test
 async function handleTestNotification({ detector, type, timing, notifications }) {
   try {
-    // TODO: Replace with actual API call when implemented
-    // Simulate API call for now
-    await new Promise(resolve => setTimeout(resolve, 500))
+    // Convert timing to API format
+    const trigger = timing === 'pre' ? 'preRecording' : 'postRecording'
     
-    testResults.value.unshift({
-      detector: detector.name,
-      type: type,
-      timing: timing,
-      success: Math.random() > 0.1, // 90% success rate for individual tests
-      timestamp: new Date().toISOString()
+    // Test all notifications of this type for this detector
+    const promises = notifications.map((notification, index) => {
+      return api.post('/notifications/test', {
+        detectorName: detector.name,
+        trigger: trigger,
+        type: type,
+        index: index
+      })
     })
     
+    const responses = await Promise.allSettled(promises)
+    
+    responses.forEach((response, index) => {
+      if (response.status === 'fulfilled' && response.value.data.success) {
+        testResults.value.unshift({
+          detector: detector.name,
+          type: type,
+          timing: timing,
+          success: true,
+          timestamp: response.value.data.result.timestamp,
+          index: index
+        })
+      } else {
+        const error = response.status === 'rejected' 
+          ? response.reason.message 
+          : response.value.data.error
+          
+        testResults.value.unshift({
+          detector: detector.name,
+          type: type,
+          timing: timing,
+          success: false,
+          timestamp: new Date().toISOString(),
+          index: index,
+          error: error
+        })
+      }
+    })
+    
+    const successCount = responses.filter(r => 
+      r.status === 'fulfilled' && r.value.data.success
+    ).length
+    
     notificationStore.addNotification({
-      type: 'info',
-      message: `Tested ${type} ${timing} notifications for ${detector.name}`
+      type: successCount > 0 ? 'success' : 'error',
+      message: `Tested ${successCount}/${notifications.length} ${type} ${timing} notifications for ${detector.name}`
     })
   } catch (err) {
     console.error('Failed to test notification:', err)

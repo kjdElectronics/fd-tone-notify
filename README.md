@@ -401,6 +401,7 @@ and a fresh default `config/` directory will be generated when you restart FD To
 
 #### Config File Sections
 ##### Audio - Required
+  - `disabled`: Set to `true` to disable audio input processing entirely. **Use this when there will not be a live audio input stream** (e.g., when only processing files via API or running in test-only mode). When disabled, all audio processing is skipped and no audio hardware is accessed. Default: `false`
   - `inputDevice`: The hardware device FD Tone Notify should use to listen for tones and recording. On Windows `hw:1,0` will
   always be the "default" input device selected in Windows. On Linux and Raspberry Pi this should be set to `dsnoop` as configured
   above in the [Setup Linux and Raspberry Pi](#Linux-and-Raspberry-Pi) Section. Alternativity, if using pulse audio set the name to `pulse:sinkname` and reference [Configuring Pulse Audio](#configuring-pulse-audio) 
@@ -694,6 +695,7 @@ fd-tone-notify --auto-delete-recording-age-days 0
 :information_source: Command line arguments override environment variables, which override configuration file settings.
 
 #### Complete List of Environment Variables
+  - FD_AUDIO_DISABLED: Overrides `config.audio.disabled` (set to "true" to disable audio input)
   - FD_INPUT_DEVICE: Overrides `config.audio.inputDevice`
   - FD_SAMPLE_RATE: Overrides `config.audio.sampleRate`
   - FD_FREQ_SCALE_FACTOR: Overrides `config.audio.frequencyScaleFactor`

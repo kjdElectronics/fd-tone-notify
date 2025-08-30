@@ -84,7 +84,7 @@
             class="rounded border-gray-300 text-fire-600 focus:ring-fire-500"
           />
           <label for="enableAllToneDetector" class="text-sm font-medium text-gray-700">
-            All Tone Detector (discover new tones in uploaded files)
+            All Tone Detector (Discover new tones in uploaded files - Slower)
           </label>
         </div>
 

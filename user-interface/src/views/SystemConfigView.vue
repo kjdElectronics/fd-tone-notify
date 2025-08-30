@@ -26,7 +26,21 @@
           <SpeakerWaveIcon class="w-5 h-5 mr-2 text-fire-600" />
           Audio Configuration
         </h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        <!-- Audio Disabled Checkbox -->
+        <div class="mb-6">
+          <label class="label flex items-center">
+            <input
+              v-model="config.audio.disabled"
+              type="checkbox"
+              class="mr-2"
+            />
+            Disable LIVE Audio Input Processing
+          </label>
+          <p class="help-text">Check this when there will not be a live audio input stream (e.g., API-only mode or testing). When disabled, all audio processing and recording features are unavailable.</p>
+        </div>
+        
+        <div v-if="!config.audio.disabled" class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="label">Audio Input Device (Not used for Windows OS)</label>
             <input
@@ -105,7 +119,7 @@
       </div>
 
       <!-- Recording Configuration -->
-      <div class="card">
+      <div v-if="!config.audio.disabled" class="card">
         <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
           <MicrophoneIcon class="w-5 h-5 mr-2 text-fire-600" />
           Recording Configuration
@@ -543,6 +557,7 @@ const error = ref(null)
 const config = ref({
   // Nested configuration structure matching API
   audio: {
+    disabled: false,
     inputDevice: '',
     sampleRate: 44100,
     channels: 1,
@@ -640,6 +655,7 @@ async function saveConfig(restart = false) {
     // Convert nested config structure back to flat structure for backend compatibility
     const configurationData = {
       // Audio settings - convert nested to flat
+      FD_AUDIO_DISABLED: config.value.audio.disabled ? 'true' : 'false',
       FD_INPUT_DEVICE: config.value.audio.inputDevice,
       FD_SAMPLE_RATE: config.value.audio.sampleRate,
       FD_CHANNELS: config.value.audio.channels,

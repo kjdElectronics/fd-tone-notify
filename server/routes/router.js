@@ -2,6 +2,7 @@ const express = require('express');
 const configRoutes = require('./config');
 const detectionRoutes = require('./detection');
 const systemRoutes = require('./system');
+const notificationRoutes = require('./notifications');
 const { login } = require('../middleware/auth.middleware');
 
 /**
@@ -25,6 +26,7 @@ function configureRoutes(app) {
     // Mount route modules
     app.use('/api/config', configRoutes);
     app.use('/api/system', systemRoutes);
+    app.use('/api/notifications', notificationRoutes);
     app.use('/api', detectionRoutes);
 }
 
