@@ -4,8 +4,15 @@ const log = require('../util/logger');
 const NO_DATA_INTERVAL_SEC = 30;
 
 class AudioService{
-    constructor() {
+    constructor({disabled=false} = {}) {
         this._dataListenerCallbacks = [];
+
+        this.disabled = disabled;
+
+        if(this.disabled) {
+            log.info(`Audio Service is disabled. Live input audio will not be processed. [config.audio.disabled=${this.disabled}]`)
+            return;
+        }
 
         this._setupMic();
 
@@ -14,10 +21,15 @@ class AudioService{
     }
 
     start(){
+        if(this.disabled)
+            throw new Error("Can't start Audio Service because it is disabled");
         this._micInstance.start();
     }
 
     restart(){
+        if(this.disabled)
+            throw new Error("Can't restart Audio Service because it is disabled");
+
         log.warning('Restarting mic instance');
         this._micInstance.stop();
         this._setupMic();
@@ -51,6 +63,9 @@ class AudioService{
     }
 
     onData(callback){
+        if(this.disabled)
+            throw new Error("Can't listen to Audio Service because it is disabled");
+
         this._dataListenerCallbacks.push(callback);
         this._micInputStream.on('data', callback);
     }
@@ -60,6 +75,9 @@ class AudioService{
     }
 
     listenForMicInputEvents(){
+        if(this.disabled)
+            throw new Error("Can't listen to Audio Service because it is disabled");
+
         this._micInputStream.on('data', () => {
             this._resetNoDataInterval();
         });

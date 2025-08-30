@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
 const log = require('../util/logger');
@@ -17,21 +17,15 @@ class PushBulletService{
             channel_tag: channelTag
         };
 
-        return fetch(`${BASE}/pushes`, {
-            method: 'post',
-            body:    JSON.stringify(postBody),
+        return axios.post(`${BASE}/pushes`, postBody, {
             headers: { 'Content-Type': 'application/json',  'Access-Token': TOKEN},
         })
-            .then(async res => {
-                if(!res.ok) {
-                    const t = await res.text();
-                    log.error(t);
-                    throw new Error(t);
-                }
+            .then(res => {
                 return true;
             })
             .catch(err => {
-                log.error(`Failed to push. Error: ${err}`);
+                log.error(`Failed to push. Error: ${err.message}`);
+                log.error(err.response?.data);
                 throw err;
             })
     }
@@ -55,22 +49,16 @@ class PushBulletService{
             channel_tag: channelTag
         };
 
-        return fetch(`${BASE}/pushes`, {
-            method: 'post',
-            body:    JSON.stringify(postBody),
+        return axios.post(`${BASE}/pushes`, postBody, {
             headers: { 'Content-Type': 'application/json',  'Access-Token': TOKEN},
         })
-            .then(async res => {
-                if(!res.ok) {
-                    const t = await res.text();
-                    log.error(t);
-                    throw new Error(t);
-                }
+            .then(res => {
                 return true;
             })
             .catch(err => {
                 console.log(err.stack);
-                log.error(`Failed to pushFile. Error: ${err}`);
+                log.error(`Failed to pushFile. Error: ${err.message}`);
+                log.error(err.response?.data);
                 throw err;
             })
     }
@@ -81,17 +69,16 @@ class PushBulletService{
             file_type: fileType
         };
 
-        return fetch(`${BASE}/upload-request`, {
-            method: 'post',
-            body:    JSON.stringify(postBody),
+        return axios.post(`${BASE}/upload-request`, postBody, {
             headers: { 'Content-Type': 'application/json',  'Access-Token': TOKEN},
         })
             .then(res => {
-                return res.json();
+                return res.data;
             })
             .catch(err => {
                 console.log(err.stack);
-                log.error(`Failed to uploadRequest. Error: ${err}`);
+                log.error(`Failed to uploadRequest. Error: ${err.message}`);
+                log.error(err.response?.data);
                 throw err;
             })
     }
@@ -106,20 +93,15 @@ class PushBulletService{
         form.append('content-type', uploadReqResult.data['content-type']);
         form.append('file', fs.readFileSync(absolutePath));
 
-        return fetch(uploadReqResult.upload_url, {
-            method: 'post',
-            body: form,
+        return axios.post(uploadReqResult.upload_url, form, {
+            headers: form.getHeaders()
         })
             .then(res => {
-                if(res.ok)
-                    return uploadReqResult;
-                else {
-                    res.text().then(t => log.error(t)).catch();
-                    throw new Error(res);
-                }
+                return uploadReqResult;
             })
             .catch(err => {
-                log.error(`Failed to uploadFile. Error: ${JSON.stringify(err)}`);
+                log.error(`Failed to uploadFile. Error: ${err.message}`);
+                log.error(err.response?.data);
                 throw err;
             })
     }

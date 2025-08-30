@@ -1,6 +1,7 @@
 {
   "name": "fd-tone-notify-ui",
   "version": "1.0.0",
+  "type": "module",
   "description": "Web UI for FD Tone Notify - User-friendly configuration and monitoring interface",
   "scripts": {
     "dev": "vite",
@@ -23,14 +24,14 @@
   "devDependencies": {
     "@headlessui/vue": "^1.7.0",
     "@heroicons/vue": "^2.0.0",
-    "@vitejs/plugin-vue": "^4.0.0",
+    "@vitejs/plugin-vue": "^6.0.0",
     "autoprefixer": "^10.4.0",
     "pinia": "^2.1.0",
     "postcss": "^8.4.0",
     "tailwindcss": "^3.3.0",
-    "vite": "^5.0.0",
-    "vue": "^3.3.0",
-    "vue-router": "^4.2.0"
+    "vite": "^7.0.0",
+    "vue": "^3.5.0",
+    "vue-router": "^4.5.0"
   },
   "engines": {
     "node": ">=16.0.0"

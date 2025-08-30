@@ -8,7 +8,7 @@ class AllToneDetectionService extends EventEmitter{
     //rangeOverlapModifier is a value between 1-2 that determines how much
     // overlap is between detection ranges. Default recommend value=1.8
     constructor({startFreq, endFreq, sampleRate, tolerancePercent, rangeOverlapModifier=1.8, logLevel="silly",
-                    audioInterface, matchThreshold=8, frequencyScaleFactor=1, silenceAmplitude, fileMode=false}) {
+                    audioInterface, matchThreshold=8, frequencyScaleFactor=1, silenceAmplitude, fileMode=false, detectionTimeoutMs=3000}) {
         super();
 
         this.startFreq = startFreq;
@@ -16,6 +16,8 @@ class AllToneDetectionService extends EventEmitter{
         this.tolerancePercent = tolerancePercent;
         this.matchThreshold = matchThreshold;
         this.rangeOverlapModifier = rangeOverlapModifier;
+
+        this.detectionTimeoutMs = detectionTimeoutMs;
 
         this.detectionService = new DetectionService({
             sampleRate,
@@ -35,6 +37,8 @@ class AllToneDetectionService extends EventEmitter{
         this.logLevel = logLevel;
 
         this._initDetectors();
+        if(this.fileMode)
+            this._initFileModeReset();
     }
 
     /**
@@ -43,10 +47,15 @@ class AllToneDetectionService extends EventEmitter{
      */
     async waitForProcessingToComplete(){
         while(this.detectionService.isLocked){
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 25));
         }
-        while(this._timeout !== null && this._matches.length !== 0){
-            await new Promise(resolve => setTimeout(resolve, 100));
+        while(this._timeout !== null){
+            await new Promise(resolve => setTimeout(resolve, 25));
+        }
+        while(this._matches.length !== 0){
+            await new Promise(resolve => setTimeout(resolve, 25));
+            //Cleanup
+            this._emitMutiToneDetected();
         }
     }
 
@@ -67,38 +76,56 @@ class AllToneDetectionService extends EventEmitter{
             this._detectors.push(detector);
             detector.on("toneDetected", args => {
                 clearTimeout(this._timeout);
-                const {matchAverages, timestamp} = args;
+                const {matchAverages} = args;
                 
                 // If this is the first tone in a sequence, record the timestamp
                 if (this.fileMode ) {
                     this._lastDetectionTimestamp = this.detectionService.currentTimeStamp;
                 }
+
                 
                 this._matches.push(matchAverages[0]);
-                this._timeout = this._setResetTimeout();
+                if(!this.fileMode) //Only need the timeout when not in filemode
+                    this._timeout = this._setResetTimeout();
             });
         }
     }
 
+    _initFileModeReset(){
+        this.detectionService.on('audioFileDataProcessed', args => {
+            const timestamp = args.timestamp;
+            if(this._lastDetectionTimestamp == null)
+                return; //Nothing to do
+            const diff = timestamp - this._lastDetectionTimestamp;
+            const timeoutSeconds = this.detectionTimeoutMs / 1000
+            if(diff > timeoutSeconds)
+                this._emitMutiToneDetected();
+        })
+    }
+
     _setResetTimeout(){
         return setTimeout(() => {
-            let multiToneMatch = this._matches.map(f => Math.round(f));
-            multiToneMatch = this._condenseMatches(multiToneMatch); //Filter adjacent similar values
-            if (multiToneMatch.length > 1) {//Multi Tone Match Found
-                const detectionTimestamp = this._lastDetectionTimestamp || 0; // Fallback to 0 if no timestamp
-                log.crit(`ALL TONE DETECTOR MUTLI-TONE DETECTED: ${multiToneMatch.map(f => `${f}Hz`).join(", ")} at ${detectionTimestamp}s`);
-                
-                // Include timestamp information in the event
-                this.emit('multiToneDetected', {
-                    tones: multiToneMatch,
-                    timestamp: detectionTimestamp
-                });
-            }
-            this._matches = [];
-            this._lastDetectionTimestamp = null; // Reset for next sequence
-            clearTimeout(this._timeout);
-            this._timeout = null;
-        }, this.fileMode ? 50 : 3000); //Shorter reset when processing file data
+            this._emitMutiToneDetected();
+        }, this.detectionTimeoutMs);
+    }
+
+    _emitMutiToneDetected(){
+        let multiToneMatch = this._matches.map(f => Math.round(f));
+        multiToneMatch = this._condenseMatches(multiToneMatch); //Filter adjacent similar values
+        if (multiToneMatch.length > 1) {//Multi Tone Match Found
+            const detectionTimestamp = this._lastDetectionTimestamp;
+            log.crit(`ALL TONE DETECTOR MUTLI-TONE DETECTED: ${multiToneMatch.map(f => `${f}Hz`).join(", ")} at ${detectionTimestamp}s`);
+
+            // Include timestamp information in the event
+            this.emit('multiToneDetected', {
+                tones: multiToneMatch,
+                timestamp: detectionTimestamp
+            });
+        }
+        this._matches = [];
+        this._lastDetectionTimestamp = null; // Reset for next sequence
+        clearTimeout(this._timeout);
+        this._timeout = null;
     }
 
     _condenseMatches(values){

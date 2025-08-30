@@ -9,7 +9,7 @@ const { initRecordingAutoCleaningService} = require('../util/recording.cleaner')
 const {TonesDetectorConfig} = require("../obj/config/TonesDetectorConfig");
 
 async function fdToneNotify({webServer=false}={}){
-    const audioInterface = new AudioService();
+    const audioInterface = new AudioService({disabled: config?.audio?.disabled});
     const detectionService = new DetectionService({
         audioInterface,
         silenceAmplitude: config.audio.silenceAmplitude,
@@ -62,7 +62,8 @@ async function fdToneNotify({webServer=false}={}){
     //Init the Auto Cleaning Service to get rid of old recordings (Cofnig driven from env vars)
     initRecordingAutoCleaningService();
 
-    audioInterface.start();
+    if(!audioInterface.disabled)
+        audioInterface.start();
 
     if(webServer){
         log.info(`Starting Web App`);

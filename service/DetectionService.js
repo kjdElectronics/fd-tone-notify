@@ -25,7 +25,7 @@ class DetectionService extends EventEmitter{
         this._audioInterface = audioInterface;
         this._fileMode = fileMode;
         
-        if(audioInterface) {
+        if(audioInterface && !audioInterface.disabled) {
             this._audioInterface.onData( async (rawBuffer) => {
                 const decoded = decodeRawAudioBuffer(rawBuffer);
                 this.__processData(decoded);
@@ -224,6 +224,8 @@ class DetectionService extends EventEmitter{
         // Process the audio buffer through the same pipeline
         const decoded = decodeRawAudioBuffer(audioData.audioBuffer);
         this.__processData(decoded);
+
+        this.emit('audioFileDataProcessed', {timestamp: audioData.timestamp});
     }
 
     get currentTimeStamp(){

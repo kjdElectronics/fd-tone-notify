@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+const axios = require('axios');
 let fs = require('fs');
 const FormData = require('form-data');
 const path = require('path');
@@ -17,14 +17,12 @@ async function postJson({address, headers={}, timestamp, tones, matchAverages, f
         custom
     };
 
-    return fetch(address, {
-        method: 'post',
-        body:    JSON.stringify(postBody),
+    return axios.post(address, postBody, {
         headers: { 'Content-Type': 'application/json', ...headers},
     })
-        .then(res => _processResponse(res) )
+        .then(res => res.data)
         .catch(err => {
-            log.error(`WebHook ${address} Failed. Error: ${err}`);
+            log.error(`WebHook ${address} Failed. Error: ${err.message}`);
             log.debug(err.stack);
             throw err;
         })
@@ -49,13 +47,15 @@ async function postMultiPartFormDataWithFile({address, headers={}, timestamp, to
         filename: filename,
     });
 
-    return fetch(address, {
-        method: 'post',
-        body: form,
-        headers
+    return axios.post(address, form, {
+        headers: {
+            ...headers,
+            ...form.getHeaders()
+        }
     })
+        .then(res => res.data)
         .catch(err => {
-            log.error(`WebHook ${address} Failed to upload file (Multipart Form Data). Error: ${err}`);
+            log.error(`WebHook ${address} Failed to upload file (Multipart Form Data). Error: ${err.message}`);
             log.debug(err.stack);
             throw err;
         })
@@ -72,13 +72,5 @@ function _fillEnvVarsHeaders(headers){
     }
 }
 
-async function _processResponse(res){
-    const text = await res.text();
-    try{
-        return JSON.parse(text);
-    }catch(err) {
-        return text;
-    }
-}
 
 module.exports = {postJson, postMultiPartFormDataWithFile};

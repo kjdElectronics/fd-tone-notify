@@ -1,5 +1,6 @@
 {
   "audio": {
+    "disabled": false,
     "inputDevice": "hw:1,0",
     "sampleRate": 44100,
     "frequencyScaleFactor": 1,
@@ -82,6 +83,46 @@
         {
           "name": "Second Test Fire Department",
           "tones": [602, 926, 602, 636, 636, 602],
+          "matchThreshold": 6,
+          "tolerancePercent": 0.02,
+          "notifications": {
+            "preRecording": {
+              "pushbullet": [],
+              "webhooks": [],
+              "externalCommands": [],
+              "emails": []
+            },
+            "postRecording": {
+              "pushbullet": [],
+              "webhooks": [],
+              "externalCommands": [],
+              "emails": []
+            }
+          }
+        },
+        {
+          "name": "Third Test Fire Department",
+          "tones": [440, 879],
+          "matchThreshold": 6,
+          "tolerancePercent": 0.02,
+          "notifications": {
+            "preRecording": {
+              "pushbullet": [],
+              "webhooks": [],
+              "externalCommands": [],
+              "emails": []
+            },
+            "postRecording": {
+              "pushbullet": [],
+              "webhooks": [],
+              "externalCommands": [],
+              "emails": []
+            }
+          }
+        },
+        {
+          "name": "Fourth Test Fire Department",
+          "tones": [1202, 1843],
           "matchThreshold": 6,
           "tolerancePercent": 0.02,
           "notifications": {
