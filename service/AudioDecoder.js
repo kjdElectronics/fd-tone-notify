@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const WavDecoder = require('wav-decoder');
 const log = require('../util/logger');
+const garbageCollect = require('../util/gc');
 
 // Supported audio formats and their handlers
 const SUPPORTED_FORMATS = {
@@ -40,8 +41,8 @@ class AudioDecoder {
      * @private
      */
     static async _decodeWav(filePath) {
-        const fileBuffer = fs.readFileSync(filePath);
-        const decoded = await WavDecoder.decode(fileBuffer);
+        let fileBuffer = fs.readFileSync(filePath);
+        let decoded = await WavDecoder.decode(fileBuffer);
         
         // Extract first channel for consistency (handles both mono and stereo)
         const audioData = decoded.channelData[0];
@@ -54,13 +55,23 @@ class AudioDecoder {
         
         log.debug(`Decoded WAV: ${decoded.sampleRate}Hz, ${channels} channel(s), ${audioData.length} samples`);
         
-        return {
+        const result = {
             sampleRate: decoded.sampleRate,
             channels: channels,
             samples: audioData,
             duration: audioData.length / decoded.sampleRate,
             bitDepth: 16 // wav-decoder normalizes to float, but original is typically 16-bit
         };
+        
+        // Explicitly clear large buffer objects to prevent memory retention
+        fileBuffer = null;
+        decoded.channelData = null;
+        decoded = null;
+        
+        // Hint garbage collection after processing large audio files
+        garbageCollect("AudioDecoder WAV decode");
+        
+        return result;
     }
 
     /**
@@ -81,7 +92,7 @@ class AudioDecoder {
             const actualLength = chunkEnd - i;
             
             // Convert directly to Int16 format without intermediate slice copy
-            const int16Array = new Int16Array(actualLength);
+            let int16Array = new Int16Array(actualLength);
             for (let j = 0; j < actualLength; j++) {
                 // Convert from float (-1.0 to 1.0) to int16 (-32768 to 32767) directly from source
                 int16Array[j] = Math.max(-32768, Math.min(32767, Math.round(audioData[i + j] * 32767)));
@@ -107,10 +118,19 @@ class AudioDecoder {
             
             chunks.push(chunkData);
             
+            // Clear reference to Int16Array to help GC
+            int16Array = null;
+            
             chunkIndex++;
         }
         
         log.debug(`Created ${chunks.length} audio chunks from ${filePath}`);
+        
+        // Hint garbage collection after creating many chunks from large audio files
+        if (chunks.length > 5) {
+            garbageCollect("AudioDecoder chunk creation");
+        }
+        
         return chunks;
     }
 

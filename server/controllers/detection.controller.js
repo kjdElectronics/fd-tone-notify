@@ -158,6 +158,7 @@ async function detectTones(req, res) {
         };
 
         log.info(`API tone detection completed: ${detections.length} detections, ${allToneDetections.length} multi-tone detections in ${processingTime}ms (${requestId})`);
+
         res.json(response);
 
     } catch (processingError) {
@@ -168,11 +169,15 @@ async function detectTones(req, res) {
         );
     } finally {
         try {
+            // Dispose of services in proper order to prevent memory leaks
             if (detectionService && typeof detectionService.dispose === 'function') {
                 detectionService.dispose();
             }
             if (allToneDetectionService && typeof allToneDetectionService.dispose === 'function') {
                 allToneDetectionService.dispose();
+            }
+            if (audioFileService && typeof audioFileService.dispose === 'function') {
+                audioFileService.dispose();
             }
 
             // Force garbage collection on cleanup to prevent memory accumulation

@@ -3,7 +3,6 @@ const path = require('path');
 const log = require('../util/logger');
 const EventEmitter = require('events');
 const { AudioDecoder } = require('./AudioDecoder');
-const garbageCollect = require("../util/gc");
 
 class AudioFileService extends EventEmitter {
     constructor(config = {}) {
@@ -164,6 +163,29 @@ class AudioFileService extends EventEmitter {
      */
     getSupportedFormats() {
         return AudioDecoder.getSupportedFormats();
+    }
+
+    /**
+     * Cleanup method to properly dispose of all resources and prevent memory leaks
+     * CRITICAL: Must be called when service is no longer needed
+     */
+    dispose() {
+        log.debug('AudioFileService: Starting disposal');
+        
+        // Stop any ongoing processing
+        if (this.isProcessing) {
+            this.stop();
+        }
+        
+        // Clear processing state
+        this.currentFile = null;
+        this.totalDuration = 0;
+        this.processedDuration = 0;
+        
+        // Remove all event listeners to prevent memory leaks
+        this.removeAllListeners();
+        
+        log.debug('AudioFileService: Disposal complete');
     }
 
     /**

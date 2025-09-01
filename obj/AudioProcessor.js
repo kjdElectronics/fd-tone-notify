@@ -58,11 +58,12 @@ class AudioProcessor extends EventEmitter{
         const dataSlices = [];
         const completeChunks = Math.floor(this._processingBuffer.length / SLICE_SIZE);
         
-        // Extract complete chunks
+        // Extract complete chunks with pre-allocated arrays for better memory efficiency
         for (let i = 0; i < completeChunks; i++) {
-            const chunk = [];
+            const chunk = new Array(SLICE_SIZE);
+            const startIndex = i * SLICE_SIZE;
             for (let j = 0; j < SLICE_SIZE; j++) {
-                chunk[j] = this._processingBuffer[i * SLICE_SIZE + j];
+                chunk[j] = this._processingBuffer[startIndex + j];
             }
             dataSlices.push(chunk);
         }
@@ -70,10 +71,20 @@ class AudioProcessor extends EventEmitter{
         // Keep remainder by moving it to start of buffer (in-place)
         const remainder = this._processingBuffer.length % SLICE_SIZE;
         const consumedSamples = completeChunks * SLICE_SIZE;
-        for (let i = 0; i < remainder; i++) {
-            this._processingBuffer[i] = this._processingBuffer[consumedSamples + i];
+        
+        if (remainder > 0) {
+            // Move remaining data to start of buffer
+            for (let i = 0; i < remainder; i++) {
+                this._processingBuffer[i] = this._processingBuffer[consumedSamples + i];
+            }
         }
+        
         this._processingBuffer.length = remainder;
+        
+        // Force array compaction by reassigning if significant data was processed
+        if (consumedSamples > SLICE_SIZE * 2) {
+            this._processingBuffer = this._processingBuffer.slice(0, remainder);
+        }
         
         return dataSlices;
     }
