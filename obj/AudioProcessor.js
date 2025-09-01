@@ -44,8 +44,8 @@ class AudioProcessor extends EventEmitter{
             this._processingBuffer.splice(0, excessData); // Remove old data from beginning
             
             // Hint garbage collection when buffer overflow occurs to prevent accumulation
-            if (Math.random() < 0.1) { // 10% chance to avoid excessive GC calls
-                garbageCollect("Audio Processor 10%");
+            if (Math.random() < 0.005) { // 0.5% chance to avoid excessive GC calls
+                garbageCollect("Audio Processor 0.5%");
             }
         }
         

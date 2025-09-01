@@ -38,12 +38,13 @@ class AudioFileService extends EventEmitter {
         this.currentFile = filePath;
         this.processedDuration = 0;
         let chunks = [];
+        let decodedAudio;
 
         try {
             log.info(`Starting audio file processing: ${filePath}`);
 
             // Decode the entire file using wav-decoder for consistency
-            const decodedAudio = await AudioDecoder.decodeFile(filePath);
+            decodedAudio = await AudioDecoder.decodeFile(filePath);
             this.totalDuration = decodedAudio.duration;
 
             log.info(`File duration: ${this.formatDuration(this.totalDuration)}`);
@@ -77,6 +78,11 @@ class AudioFileService extends EventEmitter {
             chunks = null;
             this.isProcessing = false;
             this.currentFile = null;
+
+            // Clear the large decoded audio object immediately after creating chunks
+            if(decodedAudio.hasOwnProperty("samples"))
+                decodedAudio.samples = null;
+            decodedAudio = null;
         }
     }
 

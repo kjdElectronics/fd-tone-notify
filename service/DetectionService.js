@@ -136,70 +136,84 @@ class DetectionService extends EventEmitter{
         else
             log[logLevel](message);
 
-        tonesDetector.on('toneDetected', async (result) =>{
-            const lock = this.__getToneDetectionLock({tonesDetector});
-            try{
-                const recordingThread = this._recordingThread;
-                this._recordingThread = new RecordingThread({threadId: recordingThread.threadId + 1});
-
-                log.debug(`Processing toneDetected event for ${tonesDetectorConfig.name}`);
-                const {matchAverages, message} = result;
-                // Use file timestamp in file mode, otherwise use current time
-                const timestamp = this._fileMode && this._currentTimestamp !== undefined
-                    ? this._currentTimestamp * 1000 // Convert to milliseconds to match existing format
-                    : new Date().getTime();
-                const filenameOnly = `${timestamp}-${tonesDetectorConfig.name}.wav`; //Include the name of the detector in the filename
-                const recordingDirectory = config.recording.directory;
-                const fullPath = path.join(recordingDirectory, filenameOnly);
-
-                const notificationParams = new NotificationParams({
-                    detector: tonesDetector,
-                    timestamp,
-                    matchAverages,
-                    notifications: tonesDetectorConfig.notifications,
-                    filename: fullPath,
-                    message
-                });
-
-                let notificationPromise = null;
-                if(this.areNotificationsEnabled && tonesDetectorConfig.notifications) { //Notifications enabled on the service and detector
-                    notificationPromise = sendPreRecordingNotifications(notificationParams)
-                        .then(results => {
-                            log.info(`All notifications for ${tonesDetectorConfig.name} have finished processing`);
-                            return results;
-                        });
-
-                    if(calculatedIsRecordingEnabled) {
-                        //Start recording in new thread. Post recording notifications sent from new thread
-                        log.debug(`Starting recorder & post recording notification processing. Thread Id: ${recordingThread.threadId}`);
-                        recordingThread.sendMessage(notificationParams.toObj());
-                    }
-                }
-
-                if(notificationPromise)
-                    await notificationPromise;
-
-                // Emit detection event with additional context for file mode
-                const detectionData = notificationParams.toObj();
-                if (this._fileMode) {
-                    detectionData.timestamp = this._currentTimestamp; // Use seconds for file mode
-                    detectionData.filePath = this._currentFilePath;
-                }
-                this.emit('toneDetected', detectionData);
-            }
-            catch (e) {
-                log.error(`Error processing toneDetected event for ${tonesDetectorConfig.name}: ${e.message}`);
-                throw e;
-            }
-            finally {
-                lock.release();
-            }
-
-
-        });
+        // Store detector context for the bound method
+        tonesDetector._detectionServiceContext = {
+            config: tonesDetectorConfig,
+            isRecordingEnabled: calculatedIsRecordingEnabled
+        };
+        
+        tonesDetector.on('toneDetected', this._handleTonesDetectorEvent.bind(this, tonesDetector));
 
         this.toneDetectors.push(tonesDetector);
         return tonesDetector;
+    }
+
+    /**
+     * Dedicated method to handle tone detection events without closure capture
+     * @param {Object} tonesDetector - The tone detector that triggered the event
+     * @param {Object} result - Detection result containing matchAverages and message
+     */
+    async _handleTonesDetectorEvent(tonesDetector, result) {
+        const { config: tonesDetectorConfig, isRecordingEnabled: calculatedIsRecordingEnabled } = tonesDetector._detectionServiceContext;
+        const lock = this.__getToneDetectionLock({tonesDetector});
+        
+        try {
+            const recordingThread = this._recordingThread;
+            this._recordingThread = new RecordingThread({threadId: recordingThread.threadId + 1});
+
+            log.debug(`Processing toneDetected event for ${tonesDetectorConfig.name}`);
+            const {matchAverages, message} = result;
+            
+            // Use file timestamp in file mode, otherwise use current time
+            const timestamp = this._fileMode && this._currentTimestamp !== undefined
+                ? this._currentTimestamp * 1000 // Convert to milliseconds to match existing format
+                : new Date().getTime();
+            const filenameOnly = `${timestamp}-${tonesDetectorConfig.name}.wav`; //Include the name of the detector in the filename
+            const recordingDirectory = config.recording.directory;
+            const fullPath = path.join(recordingDirectory, filenameOnly);
+
+            const notificationParams = new NotificationParams({
+                detector: tonesDetector,
+                timestamp,
+                matchAverages,
+                notifications: tonesDetectorConfig.notifications,
+                filename: fullPath,
+                message
+            });
+
+            let notificationPromise = null;
+            if(this.areNotificationsEnabled && tonesDetectorConfig.notifications) { //Notifications enabled on the service and detector
+                notificationPromise = sendPreRecordingNotifications(notificationParams)
+                    .then(results => {
+                        log.info(`All notifications for ${tonesDetectorConfig.name} have finished processing`);
+                        return results;
+                    });
+
+                if(calculatedIsRecordingEnabled) {
+                    //Start recording in new thread. Post recording notifications sent from new thread
+                    log.debug(`Starting recorder & post recording notification processing. Thread Id: ${recordingThread.threadId}`);
+                    recordingThread.sendMessage(notificationParams.toObj());
+                }
+            }
+
+            if(notificationPromise)
+                await notificationPromise;
+
+            // Emit detection event with additional context for file mode
+            const detectionData = notificationParams.toObj();
+            if (this._fileMode) {
+                detectionData.timestamp = this._currentTimestamp; // Use seconds for file mode
+                detectionData.filePath = this._currentFilePath;
+            }
+            this.emit('toneDetected', detectionData);
+        }
+        catch (e) {
+            log.error(`Error processing toneDetected event for ${tonesDetectorConfig.name}: ${e.message}`);
+            throw e;
+        }
+        finally {
+            lock.release();
+        }
     }
 
     _isRecordingEnabled(detectorLevelIsRecordingEnabled) {

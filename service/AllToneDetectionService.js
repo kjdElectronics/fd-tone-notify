@@ -77,28 +77,33 @@ class AllToneDetectionService extends EventEmitter{
             freq = this.rangeOverlapModifier * (freq * this.tolerancePercent) + freq;
 
             this._detectors.push(detector);
-            detector.on("toneDetected", args => {
-                clearTimeout(this._timeout);
-                const {matchAverages} = args;
-                
-                // If this is the first tone in a sequence, record the timestamp
-                if (this.fileMode ) {
-                    this._lastDetectionTimestamp = this.detectionService.currentTimeStamp;
-                }
-
-                
-                this._matches.push(matchAverages[0]);
-                
-                // Prevent unbounded matches array growth
-                if (this._matches.length > this.MAX_MATCHES) {
-                    this._matches.splice(0, this._matches.length - this.MAX_MATCHES);
-                    log.warning(`AllToneDetectionService: Matches array overflow, dropped ${this._matches.length - this.MAX_MATCHES} old matches`);
-                }
-                
-                if(!this.fileMode) //Only need the timeout when not in filemode
-                    this._timeout = this._setResetTimeout();
-            });
+            detector.on("toneDetected", this._handleDetectorToneDetected.bind(this));
         }
+    }
+
+    /**
+     * Dedicated method to handle tone detection events without closure capture
+     * @param {Object} args - Tone detection arguments
+     */
+    _handleDetectorToneDetected(args) {
+        clearTimeout(this._timeout);
+        const {matchAverages} = args;
+        
+        // If this is the first tone in a sequence, record the timestamp
+        if (this.fileMode ) {
+            this._lastDetectionTimestamp = this.detectionService.currentTimeStamp;
+        }
+
+        this._matches.push(matchAverages[0]);
+        
+        // Prevent unbounded matches array growth
+        if (this._matches.length > this.MAX_MATCHES) {
+            this._matches.splice(0, this._matches.length - this.MAX_MATCHES);
+            log.warning(`AllToneDetectionService: Matches array overflow, dropped ${this._matches.length - this.MAX_MATCHES} old matches`);
+        }
+        
+        if(!this.fileMode) //Only need the timeout when not in filemode
+            this._timeout = this._setResetTimeout();
     }
 
     _initFileModeReset(){

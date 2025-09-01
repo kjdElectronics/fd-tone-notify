@@ -85,35 +85,8 @@ async function detectTones(req, res) {
     const detections = [];
     const allToneDetections = [];
 
-    // Listen for tone detections
-    const detectionListener = (detection) => {
-        const detectionData = {
-            detector: detection.detector.name,
-            tones: detection.detector.tones,
-            timestamp: formatTimestamp(detection.timestamp),
-            timestampSeconds: detection.timestamp,
-            matchAverages: detection.matchAverages,
-            message: detection.message
-        };
-        
-        detections.push(detectionData);
-        log.info(`API detection: ${detection.detector.name} detected at ${detectionData.timestamp} (${requestId})`);
-        
-        // Forward detection to WebSocket clients for real-time dashboard updates
-        const wss = getWebSocketServer();
-        if (wss) {
-            wss.clients.forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                    const message = {
-                        type: 'toneDetected', 
-                        data: detection // Send the raw detection data to match main system format
-                    };
-                    client.send(JSON.stringify(message));
-                }
-            });
-            log.info(`API: Forwarded toneDetected to WebSocket clients for ${detection.detector.name}`);
-        }
-    };
+    // Create detection listener with context
+    const detectionListener = createDetectionListener(detections, requestId);
 
     detectionService.on('toneDetected', detectionListener);
 
@@ -121,47 +94,7 @@ async function detectTones(req, res) {
     let multiToneDetectionListener = null;
     
     if (allToneDetectionService) {
-        multiToneDetectionListener = (eventData) => {
-            // Extract data from the event - could be legacy format (just tones array) or new format (object with tones and timestamp)
-            const tones = Array.isArray(eventData) ? eventData : eventData.tones;
-            const detectionTimestamp = Array.isArray(eventData) ? 0 : (eventData.timestamp || 0);
-            
-            const detectionData = {
-                detector: 'All Tone Detector',
-                tones: tones,
-                timestamp: formatTimestamp(detectionTimestamp),
-                timestampSeconds: detectionTimestamp,
-                matchAverages: tones,
-                message: `Multi-tone detection: ${tones.map(f => `${f}Hz`).join(', ')}`,
-                type: 'discovery'
-            };
-            
-            allToneDetections.push(detectionData);
-            log.info(`API multi-tone detection: ${tones.map(f => `${f}Hz`).join(', ')} at ${detectionTimestamp}s (${requestId})`);
-            
-            // Forward multi-tone detection to WebSocket clients for real-time dashboard updates
-            const wss = getWebSocketServer();
-            if (wss) {
-                wss.clients.forEach(client => {
-                    if (client.readyState === WebSocket.OPEN) {
-                        const message = {
-                            type: 'multiToneDetected', 
-                            data: {
-                                tones: tones,
-                                timestamp: detectionTimestamp > 0 ? new Date(detectionTimestamp * 1000).toISOString() : new Date().toISOString(),
-                                detector: {
-                                    name: 'All Tone Detector',
-                                    type: 'discovery'
-                                }
-                            }
-                        };
-                        client.send(JSON.stringify(message));
-                    }
-                });
-                log.info(`API: Forwarded multiToneDetected to WebSocket clients: ${tones.map(f => `${f}Hz`).join(', ')}`);
-            }
-        };
-
+        multiToneDetectionListener = createMultiToneDetectionListener(allToneDetections, requestId);
         allToneDetectionService.on('multiToneDetected', multiToneDetectionListener);
     }
 
@@ -257,6 +190,92 @@ async function detectTones(req, res) {
             log.warning(`API: Failed to clean up uploaded file: ${cleanupError.message} (${requestId})`);
         }
     }
+}
+
+/**
+ * Create a detection listener function
+ * @param {Array} detections - Array to store detections
+ * @param {string} requestId - Request ID for logging
+ * @returns {Function} Detection listener function
+ */
+function createDetectionListener(detections, requestId) {
+    return function handleDetection(detection) {
+        const detectionData = {
+            detector: detection.detector.name,
+            tones: detection.detector.tones,
+            timestamp: formatTimestamp(detection.timestamp),
+            timestampSeconds: detection.timestamp,
+            matchAverages: detection.matchAverages,
+            message: detection.message
+        };
+
+        detections.push(detectionData);
+        log.info(`API detection: ${detection.detector.name} detected at ${detectionData.timestamp} (${requestId})`);
+
+        // Forward detection to WebSocket clients for real-time dashboard updates
+        const wss = getWebSocketServer();
+        if (wss) {
+            wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                    const message = {
+                        type: 'toneDetected',
+                        data: detection // Send the raw detection data to match main system format
+                    };
+                    client.send(JSON.stringify(message));
+                }
+            });
+            log.info(`API: Forwarded toneDetected to WebSocket clients for ${detection.detector.name}`);
+        }
+    };
+}
+
+/**
+ * Create a multi-tone detection listener function
+ * @param {Array} allToneDetections - Array to store multi-tone detections
+ * @param {string} requestId - Request ID for logging
+ * @returns {Function} Multi-tone detection listener function
+ */
+function createMultiToneDetectionListener(allToneDetections, requestId) {
+    return function handleMultiToneDetection(eventData) {
+        // Extract data from the event - could be legacy format (just tones array) or new format (object with tones and timestamp)
+        const tones = Array.isArray(eventData) ? eventData : eventData.tones;
+        const detectionTimestamp = Array.isArray(eventData) ? 0 : (eventData.timestamp !== undefined ? eventData.timestamp : 0);
+
+        const detectionData = {
+            detector: 'All Tone Detector',
+            tones: tones,
+            timestamp: formatTimestamp(detectionTimestamp),
+            timestampSeconds: detectionTimestamp,
+            matchAverages: tones,
+            message: `Multi-tone detection: ${tones.map(f => `${f}Hz`).join(', ')}`,
+            type: 'discovery'
+        };
+
+        allToneDetections.push(detectionData);
+        log.info(`API multi-tone detection: ${tones.map(f => `${f}Hz`).join(', ')} at ${detectionTimestamp}s (${requestId})`);
+
+        // Forward multi-tone detection to WebSocket clients for real-time dashboard updates
+        const wss = getWebSocketServer();
+        if (wss) {
+            wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                    const message = {
+                        type: 'multiToneDetected',
+                        data: {
+                            tones: tones,
+                            timestamp: detectionTimestamp > 0 ? new Date(detectionTimestamp * 1000).toISOString() : new Date().toISOString(),
+                            detector: {
+                                name: 'All Tone Detector',
+                                type: 'discovery'
+                            }
+                        }
+                    };
+                    client.send(JSON.stringify(message));
+                }
+            });
+            log.info(`API: Forwarded multiToneDetected to WebSocket clients: ${tones.map(f => `${f}Hz`).join(', ')}`);
+        }
+    };
 }
 
 
