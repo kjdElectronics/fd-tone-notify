@@ -72,7 +72,7 @@ class ProcessManager {
             
             this.logAggregator.log('BACKEND', `Starting backend: node ${backendPath} ${args.join(' ')}`);
             
-            const child = spawn('node', [backendPath, ...args], {
+            const child = spawn('node', ["--expose-gc", backendPath, ...args], {
                 cwd: path.dirname(__dirname),
                 env: process.env,
                 stdio: 'pipe'

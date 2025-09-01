@@ -27,8 +27,11 @@ class DetectionService extends EventEmitter{
         
         if(audioInterface && !audioInterface.disabled) {
             this._audioInterface.onData( async (rawBuffer) => {
-                const decoded = decodeRawAudioBuffer(rawBuffer);
+                let decoded = decodeRawAudioBuffer(rawBuffer);
                 this.__processData(decoded);
+                //Force Cleanup
+                rawBuffer = null;
+                decoded = null;
             });
         }
         else if(!fileMode) {
@@ -101,7 +104,7 @@ class DetectionService extends EventEmitter{
             log.debug(`Detection Service: Acquiring lock ${lock}`);
         }
 
-        const dataChunks = this._audioProcessor.chunkAudioData(decodedData);
+        let dataChunks = this._audioProcessor.chunkAudioData(decodedData);
         dataChunks.forEach(chunk => {
             const {pitch, clarity} = this._audioProcessor.getPitchWithClarity(chunk, sampleRate);
             this.toneDetectors.forEach(tonesDetector => {
@@ -111,6 +114,7 @@ class DetectionService extends EventEmitter{
 
         if(lock)
             lock.release();
+        dataChunks = null;
     }
 
     addToneDetector(tonesDetectorConfig) {

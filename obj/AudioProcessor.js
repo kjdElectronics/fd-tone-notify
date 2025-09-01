@@ -5,6 +5,7 @@ const EventEmitter = require('events');
 const moment = require("moment");
 const {SilenceDetector} = require("./SilenceDetector");
 const config = require("config");
+const garbageCollect = require("../util/gc");
 const CLARITY_THRESHOLD = config.detection.clarityThreshold ? config.detection.clarityThreshold : 0.9;
 
 const SAMPLE_SIZE = 200;
@@ -30,39 +31,50 @@ class AudioProcessor extends EventEmitter{
     }
 
     chunkAudioData(decodedData){
-        // Prevent memory leak by limiting buffer size
-        const filteredData = Array.from(decodedData).filter(v => v !== 0);
-        const data = this._processingBuffer.concat(filteredData);
-        
-        // Prevent unbounded buffer growth - drop old data if buffer gets too large
-        if (data.length > MAX_BUFFER_SIZE) {
-            //log.warning(`AudioProcessor buffer overflow (${data.length} > ${MAX_BUFFER_SIZE}), dropping old data`);
-            const excessData = data.length - MAX_BUFFER_SIZE;
-            data.splice(0, excessData); // Remove old data from beginning
+        // Filter non-zero values directly into processing buffer without intermediate arrays
+        for (let i = 0; i < decodedData.length; i++) {
+            if (decodedData[i] !== 0) {
+                this._processingBuffer.push(decodedData[i]);
+            }
         }
         
-        if(data.length < this.sampleSize){
-            this._processingBuffer = data;
+        // Prevent unbounded buffer growth - drop old data if buffer gets too large
+        if (this._processingBuffer.length > MAX_BUFFER_SIZE) {
+            const excessData = this._processingBuffer.length - MAX_BUFFER_SIZE;
+            this._processingBuffer.splice(0, excessData); // Remove old data from beginning
+            
+            // Hint garbage collection when buffer overflow occurs to prevent accumulation
+            if (Math.random() < 0.1) { // 10% chance to avoid excessive GC calls
+                garbageCollect("Audio Processor 10%");
+            }
+        }
+        
+        if(this._processingBuffer.length < this.sampleSize){
             return []; //No complete data chunks
         }
         
-        // Keep remainder for next chunk, don't discard completely
-        const remainder = data.length % this.sampleSize;
-        this._processingBuffer = remainder > 0 ? data.slice(-remainder) : [];
-
+        // Create chunks without copying remainder
         const SLICE_SIZE = this.sampleSize;
         const dataSlices = [];
-        let currentSlice = [];
+        const completeChunks = Math.floor(this._processingBuffer.length / SLICE_SIZE);
         
-        // Process only complete chunks to avoid data loss
-        const completeDataLength = data.length - remainder;
-        for (let i = 0; i < completeDataLength; i++) {
-            currentSlice.push(data[i]);
-            if(currentSlice.length >= SLICE_SIZE) {
-                dataSlices.push(currentSlice);
-                currentSlice = [];
+        // Extract complete chunks
+        for (let i = 0; i < completeChunks; i++) {
+            const chunk = [];
+            for (let j = 0; j < SLICE_SIZE; j++) {
+                chunk[j] = this._processingBuffer[i * SLICE_SIZE + j];
             }
+            dataSlices.push(chunk);
         }
+        
+        // Keep remainder by moving it to start of buffer (in-place)
+        const remainder = this._processingBuffer.length % SLICE_SIZE;
+        const consumedSamples = completeChunks * SLICE_SIZE;
+        for (let i = 0; i < remainder; i++) {
+            this._processingBuffer[i] = this._processingBuffer[consumedSamples + i];
+        }
+        this._processingBuffer.length = remainder;
+        
         return dataSlices;
     }
 

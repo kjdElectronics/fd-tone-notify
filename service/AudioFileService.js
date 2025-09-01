@@ -3,6 +3,7 @@ const path = require('path');
 const log = require('../util/logger');
 const EventEmitter = require('events');
 const { AudioDecoder } = require('./AudioDecoder');
+const garbageCollect = require("../util/gc");
 
 class AudioFileService extends EventEmitter {
     constructor(config = {}) {
@@ -36,6 +37,7 @@ class AudioFileService extends EventEmitter {
         this.isProcessing = true;
         this.currentFile = filePath;
         this.processedDuration = 0;
+        let chunks = [];
 
         try {
             log.info(`Starting audio file processing: ${filePath}`);
@@ -47,7 +49,7 @@ class AudioFileService extends EventEmitter {
             log.info(`File duration: ${this.formatDuration(this.totalDuration)}`);
 
             // Create chunks using the AudioDecoder
-            const chunks = AudioDecoder.createChunks(
+            chunks = AudioDecoder.createChunks(
                 decodedAudio.samples,
                 decodedAudio.sampleRate,
                 this.chunkDurationSeconds,
@@ -72,6 +74,7 @@ class AudioFileService extends EventEmitter {
             log.error(`Error processing audio file ${filePath}: ${error.message}`);
             throw error;
         } finally {
+            chunks = null;
             this.isProcessing = false;
             this.currentFile = null;
         }

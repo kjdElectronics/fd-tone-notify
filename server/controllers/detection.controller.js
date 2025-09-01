@@ -10,6 +10,7 @@ const { DetectionService } = require('../../service/DetectionService');
 const { AllToneDetectionService } = require('../../service/AllToneDetectionService');
 const { getWebSocketServer } = require('../index');
 const config = require('config');
+const garbageCollect = require("../../util/gc");
 
 /**
  * Upload a WAV file and detect tones
@@ -240,7 +241,9 @@ async function detectTones(req, res) {
             if (allToneDetectionService && typeof allToneDetectionService.dispose === 'function') {
                 allToneDetectionService.dispose();
             }
-            log.debug(`API: Emergency disposal of detection services for request ${requestId}`);
+
+            // Force garbage collection on cleanup to prevent memory accumulation
+            garbageCollect("Detection Controller");
         } catch (disposeError) {
             log.error(`API: Failed to dispose services: ${disposeError.message} (${requestId})`);
         }

@@ -78,17 +78,17 @@ class AudioDecoder {
         
         for (let i = 0; i < audioData.length; i += samplesPerChunk) {
             const chunkEnd = Math.min(i + samplesPerChunk, audioData.length);
-            const chunkSamples = audioData.slice(i, chunkEnd);
+            const actualLength = chunkEnd - i;
             
-            // Convert to Int16 format for compatibility with existing DetectionService
-            const int16Array = new Int16Array(chunkSamples.length);
-            for (let j = 0; j < chunkSamples.length; j++) {
-                // Convert from float (-1.0 to 1.0) to int16 (-32768 to 32767)
-                int16Array[j] = Math.max(-32768, Math.min(32767, Math.round(chunkSamples[j] * 32767)));
+            // Convert directly to Int16 format without intermediate slice copy
+            const int16Array = new Int16Array(actualLength);
+            for (let j = 0; j < actualLength; j++) {
+                // Convert from float (-1.0 to 1.0) to int16 (-32768 to 32767) directly from source
+                int16Array[j] = Math.max(-32768, Math.min(32767, Math.round(audioData[i + j] * 32767)));
             }
             
             const timestamp = (i / sampleRate);
-            const actualDuration = chunkSamples.length / sampleRate;
+            const actualDuration = actualLength / sampleRate;
             const isLastChunk = chunkEnd >= audioData.length;
             
             const chunkData = {
