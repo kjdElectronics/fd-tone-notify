@@ -8,6 +8,7 @@ const config = require("config");
 const CLARITY_THRESHOLD = config.detection.clarityThreshold ? config.detection.clarityThreshold : 0.9;
 
 const SAMPLE_SIZE = 200;
+const MAX_BUFFER_SIZE = 2000; // Prevent unbounded buffer growth
 
 class AudioProcessor extends EventEmitter{
     constructor({sampleRate, silenceAmplitude, frequencyScaleFactor}) {
@@ -29,27 +30,43 @@ class AudioProcessor extends EventEmitter{
     }
 
     chunkAudioData(decodedData){
-        const data = this._processingBuffer.concat(Array.from(decodedData).filter(v => v !== 0));
+        // Prevent memory leak by limiting buffer size
+        const filteredData = Array.from(decodedData).filter(v => v !== 0);
+        const data = this._processingBuffer.concat(filteredData);
+        
+        // Prevent unbounded buffer growth - drop old data if buffer gets too large
+        if (data.length > MAX_BUFFER_SIZE) {
+            //log.warning(`AudioProcessor buffer overflow (${data.length} > ${MAX_BUFFER_SIZE}), dropping old data`);
+            const excessData = data.length - MAX_BUFFER_SIZE;
+            data.splice(0, excessData); // Remove old data from beginning
+        }
+        
         if(data.length < this.sampleSize){
             this._processingBuffer = data;
             return []; //No complete data chunks
         }
-        this._processingBuffer = []; //Reset buffer
+        
+        // Keep remainder for next chunk, don't discard completely
+        const remainder = data.length % this.sampleSize;
+        this._processingBuffer = remainder > 0 ? data.slice(-remainder) : [];
 
         const SLICE_SIZE = this.sampleSize;
         const dataSlices = [];
         let currentSlice = [];
-        data.forEach(dataItem => {
-            currentSlice.push(dataItem);
+        
+        // Process only complete chunks to avoid data loss
+        const completeDataLength = data.length - remainder;
+        for (let i = 0; i < completeDataLength; i++) {
+            currentSlice.push(data[i]);
             if(currentSlice.length >= SLICE_SIZE) {
                 dataSlices.push(currentSlice);
                 currentSlice = [];
             }
-        });
+        }
         return dataSlices;
     }
 
-    getPitchWithClarity(decoded){
+    getPitchWithClarity(decoded, sampleRate=null){
         const rmsAmplitude = calcRms(decoded);
         this._silenceDetector.processRms(rmsAmplitude);
         if(!this._silence || rmsAmplitude > this.silenceAmplitude)
@@ -58,7 +75,7 @@ class AudioProcessor extends EventEmitter{
         let pitchResult = 0; //So silence resets match
         if(rmsAmplitude > this.silenceAmplitude) {
             this._silence = false;
-            pitchResult = this._getPitch(decoded);
+            pitchResult = this._getPitch(decoded, sampleRate ? sampleRate : this.sampleRate);
             if (pitchResult) {
                 const message = `Detected Avg Pitch: ${pitchResult.pitch}Hz. Clarity: ${pitchResult.clarity}`;
                 log.silly(message);
@@ -70,8 +87,8 @@ class AudioProcessor extends EventEmitter{
         return {pitch: 0, clarity: 0, weight: 1, decoded}; //Silence or no pitch data
     }
 
-    _getPitch(decoded){
-        const [pitchyResult, clarity] = this._pitchyDetector.findPitch(decoded, this.sampleRate);
+    _getPitch(decoded, sampleRate){
+        const [pitchyResult, clarity] = this._pitchyDetector.findPitch(decoded, sampleRate);
         if(clarity > CLARITY_THRESHOLD && pitchyResult !== 0) {
             return {pitch: pitchyResult * this.frequencyScaleFactor, clarity};
         }

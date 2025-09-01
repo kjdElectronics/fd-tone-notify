@@ -94,7 +94,7 @@ class DetectionService extends EventEmitter{
         return lock;
     }
 
-    __processData(decodedData){
+    __processData(decodedData, sampleRate=null){
         let lock;
         if(this._fileMode) { //Only need this for file mode. In mic mode, timeouts handle it
             lock = this.__getToneDetectionLock({tonesDetector: {name: "PROCESSING_DATA_LOCK"}});
@@ -103,7 +103,7 @@ class DetectionService extends EventEmitter{
 
         const dataChunks = this._audioProcessor.chunkAudioData(decodedData);
         dataChunks.forEach(chunk => {
-            const {pitch, clarity} = this._audioProcessor.getPitchWithClarity(chunk);
+            const {pitch, clarity} = this._audioProcessor.getPitchWithClarity(chunk, sampleRate);
             this.toneDetectors.forEach(tonesDetector => {
                 tonesDetector.processValues({pitchValues:[pitch], raw: chunk})
             })
@@ -227,7 +227,7 @@ class DetectionService extends EventEmitter{
         
         // Process the audio buffer through the same pipeline
         const decoded = decodeRawAudioBuffer(audioData.audioBuffer);
-        this.__processData(decoded);
+        this.__processData(decoded, audioData?.sampleRate);
 
         this.emit('audioFileDataProcessed', {timestamp: audioData.timestamp});
     }
@@ -236,6 +236,58 @@ class DetectionService extends EventEmitter{
         if(!this._fileMode)
             throw new Error('currentTimeStamp can only be used in file mode');
         return this._currentTimestamp;
+    }
+    
+    /**
+     * Cleanup method to properly dispose of all resources and prevent memory leaks
+     * CRITICAL: Must be called when service is no longer needed
+     */
+    dispose() {
+        log.debug(`DetectionService: Disposing of ${this.toneDetectors.length} tone detectors and ${Object.keys(this._toneDetectionLocks).length} locks`);
+        
+        // Release all locks
+        Object.values(this._toneDetectionLocks).forEach(lock => {
+            if (lock && typeof lock.release === 'function') {
+                lock.release();
+            }
+        });
+        this._toneDetectionLocks = {};
+        
+        // Dispose of all tone detectors
+        this.toneDetectors.forEach(detector => {
+            if (detector && typeof detector.dispose === 'function') {
+                detector.dispose();
+            } else {
+                // Fallback cleanup for detectors without dispose method
+                detector.removeAllListeners();
+            }
+        });
+        
+        // Clear tone detectors array
+        this.toneDetectors.length = 0;
+        
+        // Dispose of audio processor
+        if (this._audioProcessor) {
+            this._audioProcessor.removeAllListeners();
+            // Clear internal buffers if they exist
+            if (this._audioProcessor._processingBuffer) {
+                this._audioProcessor._processingBuffer.length = 0;
+            }
+        }
+        
+        // Dispose of recording thread
+        if (this._recordingThread && typeof this._recordingThread.dispose === 'function') {
+            this._recordingThread.dispose();
+        }
+        
+        // Clear file mode state
+        this._currentTimestamp = null;
+        this._currentFilePath = null;
+        
+        // Remove all event listeners from this service
+        this.removeAllListeners();
+        
+        log.debug('DetectionService: Disposal complete');
     }
 
 }

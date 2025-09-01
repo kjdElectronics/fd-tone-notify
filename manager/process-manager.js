@@ -224,14 +224,14 @@ class ProcessManager {
             // Force kill after very short timeout (since graceful shutdown is broken)
             setTimeout(() => {
                 if (this.processes.backend === child) {
-                    this.logAggregator.log('BACKEND', chalk.red('⚠️ Force killing backend process (event handler cleanup needed)'));
+                    this.logAggregator.log('BACKEND', chalk.red('⚠️ Force killing backend process'));
                     try {
                         child.kill('SIGKILL');
                     } catch (e) {
                         // Process might already be dead
                     }
                 }
-            }, 1000);
+            }, 4000);
         });
     }
 

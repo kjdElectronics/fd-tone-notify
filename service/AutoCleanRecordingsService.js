@@ -95,6 +95,14 @@ class AutoCleanRecordingsService {
             nextCleanupTime: this.cronInterval ? new Date(Date.now() + this.cronInterval._idleTimeout) : null
         };
     }
+
+    /**
+     * Dispose of the service and clean up resources
+     */
+    dispose() {
+        log.debug('AutoCleanRecordingsService: Disposing resources');
+        this.stop(); // This will clear the interval and set isRunning to false
+    }
 }
 
 module.exports = AutoCleanRecordingsService;

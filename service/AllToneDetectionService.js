@@ -33,6 +33,9 @@ class AllToneDetectionService extends EventEmitter{
         this._detectors = [];
         this._timeout = null;
         this._lastDetectionTimestamp = null; // Track when the first tone in a sequence was detected
+        
+        // Memory management - limit matches array to prevent unbounded growth
+        this.MAX_MATCHES = 25;
 
         this.logLevel = logLevel;
 
@@ -85,6 +88,13 @@ class AllToneDetectionService extends EventEmitter{
 
                 
                 this._matches.push(matchAverages[0]);
+                
+                // Prevent unbounded matches array growth
+                if (this._matches.length > this.MAX_MATCHES) {
+                    this._matches.splice(0, this._matches.length - this.MAX_MATCHES);
+                    log.warning(`AllToneDetectionService: Matches array overflow, dropped ${this._matches.length - this.MAX_MATCHES} old matches`);
+                }
+                
                 if(!this.fileMode) //Only need the timeout when not in filemode
                     this._timeout = this._setResetTimeout();
             });
@@ -167,6 +177,39 @@ class AllToneDetectionService extends EventEmitter{
     //Method used for testing
     __processData(data){
         this.detectionService.__processData(data);
+    }
+    
+    /**
+     * Cleanup method to properly dispose of all resources and prevent memory leaks
+     * CRITICAL: Must be called when service is no longer needed
+     */
+    dispose() {
+        log.debug(`AllToneDetectionService: Disposing of ${this._detectors.length} detectors`);
+        
+        // Clear timeout
+        if (this._timeout) {
+            clearTimeout(this._timeout);
+            this._timeout = null;
+        }
+        
+        // Remove all detector event listeners to prevent memory leaks
+        this._detectors.forEach(detector => {
+            detector.removeAllListeners();
+        });
+        
+        // Clear detector arrays to free memory
+        this._detectors.length = 0;
+        this._matches.length = 0;
+        
+        // Dispose of detection service
+        if (this.detectionService && typeof this.detectionService.dispose === 'function') {
+            this.detectionService.dispose();
+        }
+        
+        // Remove all event listeners from this service
+        this.removeAllListeners();
+        
+        log.debug('AllToneDetectionService: Disposal complete');
     }
 }
 

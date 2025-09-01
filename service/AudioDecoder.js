@@ -96,6 +96,7 @@ class AudioDecoder {
                 timestamp: timestamp,
                 duration: actualDuration,
                 chunkIndex: chunkIndex,
+                sampleRate,
                 filePath: filePath
             };
             

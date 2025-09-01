@@ -145,6 +145,39 @@ class TonesDetector extends EventEmitter{
             return "notice";
         return "alert";
     }
+    
+    /**
+     * Cleanup method to prevent memory leaks
+     */
+    dispose() {
+        // Clear timeouts
+        if (this._fullResetTimeout) {
+            clearTimeout(this._fullResetTimeout);
+            this._fullResetTimeout = null;
+        }
+        if (this._unLockoutTimeout) {
+            clearTimeout(this._unLockoutTimeout);
+            this._unLockoutTimeout = null;
+        }
+        
+        // Dispose of silence detector
+        if (this._silenceDetector) {
+            this._silenceDetector.removeAllListeners();
+        }
+        
+        // Clear detector arrays
+        if (this._detectors) {
+            this._detectors.forEach(detector => {
+                if (detector && typeof detector.dispose === 'function') {
+                    detector.dispose();
+                }
+            });
+            this._detectors.length = 0;
+        }
+        
+        // Remove all event listeners
+        this.removeAllListeners();
+    }
 }
 
 module.exports = {TonesDetector};

@@ -83,6 +83,43 @@ class AudioService{
         });
         listenForMicInputEvents(this._micInputStream);
     }
+
+    /**
+     * Dispose of the AudioService and clean up resources
+     */
+    dispose() {
+        if (this.disabled) {
+            return;
+        }
+
+        log.debug('AudioService: Disposing resources');
+
+        // Clear the no data interval
+        if (this._noDataInterval) {
+            clearInterval(this._noDataInterval);
+            this._noDataInterval = null;
+        }
+
+        // Stop the mic instance if running
+        if (this._micInstance) {
+            try {
+                this._micInstance.stop();
+            } catch (error) {
+                log.warning(`AudioService: Error stopping mic instance: ${error.message}`);
+            }
+        }
+
+        // Clear data listener callbacks
+        this._dataListenerCallbacks = [];
+
+        // Remove listeners from mic input stream
+        if (this._micInputStream) {
+            this._micInputStream.removeAllListeners();
+        }
+
+        this._micInstance = null;
+        this._micInputStream = null;
+    }
 }
 
 function listenForMicInputEvents(micInputStream){

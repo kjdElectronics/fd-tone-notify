@@ -45,7 +45,6 @@ async function detectTones(req, res) {
     // Initialize detection service in file mode
     const detectionService = new DetectionService({
         audioInterface: null,
-        sampleRate: config.audio.sampleRate,
         frequencyScaleFactor: config.audio.frequencyScaleFactor,
         fileMode: true,
         recording: false, // Disable recording for API requests
@@ -68,7 +67,6 @@ async function detectTones(req, res) {
         allToneDetectionService = new AllToneDetectionService({
             startFreq: config.allToneDetector.startFreq,
             endFreq: config.allToneDetector.endFreq,
-            sampleRate: config.audio.sampleRate,
             tolerancePercent: config.allToneDetector.tolerancePercent,
             rangeOverlapModifier: config.allToneDetector.rangeOverlapModifier,
             matchThreshold: config.allToneDetector.matchThreshold,
@@ -171,7 +169,8 @@ async function detectTones(req, res) {
         const audioDataParams = {
             timestamp: audioData.timestamp,
             filePath: audioData.filePath,
-            audioBuffer: audioData.audioBuffer
+            audioBuffer: audioData.audioBuffer,
+            sampleRate: audioData.sampleRate
         }
 
         detectionService.processAudioData(audioDataParams);
@@ -199,7 +198,7 @@ async function detectTones(req, res) {
         if (allToneDetectionService && multiToneDetectionListener) {
             allToneDetectionService.removeListener('multiToneDetected', multiToneDetectionListener);
         }
-        
+
         // Get file duration
         const status = audioFileService.getStatus();
         const processingTime = Date.now() - startTime.getTime();
@@ -234,6 +233,18 @@ async function detectTones(req, res) {
             'Failed to process uploaded audio file'
         );
     } finally {
+        try {
+            if (detectionService && typeof detectionService.dispose === 'function') {
+                detectionService.dispose();
+            }
+            if (allToneDetectionService && typeof allToneDetectionService.dispose === 'function') {
+                allToneDetectionService.dispose();
+            }
+            log.debug(`API: Emergency disposal of detection services for request ${requestId}`);
+        } catch (disposeError) {
+            log.error(`API: Failed to dispose services: ${disposeError.message} (${requestId})`);
+        }
+        
         // Clean up uploaded file
         try {
             if (fs.existsSync(wavFilePath)) {

@@ -15,6 +15,19 @@ export const useSocketStore = defineStore('socket', () => {
   let reconnectTimeout = null
   let reconnectAttempts = 0
   const maxReconnectAttempts = 5
+  // Memory management constants
+  const MAX_DETECTIONS = 50  // Reduced from unbounded to 50
+  const MAX_LOGS = 200       // Limit log entries to 200
+  
+  // Helper function to maintain bounded arrays with memory efficiency
+  function addToBoundedArray(array, item, maxSize) {
+    array.push(item)
+    if (array.length > maxSize) {
+      // Use splice for better memory efficiency than slice
+      array.splice(0, array.length - maxSize)
+    }
+  }
+  
   const systemStatus = reactive({
     status: 'unknown',
     detections: [],
@@ -64,12 +77,12 @@ export const useSocketStore = defineStore('socket', () => {
         message = 'Connected to managed backend server'
       }
       
-      systemStatus.logs.push({
+      addToBoundedArray(systemStatus.logs, {
         timestamp: new Date().toISOString(),
         type: 'info',
         message: message,
         level: 'info'
-      })
+      }, MAX_LOGS)
       
       // Start heartbeat checking
       startHeartbeatCheck()
@@ -99,12 +112,12 @@ export const useSocketStore = defineStore('socket', () => {
       console.log('WebSocket disconnected from tone detection backend:', event.code, event.reason)
       
       // Add disconnection log entry
-      systemStatus.logs.push({
+      addToBoundedArray(systemStatus.logs, {
         timestamp: new Date().toISOString(),
         type: 'warning',
         message: `Disconnected from tone detection backend (code: ${event.code})`,
         level: 'warning'
-      })
+      }, MAX_LOGS)
       
       // Attempt to reconnect if not intentionally closed
       if (event.code !== 1000) {
@@ -223,6 +236,12 @@ export const useSocketStore = defineStore('socket', () => {
     }
     
     if (socket.value) {
+      // Remove all event listeners to prevent memory leaks on reconnection
+      socket.value.onopen = null
+      socket.value.onmessage = null
+      socket.value.onclose = null
+      socket.value.onerror = null
+      
       socket.value.close(1000, 'Intentional disconnect') // Normal closure
       socket.value = null
     }
@@ -261,17 +280,12 @@ export const useSocketStore = defineStore('socket', () => {
     
     switch (type) {
       case 'toneDetected':
-        // Handle tone detection events
-        systemStatus.detections.push({
+        // Handle tone detection events using bounded array helper
+        addToBoundedArray(systemStatus.detections, {
           ...data,
           timestamp: timestamp,
           type: 'configured'
-        })
-        
-        // Keep only last 100 detections
-        if (systemStatus.detections.length > 100) {
-          systemStatus.detections = systemStatus.detections.slice(-100)
-        }
+        }, MAX_DETECTIONS)
         
         systemStatus.statistics.totalDetections++
         backendStatus.running = true
@@ -279,17 +293,12 @@ export const useSocketStore = defineStore('socket', () => {
         break
         
       case 'multiToneDetected':
-        // Handle multi-tone detection events (discovered tones)
-        systemStatus.detections.push({
+        // Handle multi-tone detection events using bounded array helper
+        addToBoundedArray(systemStatus.detections, {
           ...data,
           timestamp: timestamp,
           type: 'discovery'
-        })
-        
-        // Keep only last 100 detections
-        if (systemStatus.detections.length > 100) {
-          systemStatus.detections = systemStatus.detections.slice(-100)
-        }
+        }, MAX_DETECTIONS)
         
         systemStatus.statistics.totalDetections++
         backendStatus.running = true
@@ -309,16 +318,11 @@ export const useSocketStore = defineStore('socket', () => {
         break
         
       case 'log':
-        // Handle log messages
-        systemStatus.logs.push({
+        // Handle log messages using bounded array helper
+        addToBoundedArray(systemStatus.logs, {
           ...data,
           timestamp: timestamp
-        })
-        
-        // Keep only last 500 log entries
-        if (systemStatus.logs.length > 500) {
-          systemStatus.logs = systemStatus.logs.slice(-500)
-        }
+        }, MAX_LOGS)
         break
         
       case 'heartbeat':
@@ -333,12 +337,12 @@ export const useSocketStore = defineStore('socket', () => {
         backendStatus.running = false
         backendStatus.restarting = true
         
-        systemStatus.logs.push({
+        addToBoundedArray(systemStatus.logs, {
           timestamp: timestamp,
           type: 'warning',
           message: data.message || 'Server is shutting down',
           level: 'warning'
-        })
+        }, MAX_LOGS)
         
         // Show notification about restart
         useNotificationStore().addNotification({
