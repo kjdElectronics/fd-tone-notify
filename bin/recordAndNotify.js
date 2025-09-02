@@ -19,14 +19,24 @@ async function recordAndNotifyWorker(){
     const recordingService = new RecordingService();
 
     parentPort.on("message", async message => {
-        if (message === "exit")
+        if (message === "exit") {
+            // Cleanup before exit
+            if (recordingService && typeof recordingService.dispose === 'function') {
+                recordingService.dispose();
+            }
             parentPort.close();
-        else { //Start recording
+        } else { //Start recording
             const notificationParams = new NotificationParams({...message,
                 attachFile: true});
             const filename = await recordingService.recordFile(notificationParams);
             return sendNotifications(notificationParams)
-                .finally(r => parentPort.close())
+                .finally(r => {
+                    // Cleanup after recording complete
+                    if (recordingService && typeof recordingService.dispose === 'function') {
+                        recordingService.dispose();
+                    }
+                    parentPort.close();
+                });
         }
     });
 }
@@ -41,7 +51,13 @@ async function recordAndNotifyForked(){
             attachFile: true});
         const filename = await recordingService.recordFile(notificationParams);
         return sendNotifications(notificationParams)
-            .finally(r => process.exit(0))
+            .finally(r => {
+                // Cleanup before exit
+                if (recordingService && typeof recordingService.dispose === 'function') {
+                    recordingService.dispose();
+                }
+                process.exit(0);
+            });
     });
 }
 

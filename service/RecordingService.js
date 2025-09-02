@@ -34,19 +34,27 @@ class RecordingService{
             silenceAmplitude: config.audio.silenceAmplitude,
             matchThreshold: matchThreshold * 10
         });
-        micInputStream.on('data', async (rawBuffer) => {
+        // Store reference to data listener for cleanup
+        const dataListener = async (rawBuffer) => {
             const decoded = decodeRawAudioBuffer(rawBuffer);
             silenceDetector.processValues({raw: decoded});
-        });
-
+        };
+        
+        micInputStream.on('data', dataListener);
         micInputStream.pipe(outputFileStream);
         this._micInstance.start();
 
         const finishedRecordingCb = this._finishedRecordingCb;
 
         return new Promise((resolve, reject) => {
-            //End Recording Callback
-            const cb = () => finishedRecordingCb({resolve, reject, micInstance: this._micInstance, notificationParams, failSafeTimeout});
+            //End Recording Callback with cleanup
+            const cb = () => {
+                // Clean up event listeners before finishing
+                micInputStream.removeListener('data', dataListener);
+                silenceDetector.removeAllListeners();
+                
+                finishedRecordingCb({resolve, reject, micInstance: this._micInstance, notificationParams, failSafeTimeout});
+            };
 
             //Failsafe Timeout
             const failSafeTimeout = setTimeout(() => {
@@ -88,6 +96,39 @@ class RecordingService{
 
     listenForMicInputEvents(){
         listenForMicInputEvents(this._micInputStream);
+    }
+    
+    /**
+     * Cleanup method to properly dispose of all resources and prevent memory leaks
+     * CRITICAL: Must be called when RecordingService is no longer needed
+     */
+    dispose() {
+        log.debug('RecordingService: Starting disposal');
+        
+        try {
+            // Stop the mic instance if running
+            if (this._micInstance) {
+                try {
+                    this._micInstance.stop();
+                } catch (error) {
+                    log.warning(`RecordingService: Error stopping mic instance: ${error.message}`);
+                }
+                this._micInstance = null;
+            }
+            
+            // Remove listeners from mic input stream
+            if (this._micInputStream) {
+                this._micInputStream.removeAllListeners();
+                this._micInputStream = null;
+            }
+            
+            // Clear data listener callbacks
+            this._dataListenerCallbacks.length = 0;
+            
+            log.debug('RecordingService: Disposal complete');
+        } catch (error) {
+            log.error(`RecordingService: Error during disposal: ${error.message}`);
+        }
     }
 }
 
