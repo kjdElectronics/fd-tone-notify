@@ -56,7 +56,13 @@ class DetectionService extends EventEmitter{
         this.areNotificationsEnabled = areNotificationsEnabled;
 
         this.toneDetectors = [];
-        this._recordingThread = new RecordingThread({threadId: 0});
+        
+        // Only create RecordingThread if not in file mode (API file processing doesn't need recording)
+        if (!fileMode) {
+            this._recordingThread = new RecordingThread({threadId: 0});
+        } else {
+            this._recordingThread = null;
+        }
 
         //Tone Detection Locks
         this._toneDetectionLocks = {};
@@ -159,7 +165,11 @@ class DetectionService extends EventEmitter{
         
         try {
             const recordingThread = this._recordingThread;
-            this._recordingThread = new RecordingThread({threadId: recordingThread.threadId + 1});
+            
+            // Only create new recording thread if not in file mode
+            if (!this._fileMode && recordingThread) {
+                this._recordingThread = new RecordingThread({threadId: recordingThread.threadId + 1});
+            }
 
             log.debug(`Processing toneDetected event for ${tonesDetectorConfig.name}`);
             const {matchAverages, message} = result;
@@ -189,7 +199,7 @@ class DetectionService extends EventEmitter{
                         return results;
                     });
 
-                if(calculatedIsRecordingEnabled) {
+                if(calculatedIsRecordingEnabled && recordingThread) {
                     //Start recording in new thread. Post recording notifications sent from new thread
                     log.debug(`Starting recorder & post recording notification processing. Thread Id: ${recordingThread.threadId}`);
                     recordingThread.sendMessage(notificationParams.toObj());

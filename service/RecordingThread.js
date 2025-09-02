@@ -72,6 +72,33 @@ class RecordingThread {
             throw new Error(message);
         }
     }
+    
+    /**
+     * Properly dispose of the recording thread to prevent memory leaks
+     */
+    dispose() {
+        log.debug(`RecordingThread ${this.threadId}: Starting disposal`);
+        
+        try {
+            // Terminate Worker thread if it exists
+            if (this._recordingWorker) {
+                log.debug(`RecordingThread ${this.threadId}: Terminating Worker thread`);
+                this._recordingWorker.terminate();
+                this._recordingWorker = null;
+            }
+            
+            // Kill child process if it exists  
+            if (this._child) {
+                log.debug(`RecordingThread ${this.threadId}: Killing child process`);
+                this._child.kill('SIGTERM');
+                this._child = null;
+            }
+            
+            log.debug(`RecordingThread ${this.threadId}: Disposal complete`);
+        } catch (error) {
+            log.error(`RecordingThread ${this.threadId}: Error during disposal: ${error.message}`);
+        }
+    }
 }
 
 module.exports = {RecordingThread};
