@@ -92,7 +92,7 @@ async function _emailNotifications(params, prePostType){
         return sendEmail({...email, filename: path.basename(params.filename),  isTest: params.isTest,
             recordingRelPath: params.filename, attachFile: params.attachFile})
             .catch(err => {
-                log.error(`Email Error: ${emails.to}`);
+                log.error(`Email Error: ${err?.message || err?.toJSON() || err.toString()}`);
                 log.debug(err.stack);
             })
     })
