@@ -1,5 +1,6 @@
 const {Worker, SHARE_ENV} = require('worker_threads');
 const fork = require('child_process').fork;
+const { spawn } = require('child_process');
 const log = require('../util/logger');
 const path = require("path");
 
@@ -75,28 +76,81 @@ class RecordingThread {
     
     /**
      * Properly dispose of the recording thread to prevent memory leaks
+     * Uses force kill to guarantee termination on both Unix and Windows
      */
     dispose() {
-        log.debug(`RecordingThread ${this.threadId}: Starting disposal`);
+        log.debug(`RecordingThread ${this.threadId}: Starting disposal with force kill capability`);
         
         try {
             // Terminate Worker thread if it exists
             if (this._recordingWorker) {
                 log.debug(`RecordingThread ${this.threadId}: Terminating Worker thread`);
-                this._recordingWorker.terminate();
+                
+                // Try graceful termination first
+                this._recordingWorker.terminate()
+                    .then(() => {
+                        log.debug(`RecordingThread ${this.threadId}: Worker thread terminated gracefully`);
+                    })
+                    .catch((error) => {
+                        log.warning(`RecordingThread ${this.threadId}: Worker termination failed, force killing: ${error.message}`);
+                        // Worker threads don't have PIDs, so force termination is handled by Node.js
+                    });
+                
                 this._recordingWorker = null;
             }
             
             // Kill child process if it exists  
             if (this._child) {
-                log.debug(`RecordingThread ${this.threadId}: Killing child process`);
+                const pid = this._child.pid;
+                log.debug(`RecordingThread ${this.threadId}: Killing child process PID ${pid}`);
+                
+                // Try graceful termination first
                 this._child.kill('SIGTERM');
+                
+                // Set up force kill timer (3 seconds)
+                setTimeout(() => {
+                    if (this._child && !this._child.killed) {
+                        log.warning(`RecordingThread ${this.threadId}: Child process PID ${pid} not terminated, force killing`);
+                        this._forceKillProcess(pid);
+                    }
+                }, 3000);
+                
                 this._child = null;
             }
             
             log.debug(`RecordingThread ${this.threadId}: Disposal complete`);
         } catch (error) {
             log.error(`RecordingThread ${this.threadId}: Error during disposal: ${error.message}`);
+        }
+    }
+
+    /**
+     * Force kill a process using platform-specific commands
+     * @private
+     */
+    _forceKillProcess(pid) {
+        if (!pid) return;
+        
+        try {
+            if (process.platform === 'win32') {
+                // Windows: Use taskkill with force flag
+                log.debug(`RecordingThread ${this.threadId}: Force killing PID ${pid} with taskkill`);
+                spawn('taskkill', ['/pid', pid.toString(), '/f', '/t'], { 
+                    stdio: 'ignore',
+                    detached: true 
+                });
+            } else {
+                // Unix/Linux: Use kill -9
+                log.debug(`RecordingThread ${this.threadId}: Force killing PID ${pid} with kill -9`);
+                spawn('kill', ['-9', pid.toString()], { 
+                    stdio: 'ignore',
+                    detached: true 
+                });
+            }
+            
+            log.debug(`RecordingThread ${this.threadId}: Force kill command sent for PID ${pid}`);
+        } catch (error) {
+            log.error(`RecordingThread ${this.threadId}: Failed to force kill PID ${pid}: ${error.message}`);
         }
     }
 }

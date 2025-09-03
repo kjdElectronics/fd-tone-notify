@@ -14,6 +14,7 @@ const config = require('config');
 const {ErrorWithStatusCode} = require("../util/ErrorWithStatusCode");
 
 const NO_DATA_INTERVAL_SEC = 30;
+const THREAD_ROTATION_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
 class DetectionService extends EventEmitter{
     constructor({audioInterface, sampleRate, recording: isRecordingEnabled, areNotificationsEnabled=true,
@@ -57,11 +58,13 @@ class DetectionService extends EventEmitter{
 
         this.toneDetectors = [];
         
-        // Only create RecordingThread if not in file mode (API file processing doesn't need recording)
-        if (!fileMode) {
+        // Only create RecordingThread if not in file mode (API file processing doesn't need recording) and recording is enabled
+        if (!fileMode && this.isRecordingEnabled) {
             this._recordingThread = new RecordingThread({threadId: 0});
+            this._initializeRecordingThreadRotation();
         } else {
             this._recordingThread = null;
+            this._recordingThreadRotationTimer = null;
         }
 
         //Tone Detection Locks
@@ -155,17 +158,18 @@ class DetectionService extends EventEmitter{
     }
 
     /**
-     * Dedicated method to handle tone detection events without closure capture
+     * Dedicated method to handle tone detection events
      * @param {Object} tonesDetector - The tone detector that triggered the event
      * @param {Object} result - Detection result containing matchAverages and message
      */
     async _handleTonesDetectorEvent(tonesDetector, result) {
         const { config: tonesDetectorConfig, isRecordingEnabled: calculatedIsRecordingEnabled } = tonesDetector._detectionServiceContext;
         const lock = this.__getToneDetectionLock({tonesDetector});
-        
+
+        //The existing recording thread (we may need to create a new one)
+        const recordingThread = this._recordingThread;
         try {
-            const recordingThread = this._recordingThread;
-            
+
             // Only create new recording thread if not in file mode
             if (!this._fileMode && recordingThread) {
                 this._recordingThread = new RecordingThread({threadId: recordingThread.threadId + 1});
@@ -222,6 +226,8 @@ class DetectionService extends EventEmitter{
             throw e;
         }
         finally {
+            if(recordingThread)
+                recordingThread.dispose();
             lock.release();
         }
     }
@@ -260,6 +266,67 @@ class DetectionService extends EventEmitter{
         this.emit('audioFileDataProcessed', {timestamp: audioData.timestamp});
     }
 
+    /**
+     * Initialize automatic RecordingThread rotation
+     * This prevents memory leaks by replacing threads before they accumulate too much memory
+     * @private
+     */
+    _initializeRecordingThreadRotation() {
+        if (this._fileMode) return; // Only for live audio mode
+
+
+        log.info('DetectionService: Initializing RecordingThread rotation');
+
+        this._recordingThreadRotationTimer = setInterval(() => {
+            this._rotateRecordingThread();
+        }, THREAD_ROTATION_INTERVAL_MS);
+    }
+
+    /**
+     * Rotate the RecordingThread to prevent memory leaks
+     * Creates new thread, allows warmup period, then disposes old thread
+     * @private
+     */
+    async _rotateRecordingThread() {
+        if (this._fileMode || !this._recordingThread) return;
+
+        const oldThread = this._recordingThread;
+        const oldThreadId = oldThread.threadId;
+        const newThreadId = oldThreadId + 1;
+
+        log.info(`DetectionService: Starting RecordingThread rotation from thread ${oldThreadId} to ${newThreadId}`);
+
+        try {
+            // Create new RecordingThread
+            const newThread = new RecordingThread({threadId: newThreadId});
+            log.debug(`DetectionService: Created new RecordingThread ${newThreadId}`);
+
+            // Give new thread 5 seconds to warm up
+            setTimeout(() => {
+                log.debug(`DetectionService: Warmup complete for RecordingThread ${newThreadId}, switching references`);
+
+                // Switch to new thread
+                this._recordingThread = newThread;
+
+                // Dispose old thread after another 2 seconds to ensure it's not in use
+                setTimeout(() => {
+                    log.debug(`DetectionService: Disposing old RecordingThread ${oldThreadId}`);
+
+                    if (oldThread && typeof oldThread.dispose === 'function') {
+                        oldThread.dispose();
+                    }
+
+                    log.info(`DetectionService: RecordingThread rotation complete: ${oldThreadId} -> ${newThreadId}`);
+                }, 2000);
+
+            }, 5000); // 5 second warmup
+
+        } catch (error) {
+            log.error(`DetectionService: Failed to rotate RecordingThread: ${error.message}`);
+            // Keep using old thread if rotation fails
+        }
+    }
+
     get currentTimeStamp(){
         if(!this._fileMode)
             throw new Error('currentTimeStamp can only be used in file mode');
@@ -272,6 +339,13 @@ class DetectionService extends EventEmitter{
      */
     dispose() {
         log.debug(`DetectionService: Disposing of ${this.toneDetectors.length} tone detectors and ${Object.keys(this._toneDetectionLocks).length} locks`);
+        
+        // Clear recording thread rotation timer
+        if (this._recordingThreadRotationTimer) {
+            clearInterval(this._recordingThreadRotationTimer);
+            this._recordingThreadRotationTimer = null;
+            log.debug('DetectionService: Recording thread rotation timer cleared');
+        }
         
         // Release all locks
         Object.values(this._toneDetectionLocks).forEach(lock => {

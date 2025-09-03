@@ -25,7 +25,8 @@ class AllToneDetectionService extends EventEmitter{
             frequencyScaleFactor,
             silenceAmplitude,
             areNotificationsEnabled: false,
-            fileMode
+            fileMode,
+            recording: false //No recording for all tone detector
         });
 
         this.fileMode = fileMode;

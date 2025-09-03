@@ -91,21 +91,22 @@ class RecordingService{
             device: config.audio.inputDevice,
             fileType: "wav"
         });
-        this._micInputStream = this._micInstance.getAudioStream();
     }
 
     listenForMicInputEvents(){
-        listenForMicInputEvents(this._micInputStream);
+        listenForMicInputEvents(this._micInstance.getAudioStream());
     }
     
     /**
      * Cleanup method to properly dispose of all resources and prevent memory leaks
-     * CRITICAL: Must be called when RecordingService is no longer needed
      */
     dispose() {
         log.debug('RecordingService: Starting disposal');
         
         try {
+            // Remove listeners from mic input stream
+            this._micInstance.getAudioStream()?.removeAllListeners();
+
             // Stop the mic instance if running
             if (this._micInstance) {
                 try {
@@ -114,12 +115,6 @@ class RecordingService{
                     log.warning(`RecordingService: Error stopping mic instance: ${error.message}`);
                 }
                 this._micInstance = null;
-            }
-            
-            // Remove listeners from mic input stream
-            if (this._micInputStream) {
-                this._micInputStream.removeAllListeners();
-                this._micInputStream = null;
             }
             
             // Clear data listener callbacks

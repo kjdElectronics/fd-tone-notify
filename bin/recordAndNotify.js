@@ -4,23 +4,31 @@ const { workerData, parentPort } = require('worker_threads');
 const {NotificationParams} = require('../obj/NotificationParams');
 const {RecordingService} = require('../service/RecordingService');
 const { program } = require('commander');
+const garbageCollect = require("../util/gc");
 
 async function main(){
-    if(workerData)
-        return recordAndNotifyWorker();
-    if(process.send)
-        return recordAndNotifyForked();
-    return commandLineRecord();
+    try {
+        if (workerData)
+            return recordAndNotifyWorker();
+        if (process.send)
+            return recordAndNotifyForked();
+        return commandLineRecord();
+    }catch (e) {
+        log.error(e);
+        throw e;
+    }
 }
 
 async function recordAndNotifyWorker(){
     log.info("Initializing Recording Worker Thread");
 
     const recordingService = new RecordingService();
+    const memoryMonitor = _setupMemoryMonitor('WORKER');
 
     parentPort.on("message", async message => {
         if (message === "exit") {
             // Cleanup before exit
+            clearInterval(memoryMonitor);
             if (recordingService && typeof recordingService.dispose === 'function') {
                 recordingService.dispose();
             }
@@ -32,6 +40,7 @@ async function recordAndNotifyWorker(){
             return sendNotifications(notificationParams)
                 .finally(r => {
                     // Cleanup after recording complete
+                    clearInterval(memoryMonitor);
                     if (recordingService && typeof recordingService.dispose === 'function') {
                         recordingService.dispose();
                     }
@@ -44,6 +53,7 @@ async function recordAndNotifyWorker(){
 async function recordAndNotifyForked(){
     log.info("Initializing Recording Forked Thread");
     const recordingService = new RecordingService();
+    const memoryMonitor = _setupMemoryMonitor('FORK');
 
     process.on('message', async message => {
         //Start recording
@@ -53,12 +63,30 @@ async function recordAndNotifyForked(){
         return sendNotifications(notificationParams)
             .finally(r => {
                 // Cleanup before exit
+                clearInterval(memoryMonitor);
                 if (recordingService && typeof recordingService.dispose === 'function') {
                     recordingService.dispose();
                 }
                 process.exit(0);
             });
     });
+}
+
+function _setupMemoryMonitor(processType) {
+    let memoryCheckCount = 0;
+    return setInterval(() => {
+        const usage = process.memoryUsage();
+        const memInfo = {
+            check: ++memoryCheckCount,
+            rss: Math.round(usage.rss / 1024 / 1024),
+            heapUsed: Math.round(usage.heapUsed / 1024 / 1024),
+            heapTotal: Math.round(usage.heapTotal / 1024 / 1024),
+            external: Math.round(usage.external / 1024 / 1024)
+        };
+        console.log(`[${processType}-MEMORY-${memoryCheckCount}] RSS=${memInfo.rss}MB, Heap=${memInfo.heapUsed}/${memInfo.heapTotal}MB, External=${memInfo.external}MB`);
+        log.debug(`Recording ${processType} memory check ${memoryCheckCount}: RSS=${memInfo.rss}MB, Heap=${memInfo.heapUsed}/${memInfo.heapTotal}MB, External=${memInfo.external}MB`);
+        garbageCollect("Recording Thread");
+    }, 30000); // Every 30 seconds
 }
 
 async function commandLineRecord(){
@@ -78,8 +106,8 @@ async function commandLineRecord(){
             timestamp: Number.parseInt(options.timestamp),
             matchAverages: JSON.parse(options.matchAverages),
             notifications: JSON.parse(options.notifications),
-            filename: filename,
-            message: message,
+            filename: options.filename,
+            message: options.message,
             attachFile: true
     });
     const filename = await recordingService.recordFile(notificationParams);
