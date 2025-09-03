@@ -226,8 +226,11 @@ class DetectionService extends EventEmitter{
             throw e;
         }
         finally {
-            /*if(recordingThread)
-                recordingThread.dispose();*/
+            if(recordingThread)
+                setTimeout(() => {
+                    log.debug(`Detection Service: Cleaning Up Recording Thread ${recordingThread.threadId}`);
+                    recordingThread.dispose()
+                }, this.maxRecordingLengthSec * 1000 + 15000);
             lock.release();
         }
     }
