@@ -205,7 +205,7 @@ class DetectionService extends EventEmitter{
 
                 if(calculatedIsRecordingEnabled && recordingThread) {
                     //Start recording in new thread. Post recording notifications sent from new thread
-                    log.debug(`Starting recorder & post recording notification processing. Thread Id: ${recordingThread.threadId}`);
+                    log.notice(`Starting recorder & post recording notification processing. Thread Id: ${recordingThread.threadId}`);
                     recordingThread.sendMessage(notificationParams.toObj());
                 }
             }

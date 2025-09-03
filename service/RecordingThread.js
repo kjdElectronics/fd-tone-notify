@@ -63,6 +63,7 @@ class RecordingThread {
     }
 
     sendMessage(message) {
+        log.notice(`Recording Thread: Sending message to recording thread to start recording...`);
         if (this._recordingWorker)
             this._recordingWorker.postMessage(message);
         else if (this._child)

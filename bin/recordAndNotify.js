@@ -34,11 +34,13 @@ async function recordAndNotifyWorker(){
             }
             parentPort.close();
         } else { //Start recording
+            log.notice(`Recording Worker: STARTING RECORDING`);
             const notificationParams = new NotificationParams({...message,
                 attachFile: true});
             const filename = await recordingService.recordFile(notificationParams);
             return sendNotifications(notificationParams)
                 .finally(r => {
+                    log.notice(`Recording Worker: RECORDING PROCESSING COMPLETE`);
                     // Cleanup after recording complete
                     clearInterval(memoryMonitor);
                     if (recordingService && typeof recordingService.dispose === 'function') {
@@ -56,12 +58,14 @@ async function recordAndNotifyForked(){
     const memoryMonitor = _setupMemoryMonitor('FORK');
 
     process.on('message', async message => {
+        log.notice(`Recording Thread: STARTING RECORDING`);
         //Start recording
         const notificationParams = new NotificationParams({...message,
             attachFile: true});
         const filename = await recordingService.recordFile(notificationParams);
         return sendNotifications(notificationParams)
             .finally(r => {
+                log.notice(`Recording Thread: RECORDING PROCESSING COMPLETE`);
                 // Cleanup before exit
                 clearInterval(memoryMonitor);
                 if (recordingService && typeof recordingService.dispose === 'function') {
