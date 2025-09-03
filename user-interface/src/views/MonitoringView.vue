@@ -51,7 +51,7 @@
         </div>
         <div v-else class="space-y-2 max-h-64 overflow-y-auto">
           <DetectionItem
-            v-for="detection in socketStore.systemStatus.detections"
+            v-for="detection in sortedDetections"
             :key="`detection-${detection.timestamp}`"
             :detection="detection"
             :showMatchAverages="false"
@@ -136,6 +136,11 @@ const managerSocketStore = useManagerSocketStore()
 const logContainer = ref(null)
 const autoScroll = ref(true)
 const selectedLogLevel = ref(localStorage.getItem('logFilterLevel') || 'info')
+
+// Sort detections to show most recent first
+const sortedDetections = computed(() => {
+  return socketStore.systemStatus.detections.slice().reverse()
+})
 
 // Winston log level hierarchy (based on CoralogixWinstonTransport.js)
 const LOG_LEVELS = {

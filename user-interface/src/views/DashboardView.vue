@@ -153,7 +153,8 @@ const socketStore = useSocketStore()
 const systemStatus = useSystemStatus()
 
 const recentDetections = computed(() => {
-  return socketStore.systemStatus.detections.slice(0, 5)
+  // Show most recent detections first (reverse order)
+  return socketStore.systemStatus.detections.slice().reverse().slice(0, 5)
 })
 
 function formatTime(timestamp) {
