@@ -226,8 +226,8 @@ class DetectionService extends EventEmitter{
             throw e;
         }
         finally {
-            if(recordingThread)
-                recordingThread.dispose();
+            /*if(recordingThread)
+                recordingThread.dispose();*/
             lock.release();
         }
     }

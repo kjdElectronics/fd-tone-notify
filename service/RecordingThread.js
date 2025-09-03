@@ -80,7 +80,7 @@ class RecordingThread {
      * Uses force kill to guarantee termination on both Unix and Windows
      */
     dispose() {
-        log.debug(`RecordingThread ${this.threadId}: Starting disposal with force kill capability`);
+        log.notice(`RecordingThread ${this.threadId}: Starting disposal...`);
         
         try {
             // Terminate Worker thread if it exists
@@ -90,7 +90,7 @@ class RecordingThread {
                 // Try graceful termination first
                 this._recordingWorker.terminate()
                     .then(() => {
-                        log.debug(`RecordingThread ${this.threadId}: Worker thread terminated gracefully`);
+                        log.notice(`RecordingThread ${this.threadId}: Worker thread terminated gracefully`);
                     })
                     .catch((error) => {
                         log.warning(`RecordingThread ${this.threadId}: Worker termination failed, force killing: ${error.message}`);
@@ -103,7 +103,7 @@ class RecordingThread {
             // Kill child process if it exists  
             if (this._child) {
                 const pid = this._child.pid;
-                log.debug(`RecordingThread ${this.threadId}: Killing child process PID ${pid}`);
+                log.warning(`RecordingThread ${this.threadId}: Killing child process PID ${pid}`);
                 
                 // Try graceful termination first
                 this._child.kill('SIGTERM');
@@ -119,7 +119,7 @@ class RecordingThread {
                 this._child = null;
             }
             
-            log.debug(`RecordingThread ${this.threadId}: Disposal complete`);
+            log.info(`RecordingThread ${this.threadId}: Disposal complete`);
         } catch (error) {
             log.error(`RecordingThread ${this.threadId}: Error during disposal: ${error.message}`);
         }
@@ -135,21 +135,21 @@ class RecordingThread {
         try {
             if (process.platform === 'win32') {
                 // Windows: Use taskkill with force flag
-                log.debug(`RecordingThread ${this.threadId}: Force killing PID ${pid} with taskkill`);
+                log.warning(`RecordingThread ${this.threadId}: Force killing PID ${pid} with taskkill`);
                 spawn('taskkill', ['/pid', pid.toString(), '/f', '/t'], { 
                     stdio: 'ignore',
                     detached: true 
                 });
             } else {
                 // Unix/Linux: Use kill -9
-                log.debug(`RecordingThread ${this.threadId}: Force killing PID ${pid} with kill -9`);
+                log.warning(`RecordingThread ${this.threadId}: Force killing PID ${pid} with kill -9`);
                 spawn('kill', ['-9', pid.toString()], { 
                     stdio: 'ignore',
                     detached: true 
                 });
             }
             
-            log.debug(`RecordingThread ${this.threadId}: Force kill command sent for PID ${pid}`);
+            log.warning(`RecordingThread ${this.threadId}: Force kill command sent for PID ${pid}`);
         } catch (error) {
             log.error(`RecordingThread ${this.threadId}: Failed to force kill PID ${pid}: ${error.message}`);
         }
