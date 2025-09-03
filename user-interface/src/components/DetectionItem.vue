@@ -33,7 +33,7 @@
       </div>
     </div>
     <div class="text-xs text-gray-500">
-      {{ formatTime(detection.timestamp) }}
+     {{ formatTime(detection.timestamp) }}
     </div>
   </div>
 </template>
@@ -81,6 +81,14 @@ function getMatchDisplay() {
 
 function formatTime(timestamp) {
   if (!timestamp) return 'N/A'
+  
+  // Check if timestamp is in file format (MM:SS.mmm) vs live detection format (milliseconds)
+  if (typeof timestamp === 'string' && /^\d{2}:\d{2}\.\d{3}$/.test(timestamp)) {
+    // File timestamp format - return as is (e.g., "00:02.000")
+    return timestamp
+  }
+  
+  // Live detection timestamp - convert to readable time
   return new Date(timestamp).toLocaleTimeString()
 }
 </script>

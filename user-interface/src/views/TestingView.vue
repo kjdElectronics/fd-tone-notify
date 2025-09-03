@@ -131,7 +131,7 @@
               <span>{{ result.type }} ({{ result.timing }})</span>
             </div>
             <div class="text-xs text-gray-500">
-              {{ new Date(result.timestamp).toLocaleTimeString() }}
+             {{ new Date(result.timestamp).toLocaleTimeString() }}
             </div>
           </div>
         </div>
