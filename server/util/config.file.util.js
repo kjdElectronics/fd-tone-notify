@@ -1,5 +1,4 @@
 const log = require('../../util/logger');
-
 const config = require('config');
 const fs = require('fs').promises;
 const path = require('path');
@@ -84,4 +83,4 @@ async function createBackup() {
     }
 }
 
-export {markConfigChanged, readConfigFile, writeConfigFile, createBackup}
+module.exports = {markConfigChanged, readConfigFile, writeConfigFile, createBackup}
