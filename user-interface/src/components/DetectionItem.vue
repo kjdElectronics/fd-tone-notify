@@ -32,14 +32,30 @@
         </div>
       </div>
     </div>
-    <div class="text-xs text-gray-500">
-     {{ formatTime(detection.timestamp) }}
+    <div class="flex items-center space-x-3">
+      <!-- Create Detector Button for Discovery -->
+      <button
+        v-if="detection.type === 'discovery'"
+        @click="handleCreateDetector"
+        class="btn-secondary btn-sm"
+        :disabled="isCreatingDetector"
+      >
+        <PlusIcon v-if="!isCreatingDetector" class="w-3 h-3 mr-1" />
+        <span v-if="isCreatingDetector" class="w-3 h-3 mr-1 animate-spin rounded-full border border-gray-500 border-t-transparent"></span>
+        {{ isCreatingDetector ? 'Creating...' : 'Create Detector' }}
+      </button>
+      
+      <div class="text-xs text-gray-500">
+        {{ formatTime(detection.timestamp) }}
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { useDetectorsStore } from '../stores/detectors'
+import { PlusIcon } from '@heroicons/vue/24/outline'
 
 const props = defineProps({
   detection: {
@@ -51,6 +67,35 @@ const props = defineProps({
     default: false
   }
 })
+
+// Store and state
+const detectorsStore = useDetectorsStore()
+const isCreatingDetector = ref(false)
+
+// Methods
+async function handleCreateDetector() {
+  if (isCreatingDetector.value || props.detection.type !== 'discovery') return
+  
+  isCreatingDetector.value = true
+  
+  try {
+    // Extract tones from discovery detection
+    const discoveryTones = props.detection.detector?.tones || props.detection.tones || []
+    
+    if (discoveryTones.length === 0) {
+      throw new Error('No tones found in discovery detection')
+    }
+    
+    // Create detector using the store method
+    await detectorsStore.createDetectorFromDiscovery(discoveryTones)
+    
+  } catch (error) {
+    console.error('Failed to create detector from discovery:', error)
+    // Error notification is handled by the store
+  } finally {
+    isCreatingDetector.value = false
+  }
+}
 
 function getDetectorName() {
   if (props.detection.type === 'discovery') {

@@ -108,13 +108,26 @@
                 <button
                   @click="restartBackend"
                   :disabled="restarting || !systemStatus.isManagerAvailable.value"
-                  class="flex-1 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-400 text-white text-xs font-medium py-1 px-2 rounded transition-colors"
+                  :class="[
+                    'flex-1 text-white text-xs font-medium py-1 px-2 rounded transition-colors',
+                    configStore.needsRestart 
+                      ? 'bg-green-700 hover:bg-green-800 disabled:bg-gray-400'
+                      : 'bg-amber-600 hover:bg-amber-700 disabled:bg-gray-400'
+                  ]"
                 >
                   <ArrowPathIcon v-if="!restarting" class="w-3 h-3 inline mr-1" />
                   <div v-else class="w-3 h-3 inline mr-1 animate-spin border border-white border-t-transparent rounded-full"></div>
-                  {{ restarting ? 'Restarting...' : 'Restart' }}
+                  {{ restarting ? 'Restarting...' : configStore.restartButtonText }}
                 </button>
               </template>
+            </div>
+            
+            <!-- Configuration Change Warning -->
+            <div v-if="configStore.needsRestart" class="mt-2 p-2 bg-orange-50 border border-orange-200 rounded text-xs text-orange-700">
+              <div class="flex items-center">
+                <ExclamationTriangleIcon class="w-3 h-3 mr-1 flex-shrink-0" />
+                <span>Config changes not applied until restart</span>
+              </div>
             </div>
           </div>
         </div>
@@ -187,6 +200,7 @@ import { useAuthStore } from './stores/auth'
 import { useSocketStore } from './stores/socket'
 import { useManagerSocketStore } from './stores/manager-socket'
 import { useNotificationStore } from './stores/notifications'
+import { useConfigStore } from './stores/config'
 import { useSystemStatus } from './composables/useSystemStatus'
 import { useSSLStatus } from './composables/useSSLStatus'
 import LoginView from './views/LoginView.vue'
@@ -213,6 +227,7 @@ const authStore = useAuthStore()
 const socketStore = useSocketStore()
 const managerSocketStore = useManagerSocketStore()
 const notificationStore = useNotificationStore()
+const configStore = useConfigStore()
 const systemStatus = useSystemStatus()
 const sslStatus = useSSLStatus()
 
@@ -301,15 +316,17 @@ async function startBackend() {
 }
 
 async function restartBackend() {
-  if (restarting.value) return
+  if (restarting.value)
+    return
   
   try {
-    restarting.value = true
+    restarting.value = true;
+    configStore.markConfigApplied();
     
     notificationStore.addNotification({
       type: 'info',
       message: 'Initiating backend restart...'
-    })
+    });
     
     // Check if backend is managed by process manager
     if (systemStatus.isManagerAvailable.value) {
@@ -354,6 +371,9 @@ async function restartBackend() {
           await new Promise(resolve => setTimeout(resolve, 1000))
           
           if (socketStore.connected && socketStore.backendStatus.running) {
+            // Mark configuration as applied since restart was successful
+            configStore.markConfigApplied()
+            
             notificationStore.addNotification({
               type: 'success',
               message: 'Backend restarted successfully'
