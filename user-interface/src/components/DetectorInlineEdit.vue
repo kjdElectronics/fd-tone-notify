@@ -324,7 +324,7 @@
           </h5>
           <div class="bg-green-50 border border-green-200 rounded-lg p-3 text-sm">
             <div class="text-green-700">
-              <strong>Post-Recording:</strong> Triggered after recording is finished and available
+              <strong>Post-Recording:</strong> Triggered after recording. <i><u>Recording attached when supported</u></i>
             </div>
           </div>
           

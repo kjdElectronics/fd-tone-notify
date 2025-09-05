@@ -1,6 +1,7 @@
 
 const log = require('../../util/logger');
 const {readConfigFile, createBackup, writeConfigFile, markConfigChanged} = require("../util/config.file.util");
+const { validateDetector } = require('../domain/detector.validation');
 
 /**
  * Get all detectors from configuration
@@ -278,80 +279,6 @@ function applyDefaults(detectorData, configData) {
     };
 }
 
-/**
- * Validate detector data
- */
-function validateDetector(detectorData, isUpdate = false) {
-    const errors = [];
-    
-    // Name validation (required for new detectors)
-    if (!isUpdate && (!detectorData.name || typeof detectorData.name !== 'string' || detectorData.name.trim() === '')) {
-        errors.push('Detector name is required and must be a non-empty string');
-    }
-    
-    // Tones validation (required for new detectors)
-    if (!isUpdate && (!detectorData.tones || !Array.isArray(detectorData.tones) || detectorData.tones.length === 0)) {
-        errors.push('Tones array is required and must contain at least one tone');
-    }
-    
-    if (detectorData.tones && Array.isArray(detectorData.tones)) {
-        for (let i = 0; i < detectorData.tones.length; i++) {
-            const tone = detectorData.tones[i];
-            if (typeof tone !== 'number' || tone < 100 || tone > 4000) {
-                errors.push(`Tone at index ${i} must be a number between 100 and 4000 Hz`);
-            }
-        }
-    }
-    
-    // Threshold validation
-    if (detectorData.matchThreshold !== undefined) {
-        if (typeof detectorData.matchThreshold !== 'number' || detectorData.matchThreshold < 1) {
-            errors.push('Match threshold must be a positive number');
-        }
-    }
-    
-    // Tolerance validation
-    if (detectorData.tolerancePercent !== undefined) {
-        if (typeof detectorData.tolerancePercent !== 'number' || detectorData.tolerancePercent < 0 || detectorData.tolerancePercent > 1) {
-            errors.push('Tolerance percent must be a number between 0 and 1');
-        }
-    }
-    
-    // Timeout validations
-    if (detectorData.resetTimeoutMs !== undefined) {
-        if (typeof detectorData.resetTimeoutMs !== 'number' || detectorData.resetTimeoutMs < 0) {
-            errors.push('Reset timeout must be a non-negative number');
-        }
-    }
-    
-    if (detectorData.lockoutTimeoutMs !== undefined) {
-        if (typeof detectorData.lockoutTimeoutMs !== 'number' || detectorData.lockoutTimeoutMs < 0) {
-            errors.push('Lockout timeout must be a non-negative number');
-        }
-    }
-    
-    // Recording length validations
-    if (detectorData.minRecordingLengthSec !== undefined) {
-        if (typeof detectorData.minRecordingLengthSec !== 'number' || detectorData.minRecordingLengthSec < 1) {
-            errors.push('Minimum recording length must be at least 1 second');
-        }
-    }
-    
-    if (detectorData.maxRecordingLengthSec !== undefined) {
-        if (typeof detectorData.maxRecordingLengthSec !== 'number' || detectorData.maxRecordingLengthSec < 1) {
-            errors.push('Maximum recording length must be at least 1 second');
-        }
-    }
-    
-    // Validate min < max for recording lengths
-    if (detectorData.minRecordingLengthSec !== undefined && detectorData.maxRecordingLengthSec !== undefined) {
-        if (detectorData.minRecordingLengthSec >= detectorData.maxRecordingLengthSec) {
-            errors.push('Minimum recording length must be less than maximum recording length');
-        }
-    }
-    
-    return errors;
-}
 
 module.exports = { 
     getDetectors, 

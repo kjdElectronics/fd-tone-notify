@@ -12,6 +12,14 @@ function getConfigFilePath() {
     const nodeEnv = process.env.NODE_ENV || 'default';
     return path.join(CONFIG_DIR, `${nodeEnv}.json`);
 }
+
+// Get secrets file path (can be overridden by command line args)
+function getSecretsFilePath() {
+    // Check if a custom secrets path was provided (this would need to be stored globally)
+    // For now, default to secrets.json
+    return path.join(CONFIG_DIR, 'secrets.json');
+}
+
 /**
  * Mark configuration as changed (for restart notification)
  */
@@ -83,4 +91,4 @@ async function createBackup() {
     }
 }
 
-module.exports = {markConfigChanged, readConfigFile, writeConfigFile, createBackup}
+module.exports = {markConfigChanged, readConfigFile, writeConfigFile, createBackup, getSecretsFilePath, getConfigFilePath}

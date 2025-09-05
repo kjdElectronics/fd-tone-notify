@@ -3,24 +3,8 @@ const fs = require('fs').promises;
 const path = require('path');
 const log = require('../../util/logger');
 const { hashPassword } = require('../middleware/auth.middleware');
-const {writeConfigFile, readConfigFile} = require("../util/config.file.util");
+const {writeConfigFile, readConfigFile, getConfigFilePath, getSecretsFilePath} = require("../util/config.file.util");
 
-// Paths for configuration files
-const PROJECT_ROOT = path.join(__dirname, '../..');
-const CONFIG_DIR = path.join(PROJECT_ROOT, 'config');
-
-// Determine which config file to use based on NODE_ENV
-function getConfigFilePath() {
-    const nodeEnv = process.env.NODE_ENV || 'default';
-    return path.join(CONFIG_DIR, `${nodeEnv}.json`);
-}
-
-// Get secrets file path (can be overridden by command line args)
-function getSecretsFilePath() {
-    // Check if a custom secrets path was provided (this would need to be stored globally)
-    // For now, default to secrets.json
-    return path.join(CONFIG_DIR, 'secrets.json');
-}
 
 /**
  * Get system configuration for UI

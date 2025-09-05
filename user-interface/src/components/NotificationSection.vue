@@ -29,22 +29,20 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label class="form-label-sm">To (recipients)</label>
-              <input
+              <EmailTagInput
                 v-model="notification.to"
-                type="email"
-                placeholder="email@example.com,user@domain.com"
-                class="form-input form-input-sm"
-                @input="updateNotification(index)"
+                placeholder="Enter recipient email addresses..."
+                help-text="Required: Enter email addresses separated by commas"
+                @update:model-value="updateNotification(index)"
               />
             </div>
             <div>
               <label class="form-label-sm">BCC (optional)</label>
-              <input
+              <EmailTagInput
                 v-model="notification.bcc"
-                type="email"
-                placeholder="person@example.com"
-                class="form-input form-input-sm"
-                @input="updateNotification(index)"
+                placeholder="Enter BCC email addresses..."
+                help-text="Optional: Additional recipients (hidden from main recipients)"
+                @update:model-value="updateNotification(index)"
               />
             </div>
           </div>
@@ -208,6 +206,7 @@
 
 <script setup>
 import { PlusIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import EmailTagInput from './EmailTagInput.vue'
 
 // Props
 const props = defineProps({
