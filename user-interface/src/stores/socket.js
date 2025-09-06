@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 import { ref, reactive } from 'vue'
 import { useNotificationStore } from './notifications'
 import { useManagerSocketStore } from './manager-socket'
+import { useSpeechSettingsStore } from './speechSettings'
+import { useSpeechSynthesis } from '../composables/useSpeechSynthesis'
 
 export const useSocketStore = defineStore('socket', () => {
   const socket = ref(null)
@@ -39,6 +41,31 @@ export const useSocketStore = defineStore('socket', () => {
       uptime: 0
     }
   })
+
+  // Initialize speech functionality for announcements
+  const speechSettings = useSpeechSettingsStore()
+  const speechSynthesis = useSpeechSynthesis()
+
+  // Helper function to announce detector matches
+  function announceDetection({ detectorName }) {
+    if (!speechSettings.isEnabled() || !speechSynthesis.isSupported.value) {
+      return
+    }
+
+    if (!detectorName || typeof detectorName !== 'string') {
+      console.warn('Invalid detector name for speech announcement:', detectorName)
+      return
+    }
+
+    // Speak the detector name
+    speechSynthesis.speakText({ 
+      text: detectorName,
+      rate: 1.0,
+      pitch: 1.0 
+    }).catch(error => {
+      console.warn('Speech announcement failed:', error)
+    })
+  }
 
   function connect() {
     if (socket.value) {
@@ -290,6 +317,11 @@ export const useSocketStore = defineStore('socket', () => {
         systemStatus.statistics.totalDetections++
         backendStatus.running = true
         backendStatus.lastHeartbeat = timestamp
+
+        // Announce the detector name if speech is enabled
+        if (data.detector?.name) {
+          announceDetection({ detectorName: data.detector.name })
+        }
         break
         
       case 'multiToneDetected':

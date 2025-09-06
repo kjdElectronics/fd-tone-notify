@@ -20,34 +20,91 @@
 
     <!-- Testing Interface -->
     <div v-else class="space-y-6">
-      <!-- Test All Notifications -->
-      <div class="card">
-        <div class="flex items-center justify-between">
-          <div>
-            <h2 class="text-lg font-semibold text-gray-900 flex items-center">
-              <BeakerIcon class="w-5 h-5 mr-2 text-fire-600" />
-              Global Test Controls
-            </h2>
-            <p class="text-sm text-gray-600 mt-1">
-              Test all configured notifications across all detectors
-            </p>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Voice Alerts Testing Card -->
+        <div class="card">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="text-lg font-semibold text-gray-900 flex items-center">
+                <SpeakerWaveIcon class="w-5 h-5 mr-2 text-fire-600" />
+                Voice Alerts Testing
+              </h2>
+              <p class="text-sm text-gray-600 mt-1">
+                Test speech announcements for all detectors
+              </p>
+            </div>
+            <button
+              @click="testAllVoiceAlerts"
+              :disabled="(speechSynthesis.isSupported.value && !speechSettings.isEnabled())"
+              class="btn-primary flex items-center"
+              :class="{ 'cursor-pointer': !(speechSynthesis.isSupported.value && !speechSettings.isEnabled()), 'opacity-50 cursor-not-allowed': (speechSynthesis.isSupported.value && !speechSettings.isEnabled()) }"
+            >
+              <SpeakerWaveIcon class="w-4 h-4 mr-2" />
+              {{ voiceTesting ? 'Speaking...' : 'Test All Voice Alerts' }}
+            </button>
           </div>
-          <div class="flex space-x-3">
+          
+          <!-- Voice status messages -->
+          <div v-if="!speechSynthesis.isSupported.value" class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+            <div class="flex items-center">
+              <ExclamationTriangleIcon class="w-4 h-4 mr-2" />
+              Voice alerts not supported in this browser
+            </div>
+          </div>
+          
+          <!-- Only show blue warning when speech is supported but disabled -->
+          <div v-else-if="speechSynthesis.isSupported.value && !speechSettings.isEnabled()" class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+            <div class="flex items-center">
+              <SpeakerWaveIcon class="w-4 h-4 mr-2" />
+              Enable voice alerts in the sidebar to test announcements
+            </div>
+          </div>
+          
+          <!-- Show detector warning only when speech is enabled but no detectors -->
+          <div v-else-if="speechSettings.isEnabled() && totalDetectors === 0" class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+            <div class="flex items-center">
+              <ExclamationTriangleIcon class="w-4 h-4 mr-2" />
+              No detectors configured for voice testing
+            </div>
+          </div>
+          
+          <!-- Show success state when everything is ready -->
+          <div v-else-if="speechSettings.isEnabled() && totalDetectors > 0" class="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
+            <div class="flex items-center">
+              <SpeakerWaveIcon class="w-4 h-4 mr-2" />
+              Ready to test {{ totalDetectors }} detector{{ totalDetectors === 1 ? '' : 's' }}
+            </div>
+          </div>
+        </div>
+        
+        <!-- Notification Testing Card -->
+        <div class="card">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="text-lg font-semibold text-gray-900 flex items-center">
+                <BeakerIcon class="w-5 h-5 mr-2 text-fire-600" />
+                Notification Testing
+              </h2>
+              <p class="text-sm text-gray-600 mt-1">
+                Test all configured notifications across detectors
+              </p>
+            </div>
             <button
               @click="testAllNotifications"
               :disabled="testing || !hasNotifications"
               class="btn-primary flex items-center"
+              :class="{ 'cursor-pointer': !(testing || !hasNotifications), 'opacity-50 cursor-not-allowed': (testing || !hasNotifications) }"
             >
               <BeakerIcon class="w-4 h-4 mr-2" />
               {{ testing ? 'Testing...' : 'Test All Notifications' }}
             </button>
           </div>
-        </div>
-        
-        <div v-if="!hasNotifications" class="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
-          <div class="flex items-center">
-            <ExclamationTriangleIcon class="w-4 h-4 mr-2" />
-            No notifications are configured on any detectors
+          
+          <div v-if="!hasNotifications" class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+            <div class="flex items-center">
+              <ExclamationTriangleIcon class="w-4 h-4 mr-2" />
+              No notifications are configured on any detectors
+            </div>
           </div>
         </div>
       </div>
@@ -151,6 +208,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useNotificationStore } from '../stores/notifications'
+import { useSpeechSettingsStore } from '../stores/speechSettings'
+import { useSpeechSynthesis } from '../composables/useSpeechSynthesis'
 import api from '../utils/api'
 import DetectorCard from '../components/DetectorCard.vue'
 import { 
@@ -162,10 +221,13 @@ import {
 } from '@heroicons/vue/24/outline'
 
 const notificationStore = useNotificationStore()
+const speechSettings = useSpeechSettingsStore()
+const speechSynthesis = useSpeechSynthesis()
 
 // Reactive data
 const loading = ref(true)
 const testing = ref(false)
+const voiceTesting = ref(false)
 const error = ref(null)
 const config = ref({})
 const testResults = ref([])
@@ -201,6 +263,12 @@ const hasNotifications = computed(() => {
   return totalNotifications.value > 0
 })
 
+const canTestVoiceAlerts = computed(() => {
+  // Button should be enabled if speech is supported and enabled (regardless of detector count)
+  // This allows testing even with no detectors to show appropriate feedback
+  return speechSynthesis.isSupported.value && speechSettings.isEnabled()
+})
+
 // Load configuration from backend
 async function loadConfig() {
   loading.value = true
@@ -230,6 +298,93 @@ async function loadConfig() {
     })
   } finally {
     loading.value = false
+  }
+}
+
+// Test all voice alerts
+async function testAllVoiceAlerts() {
+  console.log('testAllVoiceAlerts called')
+  console.log('canTestVoiceAlerts:', canTestVoiceAlerts.value)
+  console.log('speechSynthesis.isSupported:', speechSynthesis.isSupported.value)
+  console.log('speechSettings.isEnabled():', speechSettings.isEnabled())
+  
+  if (!canTestVoiceAlerts.value) {
+    console.log('Cannot test voice alerts - prerequisites not met')
+    return
+  }
+  
+  voiceTesting.value = true
+  
+  try {
+    // Extract detector names from configuration
+    const detectors = config.value.detection?.detectors || []
+    console.log('Available detectors:', detectors)
+    
+    const detectorNames = detectors.map(detector => detector.name).filter(name => name)
+    console.log('Detector names:', detectorNames)
+    
+    if (detectorNames.length === 0) {
+      // If no detectors, announce a test message instead
+      const testMessage = 'Voice alerts are working. No detectors configured.'
+      console.log('No detectors found, using test message:', testMessage)
+      
+      await speechSynthesis.speakText({ 
+        text: testMessage,
+        rate: 1.0,
+        pitch: 1.0 
+      })
+      
+      notificationStore.addNotification({
+        type: 'info',
+        message: 'Voice alerts test completed - no detectors configured'
+      })
+    } else {
+      // Concatenate names with periods for natural pauses
+      const speechText = detectorNames.join('. ') + '.'
+      console.log('Speaking text:', speechText)
+      
+      // Speak all detector names in one call
+      await speechSynthesis.speakText({ 
+        text: speechText,
+        rate: 1.0,
+        pitch: 1.0 
+      })
+      
+      notificationStore.addNotification({
+        type: 'success',
+        message: `Successfully announced ${detectorNames.length} detector names`
+      })
+    }
+    
+    // Add success result to test results
+    testResults.value.unshift({
+      detector: 'All Detectors',
+      type: 'voice-alert',
+      timing: 'announcement',
+      success: true,
+      timestamp: new Date().toISOString(),
+      detectorCount: detectorNames.length
+    })
+    
+  } catch (err) {
+    console.error('Failed to test voice alerts:', err)
+    
+    // Add failure result to test results
+    testResults.value.unshift({
+      detector: 'All Detectors',
+      type: 'voice-alert',
+      timing: 'announcement',
+      success: false,
+      timestamp: new Date().toISOString(),
+      error: err.message
+    })
+    
+    notificationStore.addNotification({
+      type: 'error',
+      message: err.message || 'Failed to test voice alerts'
+    })
+  } finally {
+    voiceTesting.value = false
   }
 }
 

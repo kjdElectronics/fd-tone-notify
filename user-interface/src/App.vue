@@ -129,6 +129,9 @@
                 <span>Config changes not applied until restart</span>
               </div>
             </div>
+
+            <!-- Speech Announcements Toggle -->
+            <SpeechAnnouncementSidebarToggle />
           </div>
         </div>
         
@@ -222,6 +225,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import ManualStartModal from './components/ManualStartModal.vue'
 import StopServerModal from './components/StopServerModal.vue'
+import SpeechAnnouncementSidebarToggle from './components/SpeechAnnouncementSidebarToggle.vue'
 
 const authStore = useAuthStore()
 const socketStore = useSocketStore()
