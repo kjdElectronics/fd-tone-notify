@@ -38,15 +38,13 @@ async function recordAndNotifyWorker(){
             const notificationParams = new NotificationParams({...message,
                 attachFile: true});
             const filename = await recordingService.recordFile(notificationParams);
-            return sendNotifications(notificationParams)
+            await sendNotifications(notificationParams)
                 .finally(r => {
-                    log.notice(`Recording Worker: RECORDING PROCESSING COMPLETE`);
-                    // Cleanup after recording complete
-                    clearInterval(memoryMonitor);
-                    if (recordingService && typeof recordingService.dispose === 'function') {
-                        recordingService.dispose();
-                    }
-                    parentPort.close();
+                    const exitCb = () => parentPort.close();
+                    _cleanup({
+                        exitCb: exitCb,
+                        memoryMonitor,
+                        recordingService});
                 });
         }
     });
@@ -65,13 +63,11 @@ async function recordAndNotifyForked(){
         const filename = await recordingService.recordFile(notificationParams);
         return sendNotifications(notificationParams)
             .finally(r => {
-                log.notice(`Recording Thread: RECORDING PROCESSING COMPLETE`);
-                // Cleanup before exit
-                clearInterval(memoryMonitor);
-                if (recordingService && typeof recordingService.dispose === 'function') {
-                    recordingService.dispose();
-                }
-                process.exit(0);
+                const exitDb = () => process.exit(0);
+                _cleanup({
+                    exitCb: exitDb,
+                    memoryMonitor,
+                    recordingService});
             });
     });
 }
@@ -89,8 +85,22 @@ function _setupMemoryMonitor(processType) {
         };
         console.log(`[${processType}-MEMORY-${memoryCheckCount}] RSS=${memInfo.rss}MB, Heap=${memInfo.heapUsed}/${memInfo.heapTotal}MB, External=${memInfo.external}MB`);
         log.debug(`Recording ${processType} memory check ${memoryCheckCount}: RSS=${memInfo.rss}MB, Heap=${memInfo.heapUsed}/${memInfo.heapTotal}MB, External=${memInfo.external}MB`);
-        garbageCollect("Recording Thread");
+        garbageCollect(`Recording ${processType}`);
     }, 30000); // Every 30 seconds
+}
+
+function _cleanup({exitCb, memoryMonitor, recordingService}){
+    log.notice(`Recording: RECORDING PROCESSING COMPLETE. Cleaning up...`);
+
+    setTimeout(() => {
+        // Cleanup after recording complete
+        clearInterval(memoryMonitor);
+        if (recordingService && typeof recordingService.dispose === 'function') {
+            recordingService.dispose();
+        }
+        log.notice(`Recording: CLEANUP COMPLETE. Exiting...`);
+        exitCb();
+    }, 5000)
 }
 
 async function commandLineRecord(){
