@@ -89,7 +89,7 @@ function _setupMemoryMonitor(processType) {
 }
 
 function _cleanup({exitCb, memoryMonitor, recordingService}){
-    log.notice(`Recording: RECORDING PROCESSING COMPLETE. Cleaning up...`);
+    log.notice(`Recording: RECORDING COMPLETE. Waiting for 5 seconds before cleanup...`);
 
     setTimeout(() => {
         // Cleanup after recording complete
