@@ -83,7 +83,6 @@ function _setupMemoryMonitor(processType) {
             heapTotal: Math.round(usage.heapTotal / 1024 / 1024),
             external: Math.round(usage.external / 1024 / 1024)
         };
-        console.log(`[${processType}-MEMORY-${memoryCheckCount}] RSS=${memInfo.rss}MB, Heap=${memInfo.heapUsed}/${memInfo.heapTotal}MB, External=${memInfo.external}MB`);
         log.debug(`Recording ${processType} memory check ${memoryCheckCount}: RSS=${memInfo.rss}MB, Heap=${memInfo.heapUsed}/${memInfo.heapTotal}MB, External=${memInfo.external}MB`);
         garbageCollect(`Recording ${processType}`);
     }, 30000); // Every 30 seconds
