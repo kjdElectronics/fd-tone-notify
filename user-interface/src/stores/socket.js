@@ -4,6 +4,7 @@ import { useNotificationStore } from './notifications'
 import { useManagerSocketStore } from './manager-socket'
 import { useSpeechSettingsStore } from './speechSettings'
 import { useSpeechSynthesis } from '../composables/useSpeechSynthesis'
+import api from '../utils/api'
 
 export const useSocketStore = defineStore('socket', () => {
   const socket = ref(null)
@@ -113,6 +114,9 @@ export const useSocketStore = defineStore('socket', () => {
       
       // Start heartbeat checking
       startHeartbeatCheck()
+
+      // Populate recent detections from persistence
+      populateRecentDetections()
 
       // Show appropriate notification
       if (wasRestarting) {
@@ -453,6 +457,61 @@ export const useSocketStore = defineStore('socket', () => {
         triggerReconnection()
       }
     })
+  }
+
+  // Function to populate recent detections from persistence on connection
+  async function populateRecentDetections() {
+    try {
+      console.log('Populating recent detections from persistence...')
+      
+      const response = await api.get('/detections', {
+        params: { limit: 50 }
+      })
+      
+      if (response.data.success) {
+        const recentDetections = response.data.detections || []
+        console.log(`Retrieved ${recentDetections.length} recent detections from persistence`)
+        
+        // Clear existing detections and populate with recent ones
+        systemStatus.detections = []
+        
+        // Add each detection to the bounded array, converting to frontend format
+        recentDetections.forEach(detection => {
+          const frontendFormat = {
+            ...detection.data,
+            timestamp: detection.timestamp,
+            type: detection.type === 'toneDetected' ? 'configured' : 'discovery'
+          }
+          addToBoundedArray(systemStatus.detections, frontendFormat, MAX_DETECTIONS)
+        })
+        
+        // Update statistics
+        systemStatus.statistics.totalDetections = Math.max(
+          systemStatus.statistics.totalDetections, 
+          recentDetections.length
+        )
+        
+        console.log(`Populated ${systemStatus.detections.length} detections from persistence`)
+        
+        if (recentDetections.length > 0) {
+          useNotificationStore().addNotification({
+            type: 'info',
+            message: `Loaded ${recentDetections.length} recent detections`
+          })
+        }
+      } else {
+        console.warn('Failed to retrieve recent detections:', response.data.error)
+      }
+      
+    } catch (error) {
+      console.error('Error populating recent detections:', error)
+      
+      // Don't show error notification for this - it's not critical
+      // The WebSocket will still work for new detections
+      if (error.response?.status === 503) {
+        console.log('Persistence service not available - continuing with empty detection history')
+      }
+    }
   }
 
   return {

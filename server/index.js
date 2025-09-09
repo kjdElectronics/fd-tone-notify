@@ -8,6 +8,7 @@ const WebSocket = require('ws');
 const log = require('../util/logger');
 const path = require('path');
 const moment = require("moment");
+const { getDetectionStore } = require('./detection-store');
 const PUBLIC_PATH = path.join(__dirname, './public');
 //For Packaging
 
@@ -26,6 +27,9 @@ const corsOptions = {
 
 // Module-level WebSocket server reference for use by other modules
 let globalWss = null;
+
+// Global detection store instance
+let detectionStore = null;
 
 async function startWebApp() {
     let app = express();
@@ -53,6 +57,10 @@ async function startWebApp() {
 
     app.wss = wss;
     globalWss = wss; // Store reference for global access
+
+    // Initialize detection store
+    detectionStore = getDetectionStore();
+    log.info('Detection store initialized');
 
     log.info('WebSocket server configured and attached to HTTP server');
     return app;
@@ -154,40 +162,67 @@ function configureWebSocketEvents({detectionService, allToneDetectionService, ws
         });
     });
 
-    detectionService.on('toneDetected', data => {
+    detectionService.on('toneDetected', async data => {
+        // Create message for WebSocket broadcast
+        const message = {type: 'toneDetected', data};
+        
+        // Broadcast to WebSocket clients
         wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
-                const message = {type: 'toneDetected', data};
                 client.send(JSON.stringify(message));
             }
         });
-        log.info('Sending toneDetected to ws clients');
+        
+        // Store the detection (same format as frontend expects)
+        if (detectionStore) {
+            detectionStore.addDetection({
+                ...data,
+                timestamp: new Date().toISOString(),
+                type: 'configured'
+            });
+        }
+        
+        log.info('Sending toneDetected to ws clients and persisting');
     });
 
     // Handle multiToneDetected events from AllToneDetectionService if enabled
     if (allToneDetectionService) {
-        allToneDetectionService.on('multiToneDetected', eventData => {
+        allToneDetectionService.on('multiToneDetected', async eventData => {
             // Extract data from the event - could be legacy format (just tones array) or new format (object with tones and timestamp)
             const tones = Array.isArray(eventData) ? eventData : eventData.tones;
             const detectionTimestamp = Array.isArray(eventData) ? new Date().toISOString() : (eventData.timestamp ? new Date(eventData.timestamp * 1000).toISOString() : new Date().toISOString());
             
+            // Create standardized message data
+            const messageData = {
+                tones: tones,
+                timestamp: detectionTimestamp,
+                detector: {
+                    name: 'All Tone Detector',
+                    type: 'discovery'
+                }
+            };
+            
+            // Broadcast to WebSocket clients
             wss.clients.forEach(client => {
                 if (client.readyState === WebSocket.OPEN) {
                     const message = {
                         type: 'multiToneDetected', 
-                        data: {
-                            tones: tones,
-                            timestamp: detectionTimestamp,
-                            detector: {
-                                name: 'All Tone Detector',
-                                type: 'discovery'
-                            }
-                        }
+                        data: messageData
                     };
                     client.send(JSON.stringify(message));
                 }
             });
-            log.info(`Sending multiToneDetected to ws clients: ${tones.map(f => `${f}Hz`).join(', ')}`);
+            
+            // Store the detection (same format as frontend expects)
+            if (detectionStore) {
+                detectionStore.addDetection({
+                    ...messageData,
+                    timestamp: detectionTimestamp,
+                    type: 'discovery'
+                });
+            }
+            
+            log.info(`Sending multiToneDetected to ws clients and persisting: ${tones.map(f => `${f}Hz`).join(', ')}`);
         });
     }
 
@@ -217,4 +252,9 @@ function getWebSocketServer() {
     return globalWss;
 }
 
-module.exports = {startWebApp, configureWebSocketEvents, getWebSocketServer };
+// Function to get the global detection store instance
+function getGlobalDetectionStore() {
+    return detectionStore;
+}
+
+module.exports = {startWebApp, configureWebSocketEvents, getWebSocketServer, getGlobalDetectionStore };

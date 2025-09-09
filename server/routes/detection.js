@@ -1,7 +1,7 @@
 const express = require('express');
 const { upload } = require('../middleware/upload.middleware');
 const { parseDetectorConfig } = require('../middleware/detector-config.middleware');
-const { detectTones } = require('../controllers/detection.controller');
+const { detectTones, getRecentDetections } = require('../controllers/detection.controller');
 
 const router = express.Router();
 
@@ -36,7 +36,7 @@ const router = express.Router();
  *   ]
  * }
  */
-router.post('/detect-tones', (req, res) => {
+router.post('/', (req, res) => {
     upload.single('file')(req, res, async (err) => {
         // Handle multer file validation errors
         if (err) {
@@ -62,5 +62,38 @@ router.post('/detect-tones', (req, res) => {
         });
     });
 });
+
+/**
+ * GET /recent
+ * Get recent detections from persistence storage for client population
+ * 
+ * Query Parameters:
+ * - limit: number (optional, default: 50, max: 50) - Maximum detections to return
+ * 
+ * Response:
+ * {
+ *   "success": true,
+ *   "detections": [
+ *     {
+ *       "id": "det_1234567890_abc123",
+ *       "type": "configured" | "discovery",
+ *       "timestamp": "2025-01-15T10:30:45.123Z",
+ *       "detector": {
+ *         "name": "Fire Station 1",
+ *         "type": "configured"
+ *       },
+ *       "tones": [567, 378],
+ *       "...": "additional data from original event"
+ *     }
+ *   ],
+ *   "meta": {
+ *     "count": 25,
+ *     "limit": 50,
+ *     "oldestTimestamp": "2025-01-15T07:30:45.123Z",
+ *     "newestTimestamp": "2025-01-15T10:30:45.123Z"
+ *   }
+ * }
+ */
+router.get('/', getRecentDetections);
 
 module.exports = router;

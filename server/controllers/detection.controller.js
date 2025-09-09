@@ -8,7 +8,7 @@ const { TonesDetectorConfig } = require('../../obj/config/TonesDetectorConfig');
 const { AudioFileService } = require('../../service/AudioFileService');
 const { DetectionService } = require('../../service/DetectionService');
 const { AllToneDetectionService } = require('../../service/AllToneDetectionService');
-const { getWebSocketServer } = require('../index');
+const { getWebSocketServer, getGlobalDetectionStore, configureWebSocketEvents } = require('../index');
 const config = require('config');
 const garbageCollect = require("../../util/gc");
 
@@ -85,14 +85,22 @@ async function detectTones(req, res) {
     const detections = [];
     const allToneDetections = [];
 
-    // Create detection listener with context
-    const detectionListener = createDetectionListener(detections, requestId);
+    // Configure universal WebSocket events (includes persistence and WebSocket broadcasting)
+    const wss = getWebSocketServer();
+    if (wss) {
+        configureWebSocketEvents({
+            detectionService,
+            allToneDetectionService,
+            wss
+        });
+    }
 
+    // Create additional listeners for API response collection
+    const detectionListener = createDetectionListener(detections, requestId);
     detectionService.on('toneDetected', detectionListener);
 
     // Listen for multi-tone detections if AllToneDetector is enabled
     let multiToneDetectionListener = null;
-    
     if (allToneDetectionService) {
         multiToneDetectionListener = createMultiToneDetectionListener(allToneDetections, requestId);
         allToneDetectionService.on('multiToneDetected', multiToneDetectionListener);
@@ -216,21 +224,8 @@ function createDetectionListener(detections, requestId) {
 
         detections.push(detectionData);
         log.info(`API detection: ${detection.detector.name} detected at ${detectionData.timestamp} (${requestId})`);
-
-        // Forward detection to WebSocket clients for real-time dashboard updates
-        const wss = getWebSocketServer();
-        if (wss) {
-            wss.clients.forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                    const message = {
-                        type: 'toneDetected',
-                        data: detection // Send the raw detection data to match main system format
-                    };
-                    client.send(JSON.stringify(message));
-                }
-            });
-            log.info(`API: Forwarded toneDetected to WebSocket clients for ${detection.detector.name}`);
-        }
+        
+        // Note: WebSocket broadcasting and persistence handled by configureWebSocketEvents
     };
 }
 
@@ -258,30 +253,56 @@ function createMultiToneDetectionListener(allToneDetections, requestId) {
 
         allToneDetections.push(detectionData);
         log.info(`API multi-tone detection: ${tones.map(f => `${f}Hz`).join(', ')} at ${detectionTimestamp}s (${requestId})`);
-
-        // Forward multi-tone detection to WebSocket clients for real-time dashboard updates
-        const wss = getWebSocketServer();
-        if (wss) {
-            wss.clients.forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                    const message = {
-                        type: 'multiToneDetected',
-                        data: {
-                            tones: tones,
-                            timestamp: detectionTimestamp > 0 ? new Date(detectionTimestamp * 1000).toISOString() : new Date().toISOString(),
-                            detector: {
-                                name: 'All Tone Detector',
-                                type: 'discovery'
-                            }
-                        }
-                    };
-                    client.send(JSON.stringify(message));
-                }
-            });
-            log.info(`API: Forwarded multiToneDetected to WebSocket clients: ${tones.map(f => `${f}Hz`).join(', ')}`);
-        }
+        
+        // Note: WebSocket broadcasting and persistence handled by configureWebSocketEvents
     };
 }
 
+/**
+ * Get recent detections from persistence storage for client population
+ */
+async function getRecentDetections(req, res) {
+    try {
+        // Get detection store
+        const detectionStore = getGlobalDetectionStore();
+        if (!detectionStore) {
+            return res.status(503).json({
+                success: false,
+                error: 'Detection store not available',
+                detections: [],
+                meta: { count: 0, limit: 0 }
+            });
+        }
 
-module.exports = { detectTones };
+        // Parse query parameters
+        const limit = Math.min(parseInt(req.query.limit) || 50, 50);
+        
+        log.debug(`API request for recent detections: limit=${limit}`);
+
+        // Get recent detections (raw WebSocket data)
+        const detections = detectionStore.getRecentDetections(limit);
+
+        log.debug(`Returning ${detections.length} recent detections via API`);
+
+        res.json({
+            success: true,
+            detections: detections,
+            meta: {
+                count: detections.length,
+                limit: limit
+            }
+        });
+
+    } catch (error) {
+        log.error(`Error retrieving recent detections via API: ${error.message}`, error);
+        
+        res.status(500).json({
+            success: false,
+            error: 'Failed to retrieve recent detections',
+            detections: [],
+            meta: { count: 0, limit: parseInt(req.query.limit) || 50 }
+        });
+    }
+}
+
+module.exports = { detectTones, getRecentDetections };

@@ -389,8 +389,8 @@ async function analyzeFile() {
     formData.append('enableNotifications', processNotifications.value.toString())
     formData.append('enableAllToneDetector', enableAllToneDetector.value.toString())
     
-    // Make API request to existing detect-tones endpoint
-    const response = await api.post('/detect-tones', formData, {
+    // Make API request to existing detections endpoint
+    const response = await api.post('/detections', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
         'Authorization': `Bearer ${authStore.token}`

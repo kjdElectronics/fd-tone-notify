@@ -29,7 +29,7 @@ function configureRoutes(app) {
     app.use('/api/detectors', detectorRoutes);
     app.use('/api/system', systemRoutes);
     app.use('/api/notifications', notificationRoutes);
-    app.use('/api', detectionRoutes);
+    app.use('/api/detections', detectionRoutes);
 }
 
 module.exports = { configureRoutes };
