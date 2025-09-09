@@ -228,7 +228,7 @@ class DetectionService extends EventEmitter{
         finally {
             if(recordingThread)
                 setTimeout(() => {
-                    log.debug(`Detection Service: Cleaning Up Recording Thread ${recordingThread.threadId}`);
+                    log.info(`Detection Service: Cleaning Up Recording Thread ${recordingThread.threadId}`);
                     recordingThread.dispose()
                 }, this.maxRecordingLengthSec * 1000 + 15000);
             lock.release();
@@ -313,7 +313,7 @@ class DetectionService extends EventEmitter{
 
                 // Dispose old thread after another 2 seconds to ensure it's not in use
                 setTimeout(() => {
-                    log.debug(`DetectionService: Disposing old RecordingThread ${oldThreadId}`);
+                    log.info(`DetectionService: Disposing old RecordingThread ${oldThreadId}`);
 
                     if (oldThread && typeof oldThread.dispose === 'function') {
                         oldThread.dispose();

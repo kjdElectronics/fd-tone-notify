@@ -89,7 +89,7 @@ function _setupMemoryMonitor(processType) {
 }
 
 function _cleanup({exitCb, memoryMonitor, recordingService}){
-    log.notice(`Recording: RECORDING COMPLETE. Waiting for 5 seconds before cleanup...`);
+    log.notice(`Recording: RECORDING COMPLETE. Waiting for 15 seconds before cleanup...`);
 
     setTimeout(() => {
         // Cleanup after recording complete
@@ -99,7 +99,7 @@ function _cleanup({exitCb, memoryMonitor, recordingService}){
         }
         log.notice(`Recording: CLEANUP COMPLETE. Exiting...`);
         exitCb();
-    }, 5000)
+    }, 15000)
 }
 
 async function commandLineRecord(){
@@ -137,7 +137,7 @@ async function recordAndNotify(notificationParams){
 }
 
 async function sendNotifications(notificationParams) {
-    return await sendPostRecordingNotifications(notificationParams)
+    return sendPostRecordingNotifications(notificationParams)
         .catch(err => {
             log.error(`Error sending post recording notifications`);
             log.debug(err.stack);

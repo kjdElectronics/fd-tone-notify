@@ -16,9 +16,15 @@ class RecordingService{
         this._setupMic();
 
         this.listenForMicInputEvents();
+
+        this.isRecording = false;
+        this._notificationParams = null;
     }
 
     recordFile(notificationParams){
+        this.isRecording = true;
+        this._notificationParams = notificationParams;
+
         const fullPath = notificationParams.filename ? notificationParams.filename : path.join(config.recording.directory, `${new Date().getTime()}.wav`);
         
         log.info(`Starting Recording ${fullPath}`);
@@ -101,6 +107,14 @@ class RecordingService{
      * Cleanup method to properly dispose of all resources and prevent memory leaks
      */
     dispose() {
+        if(this.isRecording){
+            log.info(`Recording Service: Still processing recording and notifications. Waiting for disposal until recording is complete.`);
+            setTimeout(() => {
+                this.isRecording = false;
+                this.dispose();
+            }, this._notificationParams.detector.maxRecordingLengthSec * 1000); //Failsafe timeout
+        }
+
         log.debug('RecordingService: Starting disposal');
         
         try {
@@ -138,7 +152,10 @@ function  _mp3Conversion({notificationParams, resolve, reject}){
             log.warning(`MP3 Conversion Failed. Using wav file (this may lead to larger than expected recordings since wav files have no compression)`);
             log.debug(err.stack);
             resolve(notificationParams.filename);
-        });
+        })
+        .finally(r => {
+            this.isRecording = false;
+        })
 }
 
 
