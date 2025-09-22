@@ -20,6 +20,7 @@ class RecordingThread {
     constructor({threadId}) {
         this.threadId = threadId;
         this.__initThread();
+        this._recordingRequested = false;
     }
 
     __initThread() {
@@ -63,6 +64,7 @@ class RecordingThread {
     }
 
     sendMessage(message) {
+        this._recordingRequested = true;
         log.notice(`Recording Thread: Sending message to recording thread to start recording...`);
         if (this._recordingWorker)
             this._recordingWorker.postMessage(message);
@@ -81,48 +83,55 @@ class RecordingThread {
      */
     dispose() {
         log.notice(`RecordingThread ${this.threadId}: Starting disposal...`);
-        
-        try {
-            // Terminate Worker thread if it exists
-            if (this._recordingWorker) {
-                log.debug(`RecordingThread ${this.threadId}: Terminating Worker thread`);
-                
-                // Try graceful termination first
-                this._recordingWorker.terminate()
-                    .then(() => {
-                        log.notice(`RecordingThread ${this.threadId}: Worker thread terminated gracefully`);
-                    })
-                    .catch((error) => {
-                        log.warning(`RecordingThread ${this.threadId}: Worker termination failed, force killing: ${error.message}`);
-                        // Worker threads don't have PIDs, so force termination is handled by Node.js
-                    });
-                
-                this._recordingWorker = null;
+
+        const TIMEOUT = this._recordingRequested ? 60000 : 3000;
+
+        const cleanupFn = () => {
+            try {
+                // Terminate Worker thread if it exists
+                if (this._recordingWorker) {
+                    log.debug(`RecordingThread ${this.threadId}: Terminating Worker thread`);
+
+                    // Try graceful termination first
+                    this._recordingWorker.terminate()
+                        .then(() => {
+                            log.notice(`RecordingThread ${this.threadId}: Worker thread terminated gracefully`);
+                        })
+                        .catch((error) => {
+                            log.warning(`RecordingThread ${this.threadId}: Worker termination failed, force killing: ${error.message}`);
+                            // Worker threads don't have PIDs, so force termination is handled by Node.js
+                        });
+
+                    this._recordingWorker = null;
+                }
+
+                // Kill child process if it exists
+                if (this._child) {
+                    const pid = this._child.pid;
+                    log.warning(`RecordingThread ${this.threadId}: Killing child process PID ${pid}`);
+
+                    // Try graceful termination first
+                    this._child.kill('SIGTERM');
+
+                    // Set up force kill timer (3 seconds)
+                    setTimeout(() => {
+                        if (this._child && !this._child.killed) {
+                            log.warning(`RecordingThread ${this.threadId}: Child process PID ${pid} not terminated, force killing`);
+                            this._forceKillProcess(pid);
+                        }
+                    }, 3000);
+
+                    this._child = null;
+                }
+
+                log.info(`RecordingThread ${this.threadId}: Disposal complete`);
+            } catch (error) {
+                log.error(`RecordingThread ${this.threadId}: Error during disposal: ${error.message}`);
             }
-            
-            // Kill child process if it exists  
-            if (this._child) {
-                const pid = this._child.pid;
-                log.warning(`RecordingThread ${this.threadId}: Killing child process PID ${pid}`);
-                
-                // Try graceful termination first
-                this._child.kill('SIGTERM');
-                
-                // Set up force kill timer (3 seconds)
-                setTimeout(() => {
-                    if (this._child && !this._child.killed) {
-                        log.warning(`RecordingThread ${this.threadId}: Child process PID ${pid} not terminated, force killing`);
-                        this._forceKillProcess(pid);
-                    }
-                }, 3000);
-                
-                this._child = null;
-            }
-            
-            log.info(`RecordingThread ${this.threadId}: Disposal complete`);
-        } catch (error) {
-            log.error(`RecordingThread ${this.threadId}: Error during disposal: ${error.message}`);
         }
+
+        //Wait before we dispose if there is a recording processing (It should clean itself up anyway)
+        setTimeout(cleanupFn, TIMEOUT);
     }
 
     /**

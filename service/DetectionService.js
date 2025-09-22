@@ -311,7 +311,7 @@ class DetectionService extends EventEmitter{
                 // Switch to new thread
                 this._recordingThread = newThread;
 
-                // Dispose old thread after another 2 seconds to ensure it's not in use
+                // Dispose old thread after another timeout to ensure it's not in use
                 setTimeout(() => {
                     log.info(`DetectionService: Disposing old RecordingThread ${oldThreadId}`);
 

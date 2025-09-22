@@ -112,7 +112,7 @@ class RecordingService{
             setTimeout(() => {
                 this.isRecording = false;
                 this.dispose();
-            }, this._notificationParams.detector.maxRecordingLengthSec * 1000); //Failsafe timeout
+            }, this._notificationParams.detector.maxRecordingLengthSec * 1000 + 10000); //Failsafe timeout
         }
 
         log.debug('RecordingService: Starting disposal');
