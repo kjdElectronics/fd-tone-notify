@@ -107,7 +107,7 @@ function getDetectorName() {
 function getTonesDisplay() {
   // For configured detectors, tones are in detection.detector.tones
   // For discovery detections, tones are in detection.tones
-  const tones =  props.detection?.matchAverages || props.detection.detector?.tones || props.detection.tones
+  const tones =  props.detection.detector?.tones || props.detection.tones
 
   if (!tones || !Array.isArray(tones) || tones.length === 0) {
     return 'N/A'
