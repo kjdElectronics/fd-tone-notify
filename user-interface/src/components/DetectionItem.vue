@@ -27,7 +27,7 @@
         <div class="text-sm text-gray-600">
           Tones: {{ getTonesDisplay() }}
         </div>
-        <div v-if="showMatchAverages && detection.matchAverages" class="text-sm text-gray-500">
+        <div v-if="detection.matchAverages" class="text-sm text-gray-500">
           Match: {{ getMatchDisplay() }}
         </div>
       </div>
@@ -61,10 +61,6 @@ const props = defineProps({
   detection: {
     type: Object,
     required: true
-  },
-  showMatchAverages: {
-    type: Boolean,
-    default: false
   }
 })
 
@@ -107,7 +103,7 @@ function getDetectorName() {
 function getTonesDisplay() {
   // For configured detectors, tones are in detection.detector.tones
   // For discovery detections, tones are in detection.tones
-  const tones =  props.detection.detector?.tones || props.detection.tones
+  const tones =  props.detection?.matchAverages || props.detection.detector?.tones || props.detection.tones
 
   if (!tones || !Array.isArray(tones) || tones.length === 0) {
     return 'N/A'
