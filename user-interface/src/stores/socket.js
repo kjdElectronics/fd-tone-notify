@@ -478,7 +478,8 @@ export const useSocketStore = defineStore('socket', () => {
         // Add each detection to the bounded array, converting to frontend format
         recentDetections.forEach(detection => {
           const frontendFormat = {
-            ...detection.data,
+            tones: detection.tones,
+            detector: detection.detector,
             timestamp: detection.timestamp,
             type: detection.type === 'toneDetected' ? 'configured' : 'discovery'
           }

@@ -82,9 +82,9 @@ class RecordingThread {
      * Uses force kill to guarantee termination on both Unix and Windows
      */
     dispose() {
-        log.notice(`RecordingThread ${this.threadId}: Starting disposal...`);
-
         const TIMEOUT = this._recordingRequested ? 60000 : 3000;
+
+        log.notice(`RecordingThread ${this.threadId}: Disposal starting after ${TIMEOUT}ms delay...`);
 
         const cleanupFn = () => {
             try {
