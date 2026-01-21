@@ -1,7 +1,7 @@
 # FD Tone Notify
 FD Tone Notify is Dispatch Tone Notification Software for Fire Departments and Enthusiasts
   - Simultaneously detect tones for multiple departments or stations.
-  - Send Pushbullet, SMS, or email notifications. Integrate with Custom Webhooks
+  - Send Pushbullet, Pushover, SMS, or email notifications. Integrate with Custom Webhooks
   - Detect any number of tones from 1 to 5+ (no hard limit) with custom set tolerances and match thresholds. High accuracy and granularity to suit various applications
   - Cross Platform and tested on the Raspberry Pi 3. The simplicity and low cost of the Raspberry Pi 3 allows new installations to be deployed quickly and cheaply.
   - Web based remote monitoring interface with the ability to live stream audio.
@@ -475,6 +475,26 @@ delivered within seconds making Pushbullet ideal for `preRecording` notification
   
   When Pushbullet notifications are specified in `postRecording` the push notification will include the recorded
   dispatch audio. 
+
+###### Pushover
+[Pushover.net](https://pushover.net/) allows users to receive push notifications on their Android/iOS devices from 
+FD Tone Notify. Pushover is a reliable and fast notification service that delivers notifications within seconds, 
+making it ideal for both `preRecording` and `postRecording` notifications.
+  - `title`: Any string that serves as the title for the push notification. Typically a department/station name
+  - `message` (or `body`): Message body to include in the push notification. Can use `%d` to dynamically insert the date & time.
+  - `device` (Optional): Specific device name to send to. Leave empty to send to all devices.
+  - `priority` (Optional): Priority level from -2 (lowest) to 2 (emergency). Default is 0 (normal).
+    - `-2`: No notification/alert
+    - `-1`: Quiet notification
+    - `0`: Normal priority (default)
+    - `1`: High priority (bypasses quiet hours)
+    - `2`: Emergency (requires acknowledgment)
+  - `sound` (Optional): Sound name to play. Examples: `pushover` (default), `siren`, `alarm`, `bugle`, etc. 
+    See [Pushover sounds](https://pushover.net/api#sounds) for full list.
+  
+  When Pushover notifications are specified in `postRecording` the push notification will include the recorded
+  dispatch audio as an attachment. **Note:** Pushover supports audio attachments up to 2.5 MB.
+
 ###### Webhooks
 Webhooks can be used to integrate FD Tone Notify into other software applications. Webhooks specified in the `preRecording`
 section will POST JSON to the `address` specified with the following format.
@@ -628,6 +648,9 @@ are used as environment and in the `secrets.json`. :information_source: Remember
  - `FD_PUSHBULLET_API_KEY`: The API key for Pushbullet. This API key must be the owner/creator of the channel tags 
  used to send notifications. After setting up a Pushbullet account use the Create Access Token button on the
   [Account Page](https://www.pushbullet.com/#settings/account) to get an API Key
+ - `FD_PUSHOVER_API_TOKEN`: The API token for Pushover. After creating a Pushover account, register your application
+  at [Pushover Applications](https://pushover.net/apps/build) to get an API Token.
+ - `FD_PUSHOVER_USER_KEY`: Your Pushover user key. Found on your [Pushover Dashboard](https://pushover.net/) after logging in.
  - `FD_CORALOGIX_PRIVATE_KEY`: If using Coralogix enter the Private Key here
  - `FD_SMTP_USERNAME`: The SMTP username. For Sendgrid this will always be `apikey`
  - `FD_SMTP_PASSWORD`: The SMTP password. For Sendgrid this an API Key. Sendgrid API keys can be created

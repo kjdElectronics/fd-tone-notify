@@ -3,6 +3,7 @@ const {runExternalCommand} = require('./external.command');
 const {sendEmail} = require('./send.email');
 const {postJson, postMultiPartFormDataWithFile} = require('./webhook');
 const {PushBulletService} = require('./PushBulletService');
+const {PushoverService} = require('./PushoverService');
 const chalk = require('chalk');
 const log = require('../util/logger');
 const path = require('path');
@@ -20,7 +21,8 @@ async function sendPreRecordingNotifications(notificationParams){
 
     log.debug(`Processing PRE recording notifications for ${notificationParams.detector.name}. UUID: ${notificationParams.uuid}`);
     const p = _pushbulletNotifications(notificationParams, PRE);
-    let promises = [p];
+    const p2 = _pushoverNotifications(notificationParams, PRE);
+    let promises = [p, p2];
     if(notificationParams.notifications.preRecording) {
         promises = promises.concat(_emailNotifications(notificationParams, PRE));
         promises = promises.concat(_webhooks(notificationParams, PRE));
@@ -38,7 +40,8 @@ async function sendPostRecordingNotifications(notificationParams){
 
     log.debug(`Processing POST recording notifications ${notificationParams.detector.name}. UUID: ${notificationParams.uuid}`);
     const p = _pushbulletNotifications(notificationParams, POST);
-    let promises = [p];
+    const p2 = _pushoverNotifications(notificationParams, POST);
+    let promises = [p, p2];
     if(notificationParams.notifications.postRecording) {
         promises = promises.concat(_emailNotifications(notificationParams, POST));
         promises = promises.concat(_webhooks(notificationParams, POST));
@@ -76,6 +79,50 @@ async function _pushbulletNotifications(params, prePostType) {
                 .then(r => log.info("Push Audio Link Sent"))
                 .catch(err => {
                     log.error("Error Audio Link Push");
+                    log.debug(err.stack);
+                });
+        }
+    });
+}
+
+async function _pushoverNotifications(params, prePostType) {
+    const pushovers = params.getPushovers(prePostType);
+    if (pushovers.length === 0) {
+        log.debug(`No Pushover ${prePostType} Recording notifications`);
+        return;
+    }
+
+    log.info(`Sending ${pushovers.length}x ${prePostType} Recording Pushover notifications`);
+    return pushovers.map(push => {
+        if (prePostType === PRE) {
+            const options = {
+                message: push.message || push.body || `Tone Received ${params.dateString}`,
+                title: push.title,
+                device: push.device,
+                priority: push.priority,
+                sound: push.sound
+            };
+            return PushoverService.push(options)
+                .then(r => log.info(chalk.bold.green("Pushover Initial Notification Sent")))
+                .catch(err => {
+                    log.error("Error sending Pushover initial notification");
+                    log.debug(err.stack);
+                });
+        } else {
+            const options = {
+                title: push.title || `${params.detector ? params.detector.name : ''} Dispatch Audio`,
+                message: push.message || push.body || `Audio recording from ${params.dateString}`,
+                absolutePath: path.resolve(params.filename),
+                filename: path.basename(params.filename),
+                device: push.device,
+                priority: push.priority,
+                sound: push.sound
+            };
+
+            return PushoverService.pushFile(options)
+                .then(r => log.info("Pushover Audio Notification Sent"))
+                .catch(err => {
+                    log.error("Error sending Pushover audio notification");
                     log.debug(err.stack);
                 });
         }

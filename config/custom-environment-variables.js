@@ -23,6 +23,10 @@ const CUSTOM_ENV_VAR_CONFIG = {
     pushbullet:{
         apiKey: "FD_PUSHBULLET_API_KEY"
     },
+    pushover:{
+        apiToken: "FD_PUSHOVER_API_TOKEN",
+        userKey: "FD_PUSHOVER_USER_KEY"
+    },
     email: {
         from: "FD_EMAIL_FROM",
         host: "FD_SMTP_HOST",
