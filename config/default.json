@@ -37,6 +37,15 @@
                   "body": "Tone Received %d"
                 }
               ],
+              "pushover": [
+                {
+                  "title": "Test Fire Department Tone Received",
+                  "message": "Tone Received %d",
+                  "device": "",
+                  "priority": 0,
+                  "sound": "pushover"
+                }
+              ],
               "webhooks": [
                 {
                   "address": "http://localhost:8500/endpoint",
@@ -73,6 +82,15 @@
                   "body": "Tone Received %d"
                 }
               ],
+              "pushover": [
+                {
+                  "title": "Test Fire Department Dispatch Audio",
+                  "message": "Audio recording attached",
+                  "device": "",
+                  "priority": 1,
+                  "sound": "siren"
+                }
+              ],
               "webhooks": [],
               "externalCommands": [],
               "emails": []
@@ -87,12 +105,14 @@
           "notifications": {
             "preRecording": {
               "pushbullet": [],
+              "pushover": [],
               "webhooks": [],
               "externalCommands": [],
               "emails": []
             },
             "postRecording": {
               "pushbullet": [],
+              "pushover": [],
               "webhooks": [],
               "externalCommands": [],
               "emails": []
