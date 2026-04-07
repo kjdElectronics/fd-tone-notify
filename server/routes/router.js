@@ -4,6 +4,7 @@ const detectionRoutes = require('./detection');
 const detectorRoutes = require('./detector');
 const systemRoutes = require('./system');
 const notificationRoutes = require('./notifications');
+const rdioScannerRoutes = require('./rdio-scanner');
 const { login } = require('../middleware/auth.middleware');
 
 /**
@@ -30,6 +31,7 @@ function configureRoutes(app) {
     app.use('/api/system', systemRoutes);
     app.use('/api/notifications', notificationRoutes);
     app.use('/api/detections', detectionRoutes);
+    app.use('/api/call-upload', rdioScannerRoutes);
 }
 
 module.exports = { configureRoutes };

@@ -38,6 +38,23 @@
               <p v-if="validationErrors.name" class="form-error">{{ validationErrors.name }}</p>
             </div>
 
+            <!-- Talkgroup Filter (Rdio Scanner) -->
+            <div>
+              <label for="talkgroup-filter" class="form-label">
+                Talkgroup Filter (Rdio Scanner)
+              </label>
+              <input
+                id="talkgroup-filter"
+                v-model="form.talkgroupFilter"
+                type="text"
+                class="form-input"
+                placeholder="e.g., Fire Dispatch"
+              />
+              <p class="form-help">
+                Case-insensitive talkgroup name to match incoming Rdio Scanner calls. Leave empty to skip Rdio Scanner processing for this detector.
+              </p>
+            </div>
+
             <!-- Tone Frequencies -->
             <div>
               <label class="form-label">
@@ -315,6 +332,7 @@ const detectorsStore = useDetectorsStore()
 // Form state
 const form = ref({
   name: '',
+  talkgroupFilter: '',
   tones: [0],
   matchThreshold: 6,
   tolerancePercent: 0.02,
@@ -358,6 +376,7 @@ function initializeForm() {
     // Edit mode - populate form with existing detector
     form.value = {
       name: props.detector.name,
+      talkgroupFilter: props.detector.talkgroupFilter || '',
       tones: [...props.detector.tones],
       matchThreshold: props.detector.matchThreshold,
       tolerancePercent: props.detector.tolerancePercent,

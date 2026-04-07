@@ -380,12 +380,21 @@ function validateDetector(detectorData, isUpdate = false) {
     const recordingErrors = validateRecordingSettings(detectorData);
     errors.push(...recordingErrors);
     
+    // Validate talkgroupFilter
+    if (detectorData.talkgroupFilter !== undefined && detectorData.talkgroupFilter !== null && detectorData.talkgroupFilter !== '') {
+        if (typeof detectorData.talkgroupFilter !== 'string') {
+            errors.push('Talkgroup filter must be a string');
+        } else if (detectorData.talkgroupFilter.length > 255) {
+            errors.push('Talkgroup filter must be 255 characters or less');
+        }
+    }
+
     // Validate notifications
     if (detectorData.notifications) {
         const notificationErrors = validateNotifications(detectorData.notifications);
         errors.push(...notificationErrors);
     }
-    
+
     return errors;
 }
 

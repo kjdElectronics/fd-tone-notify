@@ -21,6 +21,7 @@
       "detectors": [
         {
           "name": "Test Fire Department",
+          "talkgroupFilter": "",
           "tones": [911, 2938],
           "matchThreshold": 6,
           "tolerancePercent": 0.02,
@@ -149,6 +150,9 @@
     "tolerancePercent": 0.05,
     "matchThreshold": 8,
     "rangeOverlapModifier": 1.8
+  },
+  "rdioScanner": {
+    "enabled": true
   },
   "recording": {
     "directory": "./recordings",

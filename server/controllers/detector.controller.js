@@ -254,6 +254,7 @@ function applyDefaults(detectorData, configData) {
     
     return {
         name: detectorData.name || `New Tone ${new Date().toLocaleString()}`,
+        talkgroupFilter: detectorData.talkgroupFilter ?? '',
         tones: detectorData.tones || [],
         matchThreshold: detectorData.matchThreshold ?? defaults.defaultMatchThreshold ?? 6,
         tolerancePercent: detectorData.tolerancePercent ?? defaults.defaultTolerancePercent ?? 0.02,

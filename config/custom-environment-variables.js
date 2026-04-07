@@ -26,6 +26,9 @@ const CUSTOM_ENV_VAR_CONFIG = {
     email: {
         from: "FD_EMAIL_FROM",
         host: "FD_SMTP_HOST",
+    },
+    rdioScanner: {
+        apiKey: "FD_RDIO_API_KEY"
     }
 };
 

@@ -10,6 +10,9 @@
         <div class="bg-fire-100 text-fire-700 px-2 py-1 rounded text-xs font-medium">
           {{ detector.tones?.length || 0 }} tones
         </div>
+        <div v-if="detector.talkgroupFilter" class="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-medium" title="Rdio Scanner talkgroup filter">
+          TG: {{ detector.talkgroupFilter }}
+        </div>
         <div v-if="!notificationsExpanded" class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-medium">
           {{ totalNotifications }} notifications
         </div>
