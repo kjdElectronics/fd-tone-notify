@@ -18,13 +18,10 @@ async function handleCallUpload(req, res) {
 
     log.info(`Rdio Scanner call-upload received: ${requestId}`);
 
-    // Validate audio file
+    // Handle requests without audio file (SDRTrunk startup connectivity check)
     if (!req.file) {
-        log.debug(`Rdio Scanner call-upload: no audio file provided (${requestId})`);
-        return res.status(400).json({
-            success: false,
-            error: 'No audio file provided'
-        });
+        log.info(`Rdio Scanner call-upload: no audio file, treating as connectivity check (${requestId})`);
+        return res.status(200).send('Call imported successfully');
     }
 
     // Extract and log Rdio metadata
