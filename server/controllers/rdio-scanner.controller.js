@@ -19,8 +19,15 @@ async function handleCallUpload(req, res) {
     log.info(`Rdio Scanner ${req.method} ${req.originalUrl} received from ${req.ip} (${requestId})`);
 
     // Handle requests without audio file (SDRTrunk startup connectivity check)
+    // SDRTrunk sends test=1 with key+system but no talkgroup, expecting HTTP 417
+    // with "Incomplete call data: no talkgroup" to confirm connectivity
     if (!req.file) {
-        log.info(`Rdio Scanner call-upload: no audio file, treating as connectivity check (${requestId})`);
+        const talkgroup = req.body?.talkgroup;
+        if (!talkgroup) {
+            log.info(`Rdio Scanner connectivity check from ${req.ip}: no talkgroup provided, returning expected 417 (${requestId})`);
+            return res.status(417).send('Incomplete call data: no talkgroup');
+        }
+        log.info(`Rdio Scanner call-upload: no audio file provided (${requestId})`);
         return res.status(200).send('Call imported successfully');
     }
 
