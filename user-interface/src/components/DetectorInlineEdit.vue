@@ -52,8 +52,15 @@
 
         <!-- Talkgroup Filter (Rdio Scanner) -->
         <div class="mb-4">
-          <label for="talkgroup-filter" class="form-label">
+          <label for="talkgroup-filter" class="form-label flex items-center">
             Talkgroup Filter (Rdio Scanner)
+            <span class="relative group ml-1">
+              <InformationCircleIcon class="w-4 h-4 text-gray-400 cursor-help" />
+              <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none w-64 z-10">
+                Matches against the talkgroupLabel field from the Rdio Scanner API. Case-insensitive. Leave empty to skip Rdio Scanner processing for this detector.
+                <div class="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+              </div>
+            </span>
           </label>
           <input
             id="talkgroup-filter"
@@ -62,9 +69,6 @@
             class="form-input"
             placeholder="e.g., Fire Dispatch"
           />
-          <p class="form-help">
-            Case-insensitive talkgroup name to match incoming Rdio Scanner calls. Leave empty to skip Rdio Scanner processing for this detector.
-          </p>
         </div>
 
         <!-- Tone Frequencies -->
@@ -409,7 +413,8 @@ import {
   TrashIcon,
   BellIcon,
   ClockIcon,
-  CheckCircleIcon
+  CheckCircleIcon,
+  InformationCircleIcon
 } from '@heroicons/vue/24/outline'
 
 // Props

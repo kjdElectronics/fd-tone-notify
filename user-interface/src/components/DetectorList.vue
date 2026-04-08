@@ -77,6 +77,12 @@
               <span class="text-sm text-gray-600">
                 {{ detector.isRecordingEnabled ? 'Recording enabled' : 'Recording disabled' }}
               </span>
+              <template v-if="detector.talkgroupFilter">
+                <span class="mx-2 text-gray-400">&bull;</span>
+                <span class="text-sm text-purple-600 font-medium">
+                  TG: {{ detector.talkgroupFilter }}
+                </span>
+              </template>
             </div>
           </div>
           
