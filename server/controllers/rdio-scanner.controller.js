@@ -16,7 +16,7 @@ async function handleCallUpload(req, res) {
     const requestId = uuidv4();
     const startTime = new Date();
 
-    log.info(`Rdio Scanner call-upload received: ${requestId}`);
+    log.info(`Rdio Scanner ${req.method} ${req.originalUrl} received from ${req.ip} (${requestId})`);
 
     // Handle requests without audio file (SDRTrunk startup connectivity check)
     if (!req.file) {
