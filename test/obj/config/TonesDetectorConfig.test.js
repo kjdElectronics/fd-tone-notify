@@ -116,6 +116,45 @@ describe('TonesDetectorConfig', function() {
             }).to.throw(ErrorWithStatusCode).with.property('statusCode', 400);
         });
 
+        it('should default talkgroupFilter to empty string when not provided', function() {
+            const config = new TonesDetectorConfig({
+                name: 'Test Detector',
+                tones: [800, 1200]
+            });
+
+            expect(config.talkgroupFilter).to.equal('');
+        });
+
+        it('should accept a valid talkgroupFilter string', function() {
+            const config = new TonesDetectorConfig({
+                name: 'Test Detector',
+                tones: [800, 1200],
+                talkgroupFilter: 'Fire Dispatch'
+            });
+
+            expect(config.talkgroupFilter).to.equal('Fire Dispatch');
+        });
+
+        it('should throw error for non-string talkgroupFilter', function() {
+            expect(() => {
+                new TonesDetectorConfig({
+                    name: 'Test Detector',
+                    tones: [800, 1200],
+                    talkgroupFilter: 12345
+                });
+            }).to.throw(ErrorWithStatusCode).with.property('statusCode', 400);
+        });
+
+        it('should throw error for talkgroupFilter exceeding 255 characters', function() {
+            expect(() => {
+                new TonesDetectorConfig({
+                    name: 'Test Detector',
+                    tones: [800, 1200],
+                    talkgroupFilter: 'A'.repeat(256)
+                });
+            }).to.throw(ErrorWithStatusCode).with.property('statusCode', 400);
+        });
+
         it('should auto-calculate maxRecordingLengthSec when not provided', function() {
             const config = new TonesDetectorConfig({
                 name: 'Test Detector',
@@ -142,6 +181,17 @@ describe('TonesDetectorConfig', function() {
             expect(obj).to.have.property('tones').that.deep.equals([800, 1200]);
             expect(obj).to.have.property('matchThreshold', 8);
             expect(obj).to.have.property('isRecordingEnabled', true);
+        });
+
+        it('should include talkgroupFilter in toJSON output', function() {
+            const config = new TonesDetectorConfig({
+                name: 'Test Detector',
+                tones: [800, 1200],
+                talkgroupFilter: 'Fire Dispatch'
+            });
+
+            const obj = config.toJSON();
+            expect(obj).to.have.property('talkgroupFilter', 'Fire Dispatch');
         });
     });
 

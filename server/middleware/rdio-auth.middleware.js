@@ -1,16 +1,17 @@
-const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 const log = require('../../util/logger');
 
 /**
  * Authentication middleware for Rdio Scanner API endpoints.
- * Validates the 'key' field from multipart form data against the configured API key.
+ * Validates the 'key' field from multipart form data against the configured
+ * bcrypt-hashed API key (matching the auth.middleware.js pattern).
  */
 function authenticateRdio(req, res, next) {
-    // Get configured API key from environment or config
-    const configuredApiKey = process.env.FD_RDIO_API_KEY;
+    // Get configured API key hash from environment or config
+    const configuredApiKeyHash = process.env.FD_RDIO_API_KEY_HASH;
 
-    if (!configuredApiKey) {
-        log.warning('Rdio Scanner API key not configured (FD_RDIO_API_KEY). Allowing request without authentication.');
+    if (!configuredApiKeyHash) {
+        log.warning('Rdio Scanner API key hash not configured (FD_RDIO_API_KEY_HASH). Allowing request without authentication.');
         return next();
     }
 
@@ -25,11 +26,10 @@ function authenticateRdio(req, res, next) {
         });
     }
 
-    // Constant-time comparison to prevent timing attacks
-    const keyBuffer = Buffer.from(String(providedKey));
-    const configuredBuffer = Buffer.from(String(configuredApiKey));
+    // Compare provided plain text key against stored bcrypt hash
+    const isValidKey = bcrypt.compareSync(String(providedKey), configuredApiKeyHash);
 
-    if (keyBuffer.length !== configuredBuffer.length || !crypto.timingSafeEqual(keyBuffer, configuredBuffer)) {
+    if (!isValidKey) {
         log.warning(`Rdio Scanner auth failed: invalid API key from ${req.ip}`);
         return res.status(401).json({
             success: false,
