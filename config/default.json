@@ -151,9 +151,6 @@
     "matchThreshold": 8,
     "rangeOverlapModifier": 1.8
   },
-  "rdioScanner": {
-    "enabled": true
-  },
   "recording": {
     "directory": "./recordings",
     "autoDeleteOlderThanDays": 7
