@@ -17,7 +17,7 @@ const htmlPath = path.join(__dirname, './public/index.css');
 // javascript-obfuscator:disable
 const cssPath = path.join(__dirname, './public/index.html');
 
-const {startServer} = require("./server");
+const {startServer, startInsecureRdioServer} = require("./server");
 const NetworkUtils = require('../util/network-utils');
 
 const corsOptions = {
@@ -61,6 +61,12 @@ async function startWebApp() {
     // Initialize detection store
     detectionStore = getDetectionStore();
     log.info('Detection store initialized');
+
+    // Optionally start insecure HTTP server for Rdio Scanner call-upload
+    const insecureServer = startInsecureRdioServer();
+    if (insecureServer) {
+        app.insecureServer = insecureServer;
+    }
 
     log.info('WebSocket server configured and attached to HTTP server');
     return app;

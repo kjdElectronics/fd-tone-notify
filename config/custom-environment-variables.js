@@ -28,7 +28,8 @@ const CUSTOM_ENV_VAR_CONFIG = {
         host: "FD_SMTP_HOST",
     },
     rdioScanner: {
-        apiKeyHash: "FD_RDIO_API_KEY_HASH"
+        apiKeyHash: "FD_RDIO_API_KEY_HASH",
+        insecureHttpPort: "FD_INSECURE_HTTP_RDIO_CALL_UPLOAD_PORT"
     }
 };
 
