@@ -32,6 +32,12 @@ async function fdToneNotify({webServer=false}={}){
     globalServices.audioInterface = audioInterface;
     globalServices.detectionService = detectionService;
     config.detection.detectors.forEach(detectorConfig => {
+        // Skip talkgroup-exclusive detectors from live audio monitoring
+        if (detectorConfig.talkgroupExclusive) {
+            log.info(`Skipping detector '${detectorConfig.name}' for live audio (talkgroup exclusive)`);
+            return;
+        }
+
         let isRecordingEnabled = detectorConfig.hasOwnProperty("isRecordingEnabled") ? !!detectorConfig.isRecordingEnabled : null;
         if(isRecordingEnabled === null)
             isRecordingEnabled = config.detection.isRecordingEnabled;

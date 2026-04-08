@@ -71,6 +71,27 @@
           />
         </div>
 
+        <!-- Talkgroup Exclusive -->
+        <div class="mb-4">
+          <label class="flex items-center space-x-3 cursor-pointer">
+            <input
+              v-model="form.talkgroupExclusive"
+              type="checkbox"
+              class="form-checkbox"
+            />
+            <span class="form-label mb-0 flex items-center">
+              Talkgroup Exclusive
+              <span class="relative group ml-1">
+                <InformationCircleIcon class="w-4 h-4 text-gray-400 cursor-help" />
+                <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none w-64 z-10">
+                  When enabled, this detector only processes audio from Rdio Scanner calls matching the talkgroup filter above. It will be excluded from live microphone monitoring. This prevents false positives when departments share the same tones on different channels.
+                  <div class="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                </div>
+              </span>
+            </span>
+          </label>
+        </div>
+
         <!-- Tone Frequencies -->
         <div>
           <label class="form-label">
@@ -439,6 +460,7 @@ const detectorsStore = useDetectorsStore()
 const form = ref({
   name: '',
   talkgroupFilter: '',
+  talkgroupExclusive: false,
   tones: [0],
   matchThreshold: 6,
   tolerancePercent: 0.02,
@@ -485,6 +507,7 @@ function initializeForm() {
     form.value = {
       name: props.detector.name,
       talkgroupFilter: props.detector.talkgroupFilter || '',
+      talkgroupExclusive: props.detector.talkgroupExclusive ?? false,
       tones: [...props.detector.tones],
       matchThreshold: props.detector.matchThreshold,
       tolerancePercent: props.detector.tolerancePercent,
@@ -581,6 +604,17 @@ async function handleSave() {
 function handleCancel() {
   emit('cancel')
 }
+
+// Auto-set talkgroupExclusive when talkgroupFilter changes
+watch(
+  () => form.value.talkgroupFilter,
+  (newFilter, oldFilter) => {
+    // Only auto-set to true when going from blank to non-blank
+    if (newFilter && newFilter.trim() !== '' && (!oldFilter || oldFilter.trim() === '')) {
+      form.value.talkgroupExclusive = true
+    }
+  }
+)
 
 // Watch for form changes to validate
 watch(

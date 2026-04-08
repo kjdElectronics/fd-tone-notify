@@ -155,6 +155,35 @@ describe('TonesDetectorConfig', function() {
             }).to.throw(ErrorWithStatusCode).with.property('statusCode', 400);
         });
 
+        it('should default talkgroupExclusive to false when not provided', function() {
+            const config = new TonesDetectorConfig({
+                name: 'Test Detector',
+                tones: [800, 1200]
+            });
+
+            expect(config.talkgroupExclusive).to.equal(false);
+        });
+
+        it('should accept a valid talkgroupExclusive boolean', function() {
+            const config = new TonesDetectorConfig({
+                name: 'Test Detector',
+                tones: [800, 1200],
+                talkgroupExclusive: true
+            });
+
+            expect(config.talkgroupExclusive).to.equal(true);
+        });
+
+        it('should throw error for non-boolean talkgroupExclusive', function() {
+            expect(() => {
+                new TonesDetectorConfig({
+                    name: 'Test Detector',
+                    tones: [800, 1200],
+                    talkgroupExclusive: 'yes'
+                });
+            }).to.throw(ErrorWithStatusCode).with.property('statusCode', 400);
+        });
+
         it('should auto-calculate maxRecordingLengthSec when not provided', function() {
             const config = new TonesDetectorConfig({
                 name: 'Test Detector',
@@ -192,6 +221,17 @@ describe('TonesDetectorConfig', function() {
 
             const obj = config.toJSON();
             expect(obj).to.have.property('talkgroupFilter', 'Fire Dispatch');
+        });
+
+        it('should include talkgroupExclusive in toJSON output', function() {
+            const config = new TonesDetectorConfig({
+                name: 'Test Detector',
+                tones: [800, 1200],
+                talkgroupExclusive: true
+            });
+
+            const obj = config.toJSON();
+            expect(obj).to.have.property('talkgroupExclusive', true);
         });
     });
 

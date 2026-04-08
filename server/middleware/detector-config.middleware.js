@@ -24,6 +24,7 @@ function parseDetectorConfig(req, res, next) {
             const detectorConfigObj = new TonesDetectorConfig({
                 name: detectorConfig.name,
                 talkgroupFilter: detectorConfig.talkgroupFilter,
+                talkgroupExclusive: detectorConfig.talkgroupExclusive,
                 tones: detectorConfig.tones,
                 resetTimeoutMs: detectorConfig.resetTimeoutMs || config.detection.defaultResetTimeoutMs,
                 lockoutTimeoutMs: detectorConfig.lockoutTimeoutMs || config.detection.defaultLockoutTimeoutMs,

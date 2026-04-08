@@ -22,6 +22,7 @@
         {
           "name": "Test Fire Department",
           "talkgroupFilter": "",
+          "talkgroupExclusive": false,
           "tones": [911, 2938],
           "matchThreshold": 6,
           "tolerancePercent": 0.02,

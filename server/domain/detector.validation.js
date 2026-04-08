@@ -389,6 +389,13 @@ function validateDetector(detectorData, isUpdate = false) {
         }
     }
 
+    // Validate talkgroupExclusive
+    if (detectorData.talkgroupExclusive !== undefined && detectorData.talkgroupExclusive !== null) {
+        if (typeof detectorData.talkgroupExclusive !== 'boolean') {
+            errors.push('Talkgroup exclusive must be a boolean');
+        }
+    }
+
     // Validate notifications
     if (detectorData.notifications) {
         const notificationErrors = validateNotifications(detectorData.notifications);
