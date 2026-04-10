@@ -59,6 +59,7 @@ async function runExternalCommand({command, description="[Write a description fo
 function _formatCommand(options){
     options.command = options.command.replace("[description]", _removeQuites(options.description));
     options.command = options.command.replace("[timestamp]", _removeQuites(options.timestamp));
+    options.command = options.command.replace("[detectedAt]", _removeQuites(options.detectedAt));
     options.command = options.command.replace("[tones]", _removeQuites(options.tones));
     options.command = options.command.replace("[matchAverages]", _removeQuites(options.matchAverages));
     options.command = options.command.replace("[recordingRelPath]", _removeQuites(options.recordingRelPath));

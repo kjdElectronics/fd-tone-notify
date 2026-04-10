@@ -13,6 +13,7 @@ process.env.FD_LOG_LEVEL = "silly"; //Force silly log level
 
 const {DetectionService} = require('../../service/DetectionService');
 const {TonesDetectorConfig} = require("../../obj/config/TonesDetectorConfig");
+const {SourceContext} = require("../../obj/SourceContext");
 const DYNAMIC_TEST_ARGS = [
     {filename: "raw.wav", tones: [911, 2934], sampleRate: 44100, frequencyScaleFactor: 1},
     {filename: "dispatch1.wav", tones: [567, 378], sampleRate: 44100, frequencyScaleFactor: 1},
@@ -167,8 +168,12 @@ describe("DetectionService", function() {
                 expect(detectionData).to.have.property('uuid');
                 expect(detectionData).to.have.property('detector');
                 expect(detectionData.detector.name).eq('File Context Test');
-                expect(detectionData).to.have.property('timestamp', testTimestamp);
+                expect(detectionData).to.have.property('fileTimestamp', testTimestamp);
                 expect(detectionData).to.have.property('filePath', testFilePath);
+                expect(detectionData).to.have.property('detectedAt');
+                expect(detectionData).to.have.property('sourceContext');
+                // detectedAt should be a valid ISO string (wall-clock time, not file-relative)
+                expect(new Date(detectionData.detectedAt).getFullYear()).to.be.greaterThan(2020);
                 done();
             });
 
@@ -218,6 +223,133 @@ describe("DetectionService", function() {
                     filePath: 'test.wav'
                 });
             }).to.throw('processAudioData can only be used in file mode');
+        });
+    });
+
+    describe('sourceContext and timestamp resolution', function() {
+        it('should default sourceContext to file-upload in file mode', function() {
+            const detection = new DetectionService({
+                audioInterface: null,
+                sampleRate: 44100,
+                frequencyScaleFactor: 1,
+                fileMode: true,
+                recording: false
+            });
+
+            expect(detection.sourceContext).to.be.an.instanceOf(SourceContext);
+            expect(detection.sourceContext.source).to.equal('file-upload');
+        });
+
+        it('should default sourceContext to live when not in file mode', function() {
+            const detection = new DetectionService({
+                audioInterface: null,
+                sampleRate: 44100,
+                frequencyScaleFactor: 1,
+                fileMode: false,
+                recording: false
+            });
+
+            expect(detection.sourceContext).to.be.an.instanceOf(SourceContext);
+            expect(detection.sourceContext.source).to.equal('live');
+        });
+
+        it('should use provided SourceContext', function() {
+            const sourceContext = SourceContext.fromRdioMetadata({ dateTime: '1712754541', talkgroupLabel: 'Fire' });
+            const detection = new DetectionService({
+                audioInterface: null,
+                sampleRate: 44100,
+                frequencyScaleFactor: 1,
+                fileMode: true,
+                recording: false,
+                sourceContext
+            });
+
+            expect(detection.sourceContext).to.equal(sourceContext);
+            expect(detection.sourceContext.source).to.equal('rdio');
+        });
+
+        it('should include sourceContext in emitted toneDetected event with Rdio timestamp', async function() {
+            const sourceContext = SourceContext.fromRdioMetadata({
+                dateTime: '1712754541',
+                talkgroupLabel: 'Fire Dispatch'
+            });
+            const filePath = path.resolve("./test/wav", DYNAMIC_TEST_ARGS[0].filename);
+            const audioFileService = new AudioFileService({ chunkDurationSeconds: 1 });
+            const detection = new DetectionService({
+                audioInterface: null,
+                sampleRate: DYNAMIC_TEST_ARGS[0].sampleRate,
+                frequencyScaleFactor: DYNAMIC_TEST_ARGS[0].frequencyScaleFactor,
+                fileMode: true,
+                recording: false,
+                sourceContext
+            });
+
+            detection.addToneDetector(new TonesDetectorConfig({
+                name: 'SourceContext Test',
+                tones: DYNAMIC_TEST_ARGS[0].tones,
+                matchThreshold: 6,
+                tolerancePercent: 0.05
+            }));
+
+            return new Promise((resolve, reject) => {
+                const failTimeout = setTimeout(() => reject(new Error('Timeout: toneDetected not fired')), 5000);
+
+                detection.on('toneDetected', (detectionData) => {
+                    clearTimeout(failTimeout);
+                    try {
+                        expect(detectionData.sourceContext.source).to.equal('rdio');
+                        expect(detectionData).to.have.property('detectedAt');
+                        const detectedDate = new Date(detectionData.detectedAt);
+                        expect(detectedDate.getFullYear()).to.equal(2024);
+                        resolve();
+                    } catch (e) { reject(e); }
+                });
+
+                audioFileService.on('audioData', (audioData) => {
+                    detection.processAudioData(audioData);
+                });
+
+                audioFileService.processFile(filePath).catch(reject);
+            });
+        });
+
+        it('should default to file-upload sourceContext when none is provided', async function() {
+            const filePath = path.resolve("./test/wav", DYNAMIC_TEST_ARGS[0].filename);
+            const audioFileService = new AudioFileService({ chunkDurationSeconds: 1 });
+            const detection = new DetectionService({
+                audioInterface: null,
+                sampleRate: DYNAMIC_TEST_ARGS[0].sampleRate,
+                frequencyScaleFactor: DYNAMIC_TEST_ARGS[0].frequencyScaleFactor,
+                fileMode: true,
+                recording: false
+            });
+
+            detection.addToneDetector(new TonesDetectorConfig({
+                name: 'Default Context Test',
+                tones: DYNAMIC_TEST_ARGS[0].tones,
+                matchThreshold: 6,
+                tolerancePercent: 0.05
+            }));
+
+            return new Promise((resolve, reject) => {
+                const failTimeout = setTimeout(() => reject(new Error('Timeout: toneDetected not fired')), 5000);
+
+                detection.on('toneDetected', (detectionData) => {
+                    clearTimeout(failTimeout);
+                    try {
+                        expect(detectionData.sourceContext.source).to.equal('file-upload');
+                        expect(detectionData).to.have.property('detectedAt');
+                        expect(new Date(detectionData.detectedAt).getFullYear()).to.be.greaterThan(2020);
+                        resolve();
+                    } catch (e) { reject(e); }
+                });
+
+                audioFileService.on('audioData', (audioData) => {
+                    detection.processAudioData(audioData);
+                });
+
+                audioFileService.processFile(filePath).catch(reject);
+            });
         });
     });
 

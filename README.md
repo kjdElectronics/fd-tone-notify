@@ -1,4 +1,10 @@
 # FD Tone Notify
+
+> **2.0 Breaking Changes**
+> - WebSocket detection events and webhook payloads now use `detectedAt` (ISO 8601) instead of `timestamp` (epoch ms)
+> - All detection events include a `sourceContext` object with source metadata
+> - File upload API response no longer includes `timestamp` field (use `timestampSeconds` for file position, `detectedAt` for wall-clock time)
+
 FD Tone Notify is Dispatch Tone Notification Software for Fire Departments and Enthusiasts
   - Simultaneously detect tones for multiple departments or stations.
   - Send Pushbullet, SMS, or email notifications. Integrate with Custom Webhooks

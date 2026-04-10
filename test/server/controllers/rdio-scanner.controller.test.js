@@ -220,16 +220,18 @@ describe('Rdio Scanner Controller', function() {
 
             const listener = createRdioDetectionListener(detections, rdioMetadata, 'test-request-id');
 
-            // Simulate a detection event
+            const detectedAt = new Date().toISOString();
             listener({
                 detector: { name: 'Fire Station 1', tones: [911, 2938] },
-                timestamp: 1.25,
+                detectedAt,
                 matchAverages: [911.2, 2938.5],
-                message: 'Fire Station 1 tone detected'
+                message: 'Fire Station 1 tone detected',
+                sourceContext: { source: 'rdio', talkgroup: { label: 'Fire Dispatch' } }
             });
 
             expect(detections).to.have.length(1);
             expect(detections[0]).to.have.property('detector', 'Fire Station 1');
+            expect(detections[0]).to.have.property('detectedAt', detectedAt);
             expect(detections[0]).to.have.property('rdioMetadata');
             expect(detections[0].rdioMetadata).to.have.property('talkgroupLabel', 'Fire Dispatch');
         });
@@ -240,8 +242,9 @@ describe('Rdio Scanner Controller', function() {
 
             const listener = createRdioDetectionListener(detections, rdioMetadata, 'test-request-id');
 
-            listener({ detector: { name: 'Det 1', tones: [911] }, timestamp: 1, matchAverages: [911], message: 'det1' });
-            listener({ detector: { name: 'Det 2', tones: [440] }, timestamp: 2, matchAverages: [440], message: 'det2' });
+            const now = new Date().toISOString();
+            listener({ detector: { name: 'Det 1', tones: [911] }, detectedAt: now, matchAverages: [911], message: 'det1' });
+            listener({ detector: { name: 'Det 2', tones: [440] }, detectedAt: now, matchAverages: [440], message: 'det2' });
 
             expect(detections).to.have.length(2);
         });

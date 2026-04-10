@@ -11,6 +11,7 @@ const { AllToneDetectionService } = require('../../service/AllToneDetectionServi
 const { getWebSocketServer, getGlobalDetectionStore, configureWebSocketEvents } = require('../index');
 const config = require('config');
 const garbageCollect = require("../../util/gc");
+const { SourceContext } = require('../../obj/SourceContext');
 
 /**
  * Upload a WAV file and detect tones
@@ -49,7 +50,8 @@ async function detectTones(req, res) {
         frequencyScaleFactor: config.audio.frequencyScaleFactor,
         fileMode: true,
         recording: false, // Disable recording for API requests
-        areNotificationsEnabled: enableNotifications // Control notifications based on request flag
+        areNotificationsEnabled: enableNotifications, // Control notifications based on request flag
+        sourceContext: SourceContext.fileUpload()
     });
 
     // Configure detectors using pre-parsed configuration
@@ -75,7 +77,8 @@ async function detectTones(req, res) {
             frequencyScaleFactor: config.audio.frequencyScaleFactor,
             silenceAmplitude: config.audio.silenceAmplitude,
             logLevel: process.env.FD_LOG_LEVEL || "info",
-            fileMode: true
+            fileMode: true,
+            sourceContext: SourceContext.fileUpload()
         });
         
         log.debug(`API: Initialized All Tone Detector for range ${config.allToneDetector.startFreq}Hz to ${config.allToneDetector.endFreq}Hz`);
@@ -213,11 +216,12 @@ async function detectTones(req, res) {
  */
 function createDetectionListener(detections, requestId) {
     return function handleDetection(detection) {
+        const fileSeconds = detection.fileTimestamp !== undefined ? detection.fileTimestamp : 0;
         const detectionData = {
             detector: detection.detector.name,
             tones: detection.detector.tones,
-            timestamp: formatTimestamp(detection.timestamp),
-            timestampSeconds: detection.timestamp,
+            timestampSeconds: fileSeconds,
+            detectedAt: detection.detectedAt,
             matchAverages: detection.matchAverages,
             message: detection.message
         };

@@ -24,9 +24,8 @@ class DetectionStore {
    */
   addDetection(detection) {
     try {
-      // Add timestamp if not present
-      detection.timestamp = new Date(); //For the in memory store we always want current time. For file detections this can be the sec elapsed in the file
-      
+      // detectedAt (ISO string) is set by SourceContext.resolveDetectedAt() in the detection pipeline
+
       // Add to array
       this.detections.push(detection);
       
@@ -60,7 +59,7 @@ class DetectionStore {
     const cutoff = new Date(Date.now() - (this.ttlHours * 60 * 60 * 1000));
     
     this.detections = this.detections.filter(detection => {
-      const detectionTime = new Date(detection.timestamp);
+      const detectionTime = new Date(detection.detectedAt);
       return detectionTime > cutoff;
     });
     
