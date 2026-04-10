@@ -1,4 +1,6 @@
 const fs = require('fs');
+const path = require('path');
+const ffmpeg = require('fluent-ffmpeg');
 const { v4: uuidv4 } = require('uuid');
 const log = require('../../util/logger');
 const { TonesDetectorConfig } = require('../../obj/config/TonesDetectorConfig');
@@ -46,9 +48,22 @@ async function handleCallUpload(req, res) {
 
     log.info(`Rdio Scanner: ${matchingDetectors.length} detector(s) match talkgroupLabel="${rdioMetadata.talkgroupLabel}" (${requestId})`);
 
-    // Rename uploaded file to .wav extension for processing
+    // Convert uploaded audio to WAV for processing (SDRTrunk typically sends MP3)
     const wavFilePath = req.file.path + '.wav';
-    fs.renameSync(req.file.path, wavFilePath);
+    try {
+        await convertToWav(req.file.path, wavFilePath, req.file.originalname, requestId);
+    } catch (conversionError) {
+        log.error(`Rdio Scanner: audio conversion failed: ${conversionError.message} (${requestId})`);
+        cleanupFile(req.file.path);
+        cleanupFile(wavFilePath);
+        return res.status(500).json({
+            success: false,
+            error: 'Audio conversion failed'
+        });
+    }
+
+    // Clean up original uploaded file (conversion created a new WAV file)
+    cleanupFile(req.file.path);
 
     // Build detector configs and process audio
     const detectorConfigs = createMatchingDetectorConfigs(matchingDetectors);
@@ -243,6 +258,45 @@ async function processCallAudio(wavFilePath, detectorConfigs, rdioMetadata, requ
 }
 
 /**
+ * Convert an audio file to WAV format using FFmpeg.
+ * If the file is already WAV (based on original filename), just renames it.
+ * Follows the FFmpeg pattern from service/WavToMp3Service.js.
+ * @param {string} inputPath - Path to the uploaded audio file
+ * @param {string} outputPath - Path for the output WAV file
+ * @param {string} originalFilename - Original filename from the upload (for extension check)
+ * @param {string} requestId - Request ID for logging
+ * @returns {Promise<string>} Path to the WAV file
+ */
+function convertToWav(inputPath, outputPath, originalFilename, requestId) {
+    const ext = path.extname(originalFilename || '').toLowerCase();
+
+    // If already WAV, just rename
+    if (ext === '.wav') {
+        log.debug(`Rdio Scanner: audio is already WAV, renaming (${requestId})`);
+        fs.renameSync(inputPath, outputPath);
+        return Promise.resolve(outputPath);
+    }
+
+    log.info(`Rdio Scanner: converting ${ext || 'unknown format'} to WAV via FFmpeg (${requestId})`);
+
+    return new Promise((resolve, reject) => {
+        ffmpeg({ source: inputPath })
+            .toFormat('wav')
+            .audioFrequency(44100)
+            .audioChannels(1)
+            .on('error', (err) => {
+                log.error(`Rdio Scanner: FFmpeg conversion error: ${err.message} (${requestId})`);
+                reject(err);
+            })
+            .on('end', () => {
+                log.info(`Rdio Scanner: audio converted to WAV successfully (${requestId})`);
+                resolve(outputPath);
+            })
+            .save(outputPath);
+    });
+}
+
+/**
  * Clean up a file, logging any errors.
  * @param {string} filePath - Path to file to delete
  */
@@ -264,5 +318,6 @@ module.exports = {
     createMatchingDetectorConfigs,
     createRdioDetectionListener,
     processCallAudio,
+    convertToWav,
     cleanupFile
 };

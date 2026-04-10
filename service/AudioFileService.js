@@ -79,7 +79,7 @@ class AudioFileService extends EventEmitter {
             this.currentFile = null;
 
             // Clear the large decoded audio object immediately after creating chunks
-            if(decodedAudio.hasOwnProperty("samples"))
+            if(decodedAudio && decodedAudio.hasOwnProperty("samples"))
                 decodedAudio.samples = null;
             decodedAudio = null;
         }
