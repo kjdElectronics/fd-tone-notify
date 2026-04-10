@@ -24,9 +24,8 @@ class DetectionStore {
    */
   addDetection(detection) {
     try {
-      // Ensure detectedAt is set (ISO string)
-      detection.detectedAt = detection.detectedAt || new Date().toISOString();
-      
+      // detectedAt (ISO string) is set by SourceContext.resolveDetectedAt() in the detection pipeline
+
       // Add to array
       this.detections.push(detection);
       
@@ -60,7 +59,7 @@ class DetectionStore {
     const cutoff = new Date(Date.now() - (this.ttlHours * 60 * 60 * 1000));
     
     this.detections = this.detections.filter(detection => {
-      const detectionTime = new Date(detection.timestamp);
+      const detectionTime = new Date(detection.detectedAt);
       return detectionTime > cutoff;
     });
     

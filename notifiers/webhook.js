@@ -5,11 +5,10 @@ const path = require('path');
 const CUSTOM_ENV_VAR_PREFIX = "CUSTOM_ENV_VAR_";
 const log = require('../util/logger');
 
-async function postJson({address, headers={}, timestamp, detectedAt, tones, matchAverages, filename, detectorName, custom}) {
+async function postJson({address, headers={}, detectedAt, tones, matchAverages, filename, detectorName, custom}) {
     _fillEnvVarsHeaders(headers);
 
     const postBody = {
-        timestamp,
         detectedAt,
         tones,
         matchAverages,
@@ -29,13 +28,12 @@ async function postJson({address, headers={}, timestamp, detectedAt, tones, matc
         })
 }
 
-async function postMultiPartFormDataWithFile({address, headers={}, timestamp, detectedAt, tones=[], matchAverages=[], filename,
+async function postMultiPartFormDataWithFile({address, headers={}, detectedAt, tones=[], matchAverages=[], filename,
                                                  recordingRelPath, detectorName, custom={}, isTest=false}){
 
     _fillEnvVarsHeaders(headers);
     const form = new FormData();
-    form.append('timestamp', timestamp);
-    if (detectedAt) form.append('detectedAt', detectedAt);
+    form.append('detectedAt', detectedAt);
     form.append('tones', tones.toString());
     form.append('matchAverages', matchAverages.toString());
     form.append('detectorName', detectorName);

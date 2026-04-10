@@ -169,7 +169,7 @@ function configureWebSocketEvents({detectionService, allToneDetectionService, ws
     });
 
     detectionService.on('toneDetected', async data => {
-        // Create message for WebSocket broadcast (data now includes detectedAt and sourceContext)
+        // Create message for WebSocket broadcast
         const message = {type: 'toneDetected', data};
 
         // Broadcast to WebSocket clients
@@ -179,13 +179,8 @@ function configureWebSocketEvents({detectionService, allToneDetectionService, ws
             }
         });
 
-        // Store the detection
         if (detectionStore) {
-            detectionStore.addDetection({
-                ...data,
-                detectedAt: data.detectedAt || new Date().toISOString(),
-                type: 'configured'
-            });
+            detectionStore.addDetection({ ...data, type: 'configured' });
         }
 
         log.info('Sending toneDetected to ws clients and persisting');
@@ -194,17 +189,10 @@ function configureWebSocketEvents({detectionService, allToneDetectionService, ws
     // Handle multiToneDetected events from AllToneDetectionService if enabled
     if (allToneDetectionService) {
         allToneDetectionService.on('multiToneDetected', async eventData => {
-            // Extract data from the event - could be legacy format (just tones array) or new format with detectedAt
-            const tones = Array.isArray(eventData) ? eventData : eventData.tones;
-            const detectedAt = Array.isArray(eventData)
-                ? new Date().toISOString()
-                : (eventData.detectedAt || new Date().toISOString());
-
-            // Create standardized message data
             const messageData = {
-                tones: tones,
-                detectedAt,
-                sourceContext: (!Array.isArray(eventData) && eventData.sourceContext) || null,
+                tones: eventData.tones,
+                detectedAt: eventData.detectedAt,
+                sourceContext: eventData.sourceContext,
                 detector: {
                     name: 'All Tone Detector',
                     type: 'discovery'
@@ -218,15 +206,11 @@ function configureWebSocketEvents({detectionService, allToneDetectionService, ws
                 }
             });
 
-            // Store the detection
             if (detectionStore) {
-                detectionStore.addDetection({
-                    ...messageData,
-                    type: 'discovery'
-                });
+                detectionStore.addDetection({ ...messageData, type: 'discovery' });
             }
 
-            log.info(`Sending multiToneDetected to ws clients and persisting: ${tones.map(f => `${f}Hz`).join(', ')}`);
+            log.info(`Sending multiToneDetected to ws clients and persisting: ${eventData.tones.map(f => `${f}Hz`).join(', ')}`);
         });
     }
 

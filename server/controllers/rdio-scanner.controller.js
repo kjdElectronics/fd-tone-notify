@@ -9,6 +9,7 @@ const { DetectionService } = require('../../service/DetectionService');
 const { getWebSocketServer, configureWebSocketEvents } = require('../index');
 const config = require('config');
 const garbageCollect = require('../../util/gc');
+const { SourceContext } = require('../../obj/SourceContext');
 
 /**
  * Handle Rdio Scanner call-upload API requests.
@@ -165,7 +166,7 @@ function createRdioDetectionListener(detections, rdioMetadata, requestId) {
         detections.push({
             detector: detection.detector.name,
             tones: detection.detector.tones,
-            timestamp: detection.timestamp,
+            detectedAt: detection.detectedAt,
             matchAverages: detection.matchAverages,
             message: detection.message,
             rdioMetadata
@@ -188,21 +189,7 @@ async function processCallAudio(wavFilePath, detectorConfigs, rdioMetadata, requ
         chunkDurationSeconds: 1
     });
 
-    // Build source context for timestamp resolution and metadata threading
-    const sourceContext = {
-        source: 'rdio',
-        epochBaseSeconds: rdioMetadata.dateTime ? Number(rdioMetadata.dateTime) : (Date.now() / 1000),
-        talkgroup: {
-            id: rdioMetadata.talkgroup || null,
-            label: rdioMetadata.talkgroupLabel || null,
-            group: rdioMetadata.talkgroupGroup || null,
-            tag: rdioMetadata.talkgroupTag || null,
-            system: rdioMetadata.system || null,
-            systemLabel: rdioMetadata.systemLabel || null,
-            source: rdioMetadata.source || null,
-            frequency: rdioMetadata.frequency || null
-        }
-    };
+    const sourceContext = SourceContext.fromRdioMetadata(rdioMetadata);
 
     const detectionService = new DetectionService({
         audioInterface: null,

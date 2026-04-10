@@ -12,6 +12,7 @@ const {NotificationParams} = require('../obj/NotificationParams');
 const path = require('path');
 const config = require('config');
 const {ErrorWithStatusCode} = require("../util/ErrorWithStatusCode");
+const {SourceContext} = require("../obj/SourceContext");
 
 const NO_DATA_INTERVAL_SEC = 30;
 const THREAD_ROTATION_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
@@ -25,7 +26,7 @@ class DetectionService extends EventEmitter{
 
         this._audioInterface = audioInterface;
         this._fileMode = fileMode;
-        this._sourceContext = sourceContext;
+        this._sourceContext = sourceContext || (fileMode ? SourceContext.fileUpload() : SourceContext.live());
         
         if(audioInterface && !audioInterface.disabled) {
             this._audioInterface.onData( async (rawBuffer) => {
@@ -179,8 +180,9 @@ class DetectionService extends EventEmitter{
             log.debug(`Processing toneDetected event for ${tonesDetectorConfig.name}`);
             const {matchAverages, message} = result;
             
-            // Resolve absolute wall-clock timestamp in milliseconds
-            const timestamp = this._resolveEpochMs();
+            // Resolve wall-clock timestamp for notifications and recording filename
+            const detectedAt = this._sourceContext.resolveDetectedAt();
+            const timestamp = new Date(detectedAt).getTime();
             const filenameOnly = `${timestamp}-${tonesDetectorConfig.name}.wav`; //Include the name of the detector in the filename
             const recordingDirectory = config.recording.directory;
             const fullPath = path.join(recordingDirectory, filenameOnly);
@@ -233,20 +235,6 @@ class DetectionService extends EventEmitter{
                 }, this.maxRecordingLengthSec * 1000 + 15000);
             lock.release();
         }
-    }
-
-    /**
-     * Resolve the current detection timestamp to absolute epoch milliseconds.
-     * - Rdio uploads: uses Rdio dateTime (epoch seconds) converted to ms
-     * - File upload / live audio: uses Date.now()
-     * @returns {number} Epoch milliseconds
-     * @private
-     */
-    _resolveEpochMs() {
-        if (this._sourceContext && this._sourceContext.epochBaseSeconds) {
-            return Math.round(this._sourceContext.epochBaseSeconds * 1000);
-        }
-        return Date.now();
     }
 
     get sourceContext() {

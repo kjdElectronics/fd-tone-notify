@@ -13,6 +13,7 @@ process.env.FD_LOG_LEVEL = "silly"; //Force silly log level
 
 const {DetectionService} = require('../../service/DetectionService');
 const {TonesDetectorConfig} = require("../../obj/config/TonesDetectorConfig");
+const {SourceContext} = require("../../obj/SourceContext");
 const DYNAMIC_TEST_ARGS = [
     {filename: "raw.wav", tones: [911, 2934], sampleRate: 44100, frequencyScaleFactor: 1},
     {filename: "dispatch1.wav", tones: [567, 378], sampleRate: 44100, frequencyScaleFactor: 1},
@@ -226,7 +227,7 @@ describe("DetectionService", function() {
     });
 
     describe('sourceContext and timestamp resolution', function() {
-        it('should use Date.now() when no sourceContext is provided', function() {
+        it('should default sourceContext to file-upload in file mode', function() {
             const detection = new DetectionService({
                 audioInterface: null,
                 sampleRate: 44100,
@@ -235,31 +236,43 @@ describe("DetectionService", function() {
                 recording: false
             });
 
-            const before = Date.now();
-            const resolved = detection._resolveEpochMs();
-            const after = Date.now();
-
-            expect(resolved).to.be.at.least(before);
-            expect(resolved).to.be.at.most(after);
+            expect(detection.sourceContext).to.be.an.instanceOf(SourceContext);
+            expect(detection.sourceContext.source).to.equal('file-upload');
         });
 
-        it('should use epochBaseSeconds from sourceContext when provided', function() {
-            const rdioDateTime = 1712754541; // April 10, 2024
+        it('should default sourceContext to live when not in file mode', function() {
+            const detection = new DetectionService({
+                audioInterface: null,
+                sampleRate: 44100,
+                frequencyScaleFactor: 1,
+                fileMode: false,
+                recording: false
+            });
+
+            expect(detection.sourceContext).to.be.an.instanceOf(SourceContext);
+            expect(detection.sourceContext.source).to.equal('live');
+        });
+
+        it('should use provided SourceContext', function() {
+            const sourceContext = SourceContext.fromRdioMetadata({ dateTime: '1712754541', talkgroupLabel: 'Fire' });
             const detection = new DetectionService({
                 audioInterface: null,
                 sampleRate: 44100,
                 frequencyScaleFactor: 1,
                 fileMode: true,
                 recording: false,
-                sourceContext: { source: 'rdio', epochBaseSeconds: rdioDateTime }
+                sourceContext
             });
 
-            const resolved = detection._resolveEpochMs();
-            expect(resolved).to.equal(rdioDateTime * 1000);
+            expect(detection.sourceContext).to.equal(sourceContext);
+            expect(detection.sourceContext.source).to.equal('rdio');
         });
 
-        it('should include sourceContext in emitted toneDetected event', async function() {
-            const sourceContext = { source: 'rdio', epochBaseSeconds: 1712754541, talkgroup: { label: 'Fire Dispatch' } };
+        it('should include sourceContext in emitted toneDetected event with Rdio timestamp', async function() {
+            const sourceContext = SourceContext.fromRdioMetadata({
+                dateTime: '1712754541',
+                talkgroupLabel: 'Fire Dispatch'
+            });
             const filePath = path.resolve("./test/wav", DYNAMIC_TEST_ARGS[0].filename);
             const audioFileService = new AudioFileService({ chunkDurationSeconds: 1 });
             const detection = new DetectionService({
@@ -284,7 +297,7 @@ describe("DetectionService", function() {
                 detection.on('toneDetected', (detectionData) => {
                     clearTimeout(failTimeout);
                     try {
-                        expect(detectionData.sourceContext).to.deep.equal(sourceContext);
+                        expect(detectionData.sourceContext.source).to.equal('rdio');
                         expect(detectionData).to.have.property('detectedAt');
                         const detectedDate = new Date(detectionData.detectedAt);
                         expect(detectedDate.getFullYear()).to.equal(2024);
@@ -300,7 +313,7 @@ describe("DetectionService", function() {
             });
         });
 
-        it('should have null sourceContext when none is provided', async function() {
+        it('should default to file-upload sourceContext when none is provided', async function() {
             const filePath = path.resolve("./test/wav", DYNAMIC_TEST_ARGS[0].filename);
             const audioFileService = new AudioFileService({ chunkDurationSeconds: 1 });
             const detection = new DetectionService({
@@ -312,7 +325,7 @@ describe("DetectionService", function() {
             });
 
             detection.addToneDetector(new TonesDetectorConfig({
-                name: 'No Context Test',
+                name: 'Default Context Test',
                 tones: DYNAMIC_TEST_ARGS[0].tones,
                 matchThreshold: 6,
                 tolerancePercent: 0.05
@@ -324,7 +337,7 @@ describe("DetectionService", function() {
                 detection.on('toneDetected', (detectionData) => {
                     clearTimeout(failTimeout);
                     try {
-                        expect(detectionData.sourceContext).to.be.null;
+                        expect(detectionData.sourceContext.source).to.equal('file-upload');
                         expect(detectionData).to.have.property('detectedAt');
                         expect(new Date(detectionData.detectedAt).getFullYear()).to.be.greaterThan(2020);
                         resolve();

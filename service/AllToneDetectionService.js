@@ -3,6 +3,7 @@ const EventEmitter = require('events');
 const log = require('../util/logger');
 const {TonesDetectorConfig} = require("../obj/config/TonesDetectorConfig");
 const {decodeRawAudioBuffer} = require("../util/util");
+const {SourceContext} = require("../obj/SourceContext");
 
 class AllToneDetectionService extends EventEmitter{
     //rangeOverlapModifier is a value between 1-2 that determines how much
@@ -19,7 +20,7 @@ class AllToneDetectionService extends EventEmitter{
         this.rangeOverlapModifier = rangeOverlapModifier;
 
         this.detectionTimeoutMs = detectionTimeoutMs;
-        this._sourceContext = sourceContext;
+        this._sourceContext = sourceContext || (fileMode ? SourceContext.fileUpload() : SourceContext.live());
 
         this.detectionService = new DetectionService({
             sampleRate,
@@ -29,7 +30,7 @@ class AllToneDetectionService extends EventEmitter{
             areNotificationsEnabled: false,
             fileMode,
             recording: false, //No recording for all tone detector
-            sourceContext
+            sourceContext: this._sourceContext
         });
 
         this.fileMode = fileMode;
@@ -132,17 +133,13 @@ class AllToneDetectionService extends EventEmitter{
         let multiToneMatch = this._matches.map(f => Math.round(f));
         multiToneMatch = this._condenseMatches(multiToneMatch); //Filter adjacent similar values
         if (multiToneMatch.length > 1) {//Multi Tone Match Found
-            const detectionTimestamp = this._lastDetectionTimestamp;
-            const detectedAt = this._sourceContext && this._sourceContext.epochBaseSeconds
-                ? new Date(Math.round(this._sourceContext.epochBaseSeconds * 1000)).toISOString()
-                : new Date().toISOString();
+            const detectedAt = this._sourceContext.resolveDetectedAt();
             log.crit(`ALL TONE DETECTOR MUTLI-TONE DETECTED: ${multiToneMatch.map(f => `${f}Hz`).join(", ")} at ${detectedAt}`);
 
             this.emit('multiToneDetected', {
                 tones: multiToneMatch,
-                timestamp: detectionTimestamp,
                 detectedAt,
-                sourceContext: this._sourceContext || null
+                sourceContext: this._sourceContext
             });
         }
         this._matches = [];

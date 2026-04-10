@@ -7,6 +7,7 @@ const {startWebApp} = require('../server');
 const {AudioService} = require('../service/AudioService');
 const { initRecordingAutoCleaningService} = require('../util/recording.cleaner');
 const {TonesDetectorConfig} = require("../obj/config/TonesDetectorConfig");
+const {SourceContext} = require("../obj/SourceContext");
 
 // Global service references for graceful cleanup
 let globalServices = {
@@ -26,7 +27,7 @@ async function fdToneNotify({webServer=false}={}){
         maxRecordingLengthSec: config.audio.maxRecordingLengthSec,
         frequencyScaleFactor: config.audio.frequencyScaleFactor,
         recording: config.detection.hasOwnProperty("isRecordingEnabled") ? !!config.detection.isRecordingEnabled : null, //Defaults to null to indicate not set
-        sourceContext: { source: 'live' }
+        sourceContext: SourceContext.live()
     });
 
     // Store global references for cleanup
@@ -75,7 +76,7 @@ async function fdToneNotify({webServer=false}={}){
             frequencyScaleFactor: config.audio.frequencyScaleFactor,
             silenceAmplitude: config.audio.silenceAmplitude,
             logLevel: process.env.FD_LOG_LEVEL || "info",
-            sourceContext: { source: 'live' }
+            sourceContext: SourceContext.live()
         });
         
         // Store global reference for cleanup

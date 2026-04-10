@@ -311,10 +311,8 @@ export const useSocketStore = defineStore('socket', () => {
     
     switch (type) {
       case 'toneDetected':
-        // Handle tone detection events using bounded array helper
         addToBoundedArray(systemStatus.detections, {
           ...data,
-          detectedAt: data.detectedAt || timestamp,
           type: 'configured'
         }, MAX_DETECTIONS)
 
@@ -329,10 +327,8 @@ export const useSocketStore = defineStore('socket', () => {
         break
 
       case 'multiToneDetected':
-        // Handle multi-tone detection events using bounded array helper
         addToBoundedArray(systemStatus.detections, {
           ...data,
-          detectedAt: data.detectedAt || timestamp,
           type: 'discovery'
         }, MAX_DETECTIONS)
         
