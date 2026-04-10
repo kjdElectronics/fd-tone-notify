@@ -110,6 +110,7 @@ async function _webhooks(params, prePostType){
             headers: webhook.headers,
             custom: webhook.custom,
             timestamp: params.timestamp,
+            detectedAt: new Date(params.timestamp).toISOString(),
             tones: params.detector.tones,
             matchAverages: params.matchAverages,
             filename: path.basename(params.filename),

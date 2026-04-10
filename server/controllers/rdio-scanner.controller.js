@@ -188,12 +188,29 @@ async function processCallAudio(wavFilePath, detectorConfigs, rdioMetadata, requ
         chunkDurationSeconds: 1
     });
 
+    // Build source context for timestamp resolution and metadata threading
+    const sourceContext = {
+        source: 'rdio',
+        epochBaseSeconds: rdioMetadata.dateTime ? Number(rdioMetadata.dateTime) : (Date.now() / 1000),
+        talkgroup: {
+            id: rdioMetadata.talkgroup || null,
+            label: rdioMetadata.talkgroupLabel || null,
+            group: rdioMetadata.talkgroupGroup || null,
+            tag: rdioMetadata.talkgroupTag || null,
+            system: rdioMetadata.system || null,
+            systemLabel: rdioMetadata.systemLabel || null,
+            source: rdioMetadata.source || null,
+            frequency: rdioMetadata.frequency || null
+        }
+    };
+
     const detectionService = new DetectionService({
         audioInterface: null,
         frequencyScaleFactor: config.audio.frequencyScaleFactor,
         fileMode: true,
         recording: false,
-        areNotificationsEnabled: true
+        areNotificationsEnabled: true,
+        sourceContext
     });
 
     // Add detectors to the detection service

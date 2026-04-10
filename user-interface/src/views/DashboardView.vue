@@ -68,7 +68,7 @@
           
           <DetectionItem
             v-for="detection in recentDetections"
-            :key="detection.id || detection.timestamp"
+            :key="detection.id || detection.detectedAt"
             :detection="detection"
             :showMatchAverages="false"
           />

@@ -167,8 +167,12 @@ describe("DetectionService", function() {
                 expect(detectionData).to.have.property('uuid');
                 expect(detectionData).to.have.property('detector');
                 expect(detectionData.detector.name).eq('File Context Test');
-                expect(detectionData).to.have.property('timestamp', testTimestamp);
+                expect(detectionData).to.have.property('fileTimestamp', testTimestamp);
                 expect(detectionData).to.have.property('filePath', testFilePath);
+                expect(detectionData).to.have.property('detectedAt');
+                expect(detectionData).to.have.property('sourceContext');
+                // detectedAt should be a valid ISO string (wall-clock time, not file-relative)
+                expect(new Date(detectionData.detectedAt).getFullYear()).to.be.greaterThan(2020);
                 done();
             });
 
@@ -218,6 +222,121 @@ describe("DetectionService", function() {
                     filePath: 'test.wav'
                 });
             }).to.throw('processAudioData can only be used in file mode');
+        });
+    });
+
+    describe('sourceContext and timestamp resolution', function() {
+        it('should use Date.now() when no sourceContext is provided', function() {
+            const detection = new DetectionService({
+                audioInterface: null,
+                sampleRate: 44100,
+                frequencyScaleFactor: 1,
+                fileMode: true,
+                recording: false
+            });
+
+            const before = Date.now();
+            const resolved = detection._resolveEpochMs();
+            const after = Date.now();
+
+            expect(resolved).to.be.at.least(before);
+            expect(resolved).to.be.at.most(after);
+        });
+
+        it('should use epochBaseSeconds from sourceContext when provided', function() {
+            const rdioDateTime = 1712754541; // April 10, 2024
+            const detection = new DetectionService({
+                audioInterface: null,
+                sampleRate: 44100,
+                frequencyScaleFactor: 1,
+                fileMode: true,
+                recording: false,
+                sourceContext: { source: 'rdio', epochBaseSeconds: rdioDateTime }
+            });
+
+            const resolved = detection._resolveEpochMs();
+            expect(resolved).to.equal(rdioDateTime * 1000);
+        });
+
+        it('should include sourceContext in emitted toneDetected event', async function() {
+            const sourceContext = { source: 'rdio', epochBaseSeconds: 1712754541, talkgroup: { label: 'Fire Dispatch' } };
+            const filePath = path.resolve("./test/wav", DYNAMIC_TEST_ARGS[0].filename);
+            const audioFileService = new AudioFileService({ chunkDurationSeconds: 1 });
+            const detection = new DetectionService({
+                audioInterface: null,
+                sampleRate: DYNAMIC_TEST_ARGS[0].sampleRate,
+                frequencyScaleFactor: DYNAMIC_TEST_ARGS[0].frequencyScaleFactor,
+                fileMode: true,
+                recording: false,
+                sourceContext
+            });
+
+            detection.addToneDetector(new TonesDetectorConfig({
+                name: 'SourceContext Test',
+                tones: DYNAMIC_TEST_ARGS[0].tones,
+                matchThreshold: 6,
+                tolerancePercent: 0.05
+            }));
+
+            return new Promise((resolve, reject) => {
+                const failTimeout = setTimeout(() => reject(new Error('Timeout: toneDetected not fired')), 5000);
+
+                detection.on('toneDetected', (detectionData) => {
+                    clearTimeout(failTimeout);
+                    try {
+                        expect(detectionData.sourceContext).to.deep.equal(sourceContext);
+                        expect(detectionData).to.have.property('detectedAt');
+                        const detectedDate = new Date(detectionData.detectedAt);
+                        expect(detectedDate.getFullYear()).to.equal(2024);
+                        resolve();
+                    } catch (e) { reject(e); }
+                });
+
+                audioFileService.on('audioData', (audioData) => {
+                    detection.processAudioData(audioData);
+                });
+
+                audioFileService.processFile(filePath).catch(reject);
+            });
+        });
+
+        it('should have null sourceContext when none is provided', async function() {
+            const filePath = path.resolve("./test/wav", DYNAMIC_TEST_ARGS[0].filename);
+            const audioFileService = new AudioFileService({ chunkDurationSeconds: 1 });
+            const detection = new DetectionService({
+                audioInterface: null,
+                sampleRate: DYNAMIC_TEST_ARGS[0].sampleRate,
+                frequencyScaleFactor: DYNAMIC_TEST_ARGS[0].frequencyScaleFactor,
+                fileMode: true,
+                recording: false
+            });
+
+            detection.addToneDetector(new TonesDetectorConfig({
+                name: 'No Context Test',
+                tones: DYNAMIC_TEST_ARGS[0].tones,
+                matchThreshold: 6,
+                tolerancePercent: 0.05
+            }));
+
+            return new Promise((resolve, reject) => {
+                const failTimeout = setTimeout(() => reject(new Error('Timeout: toneDetected not fired')), 5000);
+
+                detection.on('toneDetected', (detectionData) => {
+                    clearTimeout(failTimeout);
+                    try {
+                        expect(detectionData.sourceContext).to.be.null;
+                        expect(detectionData).to.have.property('detectedAt');
+                        expect(new Date(detectionData.detectedAt).getFullYear()).to.be.greaterThan(2020);
+                        resolve();
+                    } catch (e) { reject(e); }
+                });
+
+                audioFileService.on('audioData', (audioData) => {
+                    detection.processAudioData(audioData);
+                });
+
+                audioFileService.processFile(filePath).catch(reject);
+            });
         });
     });
 

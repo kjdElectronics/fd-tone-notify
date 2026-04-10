@@ -24,8 +24,8 @@ class DetectionStore {
    */
   addDetection(detection) {
     try {
-      // Add timestamp if not present
-      detection.timestamp = new Date(); //For the in memory store we always want current time. For file detections this can be the sec elapsed in the file
+      // Ensure detectedAt is set (ISO string)
+      detection.detectedAt = detection.detectedAt || new Date().toISOString();
       
       // Add to array
       this.detections.push(detection);

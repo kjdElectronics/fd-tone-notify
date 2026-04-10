@@ -49,7 +49,8 @@ async function detectTones(req, res) {
         frequencyScaleFactor: config.audio.frequencyScaleFactor,
         fileMode: true,
         recording: false, // Disable recording for API requests
-        areNotificationsEnabled: enableNotifications // Control notifications based on request flag
+        areNotificationsEnabled: enableNotifications, // Control notifications based on request flag
+        sourceContext: { source: 'file-upload' }
     });
 
     // Configure detectors using pre-parsed configuration
@@ -75,7 +76,8 @@ async function detectTones(req, res) {
             frequencyScaleFactor: config.audio.frequencyScaleFactor,
             silenceAmplitude: config.audio.silenceAmplitude,
             logLevel: process.env.FD_LOG_LEVEL || "info",
-            fileMode: true
+            fileMode: true,
+            sourceContext: { source: 'file-upload' }
         });
         
         log.debug(`API: Initialized All Tone Detector for range ${config.allToneDetector.startFreq}Hz to ${config.allToneDetector.endFreq}Hz`);
@@ -213,11 +215,14 @@ async function detectTones(req, res) {
  */
 function createDetectionListener(detections, requestId) {
     return function handleDetection(detection) {
+        // Use fileTimestamp (file-relative seconds) for file position display, fall back to timestamp
+        const fileSeconds = detection.fileTimestamp !== undefined ? detection.fileTimestamp : detection.timestamp;
         const detectionData = {
             detector: detection.detector.name,
             tones: detection.detector.tones,
-            timestamp: formatTimestamp(detection.timestamp),
-            timestampSeconds: detection.timestamp,
+            timestamp: formatTimestamp(fileSeconds),
+            timestampSeconds: fileSeconds,
+            detectedAt: detection.detectedAt,
             matchAverages: detection.matchAverages,
             message: detection.message
         };

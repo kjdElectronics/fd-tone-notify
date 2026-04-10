@@ -52,7 +52,7 @@
         <div v-else class="space-y-2 max-h-64 overflow-y-auto">
           <DetectionItem
             v-for="detection in sortedDetections"
-            :key="`detection-${detection.timestamp}`"
+            :key="`detection-${detection.detectedAt}`"
             :detection="detection"
             :showMatchAverages="false"
           />
@@ -189,14 +189,14 @@ const allLogs = computed(() => {
     const tonesDisplay = tones.length > 0 ? `${tones.join(', ')} Hz` : 'N/A Hz'
     
     logs.push({
-      id: `detection-${index}-${detection.timestamp}`,
-      timestamp: detection.timestamp,
+      id: `detection-${index}-${detection.detectedAt}`,
+      timestamp: detection.detectedAt,
       type: 'detection',
       level: 'info', // Treat detections as info level
       message: `Tone detected by ${detection.detector?.name || 'Unknown'}: ${tonesDisplay}`
     })
   })
-  
+
   // Sort by timestamp (oldest first, newest at bottom)
   return logs.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)).slice(-1000)
 })

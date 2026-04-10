@@ -169,65 +169,63 @@ function configureWebSocketEvents({detectionService, allToneDetectionService, ws
     });
 
     detectionService.on('toneDetected', async data => {
-        // Create message for WebSocket broadcast
+        // Create message for WebSocket broadcast (data now includes detectedAt and sourceContext)
         const message = {type: 'toneDetected', data};
-        
+
         // Broadcast to WebSocket clients
         wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
                 client.send(JSON.stringify(message));
             }
         });
-        
-        // Store the detection (same format as frontend expects)
+
+        // Store the detection
         if (detectionStore) {
             detectionStore.addDetection({
                 ...data,
-                timestamp: new Date().toISOString(),
+                detectedAt: data.detectedAt || new Date().toISOString(),
                 type: 'configured'
             });
         }
-        
+
         log.info('Sending toneDetected to ws clients and persisting');
     });
 
     // Handle multiToneDetected events from AllToneDetectionService if enabled
     if (allToneDetectionService) {
         allToneDetectionService.on('multiToneDetected', async eventData => {
-            // Extract data from the event - could be legacy format (just tones array) or new format (object with tones and timestamp)
+            // Extract data from the event - could be legacy format (just tones array) or new format with detectedAt
             const tones = Array.isArray(eventData) ? eventData : eventData.tones;
-            const detectionTimestamp = Array.isArray(eventData) ? new Date().toISOString() : (eventData.timestamp ? new Date(eventData.timestamp * 1000).toISOString() : new Date().toISOString());
-            
+            const detectedAt = Array.isArray(eventData)
+                ? new Date().toISOString()
+                : (eventData.detectedAt || new Date().toISOString());
+
             // Create standardized message data
             const messageData = {
                 tones: tones,
-                timestamp: detectionTimestamp,
+                detectedAt,
+                sourceContext: (!Array.isArray(eventData) && eventData.sourceContext) || null,
                 detector: {
                     name: 'All Tone Detector',
                     type: 'discovery'
                 }
             };
-            
+
             // Broadcast to WebSocket clients
             wss.clients.forEach(client => {
                 if (client.readyState === WebSocket.OPEN) {
-                    const message = {
-                        type: 'multiToneDetected', 
-                        data: messageData
-                    };
-                    client.send(JSON.stringify(message));
+                    client.send(JSON.stringify({type: 'multiToneDetected', data: messageData}));
                 }
             });
-            
-            // Store the detection (same format as frontend expects)
+
+            // Store the detection
             if (detectionStore) {
                 detectionStore.addDetection({
                     ...messageData,
-                    timestamp: detectionTimestamp,
                     type: 'discovery'
                 });
             }
-            
+
             log.info(`Sending multiToneDetected to ws clients and persisting: ${tones.map(f => `${f}Hz`).join(', ')}`);
         });
     }

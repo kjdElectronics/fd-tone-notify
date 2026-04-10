@@ -22,6 +22,7 @@ class NotificationParams{
             uuid : this.uuid,
             detector: this.detector.toObj(),
             timestamp: this.timestamp,
+            detectedAt: new Date(this.timestamp).toISOString(),
             matchAverages: this.matchAverages,
             notifications: this.notifications,
             filename: this.filename,

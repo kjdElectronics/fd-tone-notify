@@ -25,7 +25,8 @@ async function fdToneNotify({webServer=false}={}){
         minRecordingLengthSec: config.audio.minRecordingLengthSec,
         maxRecordingLengthSec: config.audio.maxRecordingLengthSec,
         frequencyScaleFactor: config.audio.frequencyScaleFactor,
-        recording: config.detection.hasOwnProperty("isRecordingEnabled") ? !!config.detection.isRecordingEnabled : null //Defaults to null to indicate not set
+        recording: config.detection.hasOwnProperty("isRecordingEnabled") ? !!config.detection.isRecordingEnabled : null, //Defaults to null to indicate not set
+        sourceContext: { source: 'live' }
     });
 
     // Store global references for cleanup
@@ -73,7 +74,8 @@ async function fdToneNotify({webServer=false}={}){
             audioInterface: audioInterface,
             frequencyScaleFactor: config.audio.frequencyScaleFactor,
             silenceAmplitude: config.audio.silenceAmplitude,
-            logLevel: process.env.FD_LOG_LEVEL || "info"
+            logLevel: process.env.FD_LOG_LEVEL || "info",
+            sourceContext: { source: 'live' }
         });
         
         // Store global reference for cleanup
