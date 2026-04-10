@@ -86,7 +86,13 @@ function extractRdioMetadata(req, requestId) {
         frequency: req.body.frequency
     };
 
-    log.info(`Rdio Scanner call: talkgroup=${metadata.talkgroup}, talkgroupLabel="${metadata.talkgroupLabel || 'N/A'}", system=${metadata.system || 'N/A'}, systemLabel="${metadata.systemLabel || 'N/A'}" (${requestId})`);
+    log.info(`Rdio Scanner call: talkgroup=${metadata.talkgroup}, talkgroupLabel="${metadata.talkgroupLabel || 'N/A'}", system=${metadata.system || 'N/A'}, systemLabel="${metadata.systemLabel || 'N/A'}", source=${metadata.source || 'N/A'}, frequency=${metadata.frequency || 'N/A'}, dateTime=${metadata.dateTime || 'N/A'} (${requestId})`);
+
+    // Log audio file details for troubleshooting
+    if (req.file) {
+        const fileSizeKB = (req.file.size / 1024).toFixed(1);
+        log.info(`Rdio Scanner audio: filename="${req.file.originalname}", size=${fileSizeKB}KB, mimetype=${req.file.mimetype || 'unknown'} (${requestId})`);
+    }
 
     return metadata;
 }
