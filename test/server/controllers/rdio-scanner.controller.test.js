@@ -151,7 +151,8 @@ describe('Rdio Scanner Controller', function() {
                 defaultResetTimeoutMs: 5000,
                 defaultLockoutTimeoutMs: 7000,
                 minRecordingLengthSec: 30,
-                maxRecordingLengthSec: 45
+                maxRecordingLengthSec: 45,
+                isRecordingEnabled: true
             });
         });
 
@@ -166,6 +167,7 @@ describe('Rdio Scanner Controller', function() {
                 talkgroupFilter: 'Fire Dispatch',
                 matchThreshold: 8,
                 tolerancePercent: 0.03,
+                isRecordingEnabled: true,
                 notifications: {
                     preRecording: { emails: [], pushbullet: [], webhooks: [], externalCommands: [] },
                     postRecording: { emails: [], pushbullet: [], webhooks: [], externalCommands: [] }
@@ -178,20 +180,32 @@ describe('Rdio Scanner Controller', function() {
             expect(configs[0]).to.have.property('name', 'Fire Station 1');
             expect(configs[0]).to.have.property('talkgroupFilter', 'Fire Dispatch');
             expect(configs[0].tones).to.deep.equal([911, 2938]);
-            expect(configs[0]).to.have.property('isRecordingEnabled', false);
+            expect(configs[0]).to.have.property('isRecordingEnabled', true);
         });
 
-        it('should force disable recording for all configs', function() {
+        it('should respect the detector isRecordingEnabled setting when explicitly false', function() {
             const detectors = [{
                 name: 'Test',
                 tones: [800, 1200],
                 talkgroupFilter: 'Test',
-                isRecordingEnabled: true
+                isRecordingEnabled: false
             }];
 
             const configs = createMatchingDetectorConfigs(detectors);
 
             expect(configs[0]).to.have.property('isRecordingEnabled', false);
+        });
+
+        it('should fall back to global isRecordingEnabled when detector value is undefined', function() {
+            const detectors = [{
+                name: 'Minimal',
+                tones: [800, 1200],
+                talkgroupFilter: 'Test'
+            }];
+
+            const configs = createMatchingDetectorConfigs(detectors);
+
+            expect(configs[0]).to.have.property('isRecordingEnabled', true);
         });
 
         it('should fall back to default config values when not specified', function() {

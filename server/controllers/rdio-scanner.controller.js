@@ -10,6 +10,7 @@ const { getWebSocketServer, configureWebSocketEvents } = require('../index');
 const config = require('config');
 const garbageCollect = require('../../util/gc');
 const { SourceContext } = require('../../obj/SourceContext');
+const { rdioRecordingService } = require('../../service/RdioRecordingService');
 
 /**
  * Handle Rdio Scanner call-upload API requests.
@@ -40,8 +41,27 @@ async function handleCallUpload(req, res) {
     // Find detectors matching the incoming talkgroup label
     const matchingDetectors = findMatchingDetectors(rdioMetadata.talkgroupLabel);
 
-    // If no matching detectors, skip silently and return success
+    // If no matching detectors, check if a recording window is already open for this talkgroup.
+    // When open, the call is same-talkgroup radio chatter that should be stitched into the recording.
     if (matchingDetectors.length === 0) {
+        if (rdioRecordingService.hasActiveWindow(rdioMetadata.talkgroupLabel)) {
+            log.debug(`Rdio Scanner: no matching detectors but active recording window for talkgroupLabel="${rdioMetadata.talkgroupLabel}", capturing for stitching (${requestId})`);
+            const wavFilePathLocal = req.file.path + '.wav';
+            try {
+                await convertToWav(req.file.path, wavFilePathLocal, req.file.originalname, requestId);
+                cleanupFile(req.file.path);
+                await rdioRecordingService.captureCall({
+                    wavFilePath: wavFilePathLocal,
+                    dateTime: rdioMetadata.dateTime,
+                    talkgroupLabel: rdioMetadata.talkgroupLabel
+                });
+            } catch (err) {
+                log.error(`Rdio Scanner: failed to capture non-matching call into active window: ${err.message} (${requestId})`);
+            } finally {
+                cleanupFile(wavFilePathLocal);
+            }
+            return res.status(200).send('Call imported successfully');
+        }
         log.debug(`Rdio Scanner: no matching detectors for talkgroupLabel="${rdioMetadata.talkgroupLabel}", skipping (${requestId})`);
         cleanupFile(req.file.path);
         return res.status(200).send('Call imported successfully');
@@ -70,7 +90,17 @@ async function handleCallUpload(req, res) {
     const detectorConfigs = createMatchingDetectorConfigs(matchingDetectors);
 
     try {
-        await processCallAudio(wavFilePath, detectorConfigs, rdioMetadata, requestId, startTime);
+        const detections = await processCallAudio(wavFilePath, detectorConfigs, rdioMetadata, requestId, startTime);
+        // If this call produced no tones but a recording window is open for this talkgroup,
+        // stage its audio so it becomes part of the stitched recording.
+        if ((!detections || detections.length === 0)
+            && rdioRecordingService.hasActiveWindow(rdioMetadata.talkgroupLabel)) {
+            await rdioRecordingService.captureCall({
+                wavFilePath,
+                dateTime: rdioMetadata.dateTime,
+                talkgroupLabel: rdioMetadata.talkgroupLabel
+            });
+        }
         res.status(200).send('Call imported successfully');
     } catch (processingError) {
         log.error(`Rdio Scanner: error processing audio: ${processingError.message} (${requestId})`);
@@ -147,7 +177,9 @@ function createMatchingDetectorConfigs(matchingDetectors) {
             maxRecordingLengthSec: detectorConfig.maxRecordingLengthSec || config.detection.maxRecordingLengthSec,
             matchThreshold: detectorConfig.matchThreshold || config.detection.defaultMatchThreshold,
             tolerancePercent: detectorConfig.tolerancePercent || config.detection.defaultTolerancePercent,
-            isRecordingEnabled: false, // Force disable recording for Rdio API
+            isRecordingEnabled: detectorConfig.isRecordingEnabled !== undefined
+                ? detectorConfig.isRecordingEnabled
+                : config.detection.isRecordingEnabled,
             notifications: detectorConfig.notifications
         });
     });
@@ -223,6 +255,20 @@ async function processCallAudio(wavFilePath, detectorConfigs, rdioMetadata, requ
     const detectionListener = createRdioDetectionListener(detections, rdioMetadata, requestId);
     detectionService.on('toneDetected', detectionListener);
 
+    // Wire recording accumulator: when a tone is detected, hand the wav off so the service
+    // can stage it and start/extend a post-recording stitch window for this talkgroup.
+    const recordingListener = (detectionData) => {
+        const matchedConfig = detectorConfigs.find(d => d.name === detectionData.detector?.name);
+        if (matchedConfig && matchedConfig.isRecordingEnabled === false) return;
+        rdioRecordingService.onToneDetected({
+            wavFilePath,
+            dateTime: rdioMetadata.dateTime,
+            talkgroupLabel: rdioMetadata.talkgroupLabel,
+            detectionData
+        }).catch(err => log.error(`Rdio Scanner: recording accumulator error: ${err.message} (${requestId})`));
+    };
+    detectionService.on('toneDetected', recordingListener);
+
     // Wire audio pipeline
     audioFileService.on('audioData', (audioData) => {
         detectionService.processAudioData({
@@ -238,6 +284,7 @@ async function processCallAudio(wavFilePath, detectorConfigs, rdioMetadata, requ
         await detectionService.waitForProcessingToComplete();
 
         detectionService.removeListener('toneDetected', detectionListener);
+        detectionService.removeListener('toneDetected', recordingListener);
 
         const processingTime = Date.now() - startTime.getTime();
 
@@ -246,6 +293,8 @@ async function processCallAudio(wavFilePath, detectorConfigs, rdioMetadata, requ
         } else {
             log.debug(`Rdio Scanner: no tones detected in call from talkgroup="${rdioMetadata.talkgroupLabel}" in ${processingTime}ms (${requestId})`);
         }
+
+        return detections;
     } finally {
         try {
             if (detectionService && typeof detectionService.dispose === 'function') {

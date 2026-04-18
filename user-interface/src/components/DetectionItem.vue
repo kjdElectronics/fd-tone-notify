@@ -23,6 +23,12 @@
         >
           {{ getDetectorName() }}
           <span v-if="detection.type === 'discovery'" class="text-gray-500 text-sm">(Discovery)</span>
+          <span
+            v-if="detection.sourceContext?.talkgroup?.label"
+            class="ml-1 text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded"
+          >
+            TG: {{ detection.sourceContext.talkgroup.label }}
+          </span>
         </div>
         <div class="text-sm text-gray-600">
           Tones: {{ getTonesDisplay() }}
