@@ -11,7 +11,7 @@ const {
     extractRdioMetadata,
     findMatchingDetectors,
     createMatchingDetectorConfigs,
-} = require('../../../server/domain/rdio.metadata');
+} = require('../../../server/domain/rdio.helpers');
 
 describe('Rdio Metadata Domain', function() {
     describe('extractRdioMetadata', function() {

@@ -8,19 +8,26 @@ const WAV_CHANNELS = 1;
 
 /**
  * Convert an uploaded audio file to WAV format (mono, 44.1kHz) suitable for
- * the tone-detection pipeline. If the source is already WAV (by original
- * filename extension), the file is renamed instead of re-encoded.
+ * the tone-detection pipeline.
+ *
+ * If the upload is already a WAV (determined from the original filename's
+ * extension — multer stores the upload under an extension-less path), the file
+ * is moved to `outputPath` instead of re-encoded. The move is not cosmetic:
+ * `service/AudioDecoder.js` dispatches format by extension and will reject the
+ * file if it does not end in `.wav`. Callers therefore pass an `outputPath`
+ * that ends in `.wav`, and the move both avoids an unnecessary FFmpeg pass
+ * and normalizes the path for the decoder.
  */
 function convertAudioToWav(inputPath, outputPath, originalFilename, requestId) {
     const ext = path.extname(originalFilename || '').toLowerCase();
 
     if (ext === '.wav') {
-        log.debug(`Rdio Scanner: audio is already WAV, renaming (${requestId})`);
+        log.debug(`Audio already WAV; moving to WAV-extension path for the decoder (${requestId})`);
         fs.renameSync(inputPath, outputPath);
         return Promise.resolve(outputPath);
     }
 
-    log.info(`Rdio Scanner: converting ${ext || 'unknown format'} to WAV via FFmpeg (${requestId})`);
+    log.info(`Audio conversion: converting ${ext || 'unknown format'} to WAV via FFmpeg (${requestId})`);
 
     return new Promise((resolve, reject) => {
         ffmpeg({ source: inputPath })
@@ -28,11 +35,11 @@ function convertAudioToWav(inputPath, outputPath, originalFilename, requestId) {
             .audioFrequency(WAV_SAMPLE_RATE)
             .audioChannels(WAV_CHANNELS)
             .on('error', (err) => {
-                log.error(`Rdio Scanner: FFmpeg conversion error: ${err.message} (${requestId})`);
+                log.error(`Audio conversion: FFmpeg conversion error: ${err.message} (${requestId})`);
                 reject(err);
             })
             .on('end', () => {
-                log.info(`Rdio Scanner: audio converted to WAV successfully (${requestId})`);
+                log.info(`Audio conversion: converted to WAV successfully (${requestId})`);
                 resolve(outputPath);
             })
             .save(outputPath);
@@ -49,7 +56,7 @@ function safeDeleteFile(filePath) {
             fs.unlinkSync(filePath);
         }
     } catch (error) {
-        log.warning(`Rdio Scanner: failed to clean up file ${filePath}: ${error.message}`);
+        log.warning(`Failed to clean up file ${filePath}: ${error.message}`);
     }
 }
 
