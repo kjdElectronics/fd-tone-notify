@@ -79,7 +79,7 @@ describe('RdioRecordingService', function() {
         service = new RdioRecordingService({
             stagingDir: tmpStagingDir,
             recordingDirectory: tmpRecordingDir,
-            notifier: notifierSpy,
+            postRecordingNotifier: notifierSpy,
             mp3Converter: mp3ConverterStub,
             ffmpegFactory,
             probeDuration: probeDurationStub,
