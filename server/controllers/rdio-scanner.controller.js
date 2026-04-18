@@ -133,12 +133,12 @@ async function handleNonMatchingCall(req, res, rdioMetadata, requestId) {
  * that tone detections from Rdio calls fan out to connected UI clients the
  * same way live-audio detections do.
  */
-function wireWebSocketBroadcasting({ detectionService }) {
+function wireWebSocketBroadcasting({ detectionService, allToneDetectionService }) {
     const wss = getWebSocketServer();
     if (!wss) return;
     configureWebSocketEvents({
         detectionService,
-        allToneDetectionService: null,
+        allToneDetectionService,
         wss,
     });
 }

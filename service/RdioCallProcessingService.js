@@ -2,6 +2,7 @@ const config = require('config');
 const log = require('../util/logger');
 const { AudioFileService } = require('./AudioFileService');
 const { DetectionService } = require('./DetectionService');
+const { AllToneDetectionService } = require('./AllToneDetectionService');
 const { SourceContext } = require('../obj/SourceContext');
 const { rdioRecordingService } = require('./RdioRecordingService');
 const garbageCollect = require('../util/gc');
@@ -44,10 +45,30 @@ async function processRdioCall({
         log.debug(`Rdio Scanner: added detector "${detectorConfigObj.name}" with tones ${detectorConfigObj.tones.map(v => `${v}Hz`).join(', ')} (${requestId})`);
     });
 
+    // Initialize AllToneDetectionService so Rdio uploads also discover
+    // arbitrary tones, mirroring the UI file-upload path.
+    let allToneDetectionService = null;
+    if (config.allToneDetector) {
+        allToneDetectionService = new AllToneDetectionService({
+            startFreq: config.allToneDetector.startFreq,
+            endFreq: config.allToneDetector.endFreq,
+            tolerancePercent: config.allToneDetector.tolerancePercent,
+            rangeOverlapModifier: config.allToneDetector.rangeOverlapModifier,
+            matchThreshold: config.allToneDetector.matchThreshold,
+            audioInterface: null,
+            frequencyScaleFactor: config.audio.frequencyScaleFactor,
+            silenceAmplitude: config.audio.silenceAmplitude,
+            logLevel: process.env.FD_LOG_LEVEL || "info",
+            fileMode: true,
+            sourceContext: SourceContext.fromRdioMetadata(rdioMetadata),
+        });
+        log.debug(`Rdio Scanner: initialized All Tone Detector for range ${config.allToneDetector.startFreq}Hz to ${config.allToneDetector.endFreq}Hz (${requestId})`);
+    }
+
     // Allow the caller (controller) to attach WebSocket broadcasting or any
     // other per-request wiring before events begin firing.
     if (typeof onServicesReady === 'function') {
-        onServicesReady({ detectionService, audioFileService });
+        onServicesReady({ detectionService, audioFileService, allToneDetectionService });
     }
 
     const detections = [];
@@ -63,17 +84,27 @@ async function processRdioCall({
     detectionService.on('toneDetected', recordingWindowListener);
 
     audioFileService.on('audioData', (audioData) => {
-        detectionService.processAudioData({
+        const audioDataParams = {
             timestamp: audioData.timestamp,
             filePath: audioData.filePath,
             audioBuffer: audioData.audioBuffer,
             sampleRate: audioData.sampleRate,
-        });
+        };
+
+        detectionService.processAudioData(audioDataParams);
+
+        if (allToneDetectionService) {
+            allToneDetectionService.processAudioData(audioDataParams);
+        }
     });
 
     try {
         await audioFileService.processFile(wavFilePath);
         await detectionService.waitForProcessingToComplete();
+
+        if (allToneDetectionService) {
+            await allToneDetectionService.waitForProcessingToComplete();
+        }
 
         detectionService.removeListener('toneDetected', detectionLogListener);
         detectionService.removeListener('toneDetected', recordingWindowListener);
@@ -87,7 +118,7 @@ async function processRdioCall({
 
         return detections;
     } finally {
-        disposePipeline({ detectionService, audioFileService, requestId });
+        disposePipeline({ detectionService, audioFileService, allToneDetectionService, requestId });
     }
 }
 
@@ -130,10 +161,13 @@ function createRecordingWindowListener({ wavFilePath, rdioMetadata, detectorConf
     };
 }
 
-function disposePipeline({ detectionService, audioFileService, requestId }) {
+function disposePipeline({ detectionService, audioFileService, allToneDetectionService, requestId }) {
     try {
         if (detectionService && typeof detectionService.dispose === 'function') {
             detectionService.dispose();
+        }
+        if (allToneDetectionService && typeof allToneDetectionService.dispose === 'function') {
+            allToneDetectionService.dispose();
         }
         if (audioFileService && typeof audioFileService.dispose === 'function') {
             audioFileService.dispose();
