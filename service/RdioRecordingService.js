@@ -24,7 +24,7 @@ const UNIX_MS_THRESHOLD = 1e12; // Values below this are treated as epoch second
  * (rather than config.get/has) so that node-config's immutability freeze is not
  * triggered at load time — the test suite relies on stubbing sibling keys.
  */
-function resolveRdioWindowConfig() {
+function getRdioRecordingConfig() {
     const recording = (config && config.recording) || {};
     const rdio = recording.rdio || {};
     return {
@@ -110,7 +110,7 @@ class RdioRecordingService {
 
     /**
      * Resolved lazily so that node-config is not accessed at module-load time
-     * (see resolveRdioWindowConfig for the rationale).
+     * (see getRdioRecordingConfig for the rationale).
      */
     get recordingDirectory() {
         if (this._recordingDirectoryOverride) return this._recordingDirectoryOverride;
@@ -180,7 +180,7 @@ class RdioRecordingService {
     }
 
     _openWindow({ talkgroupKey, detectionData, firstCall }) {
-        const rdioConfig = resolveRdioWindowConfig();
+        const rdioConfig = getRdioRecordingConfig();
         const { notificationParams, detectorName } = this._buildNotificationParams(detectionData);
 
         const window = {
@@ -264,7 +264,7 @@ class RdioRecordingService {
      * close the window regardless.
      */
     _tryFinalizeIfThresholdsMet(window) {
-        const rdioConfig = resolveRdioWindowConfig();
+        const rdioConfig = getRdioRecordingConfig();
         const elapsedSec = (Date.now() - window.openedAt) / 1000;
         if (elapsedSec < rdioConfig.earlySendAfterSec) return;
 
@@ -282,7 +282,7 @@ class RdioRecordingService {
         const window = this._windowsByTalkgroup.get(talkgroupKey);
         if (!window) return;
 
-        const rdioConfig = resolveRdioWindowConfig();
+        const rdioConfig = getRdioRecordingConfig();
         const totalAudioSec = this._sumCallDurations(window);
         if (totalAudioSec >= rdioConfig.earlySendMinAudioSec) this._finalize(talkgroupKey);
     }

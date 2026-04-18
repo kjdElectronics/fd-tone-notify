@@ -5,7 +5,7 @@ const {
     extractRdioMetadata,
     findMatchingDetectors,
     createMatchingDetectorConfigs,
-} = require('../domain/rdio.metadata');
+} = require('../domain/rdio.helpers');
 const { convertAudioToWav, safeDeleteFile } = require('../util/audio.conversion.util');
 const { processRdioCall } = require('../../service/RdioCallProcessingService');
 const { rdioRecordingService } = require('../../service/RdioRecordingService');

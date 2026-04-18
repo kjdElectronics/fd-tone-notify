@@ -9,11 +9,19 @@ const upload = multer({
         fileSize: 50 * 1024 * 1024, // 50MB limit
     },
     fileFilter: (req, file, cb) => {
-        // Accept only WAV files for now
-        if (file.mimetype === 'audio/wav' || path.extname(file.originalname).toLowerCase() === '.wav') {
+        // Accept WAV and MP3. Non-WAV inputs are transcoded to WAV by the
+        // controller before the tone-detection pipeline runs.
+        const allowedMimeTypes = [
+            'audio/wav', 'audio/x-wav', 'audio/wave',
+            'audio/mpeg', 'audio/mp3'
+        ];
+        const allowedExtensions = ['.wav', '.mp3'];
+        const ext = path.extname(file.originalname).toLowerCase();
+
+        if (allowedMimeTypes.includes(file.mimetype) || allowedExtensions.includes(ext)) {
             cb(null, true);
         } else {
-            cb(new Error('Only WAV files are supported'), false);
+            cb(new Error('Only WAV and MP3 files are supported'), false);
         }
     }
 });

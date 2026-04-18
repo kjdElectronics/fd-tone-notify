@@ -12,6 +12,7 @@ const { getWebSocketServer, getGlobalDetectionStore, configureWebSocketEvents } 
 const config = require('config');
 const garbageCollect = require("../../util/gc");
 const { SourceContext } = require('../../obj/SourceContext');
+const { convertAudioToWav, safeDeleteFile } = require('../util/audio.conversion.util');
 
 /**
  * Upload a WAV file and detect tones
@@ -24,15 +25,26 @@ async function detectTones(req, res) {
 
     // Validate file upload
     if (!req.file) {
-        throw ErrorWithStatusCode.validation('No file uploaded. Please upload a WAV file.');
+        throw ErrorWithStatusCode.validation('No file uploaded. Please upload a WAV or MP3 file.');
     }
 
     const uploadedFilePath = req.file.path;
     const originalFilename = req.file.originalname;
 
-    // Rename uploaded file to have .wav extension for processing
+    // Ensure downstream pipeline receives a .wav file. convertAudioToWav is a
+    // no-op rename when the upload is already WAV, and transcodes via FFmpeg
+    // when it is MP3 or another supported format.
     const wavFilePath = uploadedFilePath + '.wav';
-    fs.renameSync(uploadedFilePath, wavFilePath);
+    try {
+        await convertAudioToWav(uploadedFilePath, wavFilePath, originalFilename, requestId);
+    } catch (conversionError) {
+        safeDeleteFile(uploadedFilePath);
+        safeDeleteFile(wavFilePath);
+        throw ErrorWithStatusCode.validation(`Failed to convert uploaded audio to WAV: ${conversionError.message}`);
+    }
+    // For WAV inputs convertAudioToWav renames the upload into wavFilePath; for
+    // transcoded inputs the original upload still exists and must be cleaned up.
+    safeDeleteFile(uploadedFilePath);
 
     log.info(`Processing uploaded file: ${originalFilename} (${requestId})`);
 
