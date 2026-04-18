@@ -154,7 +154,12 @@
   },
   "recording": {
     "directory": "./recordings",
-    "autoDeleteOlderThanDays": 7
+    "autoDeleteOlderThanDays": 7,
+    "rdio": {
+      "windowTimeoutSec": 80,
+      "earlySendAfterSec": 45,
+      "earlySendMinAudioSec": 15
+    }
   },
   "coralogix": {
     "applicationName": "FD-Tone-Notify",

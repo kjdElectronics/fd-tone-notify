@@ -1,26 +1,19 @@
 /**
- * Tests for Rdio Scanner controller helper functions.
- *
- * Tests the extracted single-responsibility functions directly,
- * verifying talkgroup filtering, metadata extraction, and detector config creation.
+ * Tests for Rdio Scanner domain helpers: metadata extraction, talkgroup
+ * matching, and detector config construction.
  */
 
 const { expect } = require('chai');
 const sinon = require('sinon');
 const config = require('config');
 
-describe('Rdio Scanner Controller', function() {
-    let extractRdioMetadata, findMatchingDetectors, createMatchingDetectorConfigs, createRdioDetectionListener;
+const {
+    extractRdioMetadata,
+    findMatchingDetectors,
+    createMatchingDetectorConfigs,
+} = require('../../../server/domain/rdio.helpers');
 
-    before(function() {
-        // Import the functions under test
-        const controller = require('../../../server/controllers/rdio-scanner.controller');
-        extractRdioMetadata = controller.extractRdioMetadata;
-        findMatchingDetectors = controller.findMatchingDetectors;
-        createMatchingDetectorConfigs = controller.createMatchingDetectorConfigs;
-        createRdioDetectionListener = controller.createRdioDetectionListener;
-    });
-
+describe('Rdio Metadata Domain', function() {
     describe('extractRdioMetadata', function() {
         it('should extract all Rdio metadata fields from request body', function() {
             const req = {
@@ -51,29 +44,19 @@ describe('Rdio Scanner Controller', function() {
         });
 
         it('should trim talkgroupLabel whitespace', function() {
-            const req = {
-                body: { talkgroupLabel: '  Fire Dispatch  ' }
-            };
-
-            const metadata = extractRdioMetadata(req, 'test-request-id');
-
+            const metadata = extractRdioMetadata({ body: { talkgroupLabel: '  Fire Dispatch  ' } }, 'test-request-id');
             expect(metadata.talkgroupLabel).to.equal('Fire Dispatch');
         });
 
         it('should handle missing talkgroupLabel', function() {
-            const req = { body: {} };
-
-            const metadata = extractRdioMetadata(req, 'test-request-id');
-
+            const metadata = extractRdioMetadata({ body: {} }, 'test-request-id');
             expect(metadata.talkgroupLabel).to.equal('');
         });
     });
 
     describe('findMatchingDetectors', function() {
-        let configStub;
-
         beforeEach(function() {
-            configStub = sinon.stub(config, 'detection').value({
+            sinon.stub(config, 'detection').value({
                 detectors: [
                     { name: 'Fire Station 1', talkgroupFilter: 'Fire Dispatch', tones: [911, 2938] },
                     { name: 'Fire Station 2', talkgroupFilter: 'fire dispatch', tones: [440, 879] },
@@ -90,163 +73,105 @@ describe('Rdio Scanner Controller', function() {
             });
         });
 
-        afterEach(function() {
-            sinon.restore();
-        });
+        afterEach(function() { sinon.restore(); });
 
         it('should find detectors matching talkgroupLabel case-insensitively', function() {
             const matches = findMatchingDetectors('Fire Dispatch');
-
             expect(matches).to.have.length(2);
             expect(matches[0].name).to.equal('Fire Station 1');
             expect(matches[1].name).to.equal('Fire Station 2');
         });
 
         it('should match with different case in incoming label', function() {
-            const matches = findMatchingDetectors('FIRE DISPATCH');
-
-            expect(matches).to.have.length(2);
+            expect(findMatchingDetectors('FIRE DISPATCH')).to.have.length(2);
         });
 
         it('should return empty array when no detectors match', function() {
-            const matches = findMatchingDetectors('Police Dispatch');
-
-            expect(matches).to.be.an('array').that.is.empty;
+            expect(findMatchingDetectors('Police Dispatch')).to.be.an('array').that.is.empty;
         });
 
         it('should skip detectors without talkgroupFilter', function() {
-            const matches = findMatchingDetectors('Fire Dispatch');
-
-            const names = matches.map(d => d.name);
+            const names = findMatchingDetectors('Fire Dispatch').map(d => d.name);
             expect(names).to.not.include('No Filter Detector');
             expect(names).to.not.include('Empty Filter');
         });
 
         it('should skip detectors with empty talkgroupFilter', function() {
-            const matches = findMatchingDetectors('');
-
-            expect(matches).to.be.an('array').that.is.empty;
+            expect(findMatchingDetectors('')).to.be.an('array').that.is.empty;
         });
 
         it('should handle null talkgroupLabel', function() {
-            const matches = findMatchingDetectors(null);
-
-            expect(matches).to.be.an('array').that.is.empty;
+            expect(findMatchingDetectors(null)).to.be.an('array').that.is.empty;
         });
 
         it('should trim whitespace from incoming label', function() {
-            const matches = findMatchingDetectors('  Fire Dispatch  ');
-
-            expect(matches).to.have.length(2);
+            expect(findMatchingDetectors('  Fire Dispatch  ')).to.have.length(2);
         });
     });
 
     describe('createMatchingDetectorConfigs', function() {
-        let configStub;
-
         beforeEach(function() {
-            configStub = sinon.stub(config, 'detection').value({
+            sinon.stub(config, 'detection').value({
                 defaultMatchThreshold: 6,
                 defaultTolerancePercent: 0.02,
                 defaultResetTimeoutMs: 5000,
                 defaultLockoutTimeoutMs: 7000,
                 minRecordingLengthSec: 30,
-                maxRecordingLengthSec: 45
+                maxRecordingLengthSec: 45,
+                isRecordingEnabled: true,
             });
         });
 
-        afterEach(function() {
-            sinon.restore();
-        });
+        afterEach(function() { sinon.restore(); });
 
         it('should create TonesDetectorConfig objects with correct properties', function() {
-            const detectors = [{
+            const configs = createMatchingDetectorConfigs([{
                 name: 'Fire Station 1',
                 tones: [911, 2938],
                 talkgroupFilter: 'Fire Dispatch',
                 matchThreshold: 8,
                 tolerancePercent: 0.03,
+                isRecordingEnabled: true,
                 notifications: {
                     preRecording: { emails: [], pushbullet: [], webhooks: [], externalCommands: [] },
                     postRecording: { emails: [], pushbullet: [], webhooks: [], externalCommands: [] }
                 }
-            }];
-
-            const configs = createMatchingDetectorConfigs(detectors);
+            }]);
 
             expect(configs).to.have.length(1);
             expect(configs[0]).to.have.property('name', 'Fire Station 1');
             expect(configs[0]).to.have.property('talkgroupFilter', 'Fire Dispatch');
             expect(configs[0].tones).to.deep.equal([911, 2938]);
-            expect(configs[0]).to.have.property('isRecordingEnabled', false);
+            expect(configs[0]).to.have.property('isRecordingEnabled', true);
         });
 
-        it('should force disable recording for all configs', function() {
-            const detectors = [{
+        it('should respect the detector isRecordingEnabled setting when explicitly false', function() {
+            const configs = createMatchingDetectorConfigs([{
                 name: 'Test',
                 tones: [800, 1200],
                 talkgroupFilter: 'Test',
-                isRecordingEnabled: true
-            }];
-
-            const configs = createMatchingDetectorConfigs(detectors);
-
+                isRecordingEnabled: false,
+            }]);
             expect(configs[0]).to.have.property('isRecordingEnabled', false);
         });
 
-        it('should fall back to default config values when not specified', function() {
-            const detectors = [{
+        it('should fall back to global isRecordingEnabled when detector value is undefined', function() {
+            const configs = createMatchingDetectorConfigs([{
                 name: 'Minimal',
                 tones: [800, 1200],
-                talkgroupFilter: 'Test'
-            }];
+                talkgroupFilter: 'Test',
+            }]);
+            expect(configs[0]).to.have.property('isRecordingEnabled', true);
+        });
 
-            const configs = createMatchingDetectorConfigs(detectors);
-
+        it('should fall back to default config values when not specified', function() {
+            const configs = createMatchingDetectorConfigs([{
+                name: 'Minimal',
+                tones: [800, 1200],
+                talkgroupFilter: 'Test',
+            }]);
             expect(configs[0]).to.have.property('matchThreshold', 6);
             expect(configs[0]).to.have.property('tolerancePercent', 0.02);
-        });
-    });
-
-    describe('createRdioDetectionListener', function() {
-        it('should push detection data with Rdio metadata when called', function() {
-            const detections = [];
-            const rdioMetadata = {
-                talkgroup: '1001',
-                talkgroupLabel: 'Fire Dispatch',
-                system: '1',
-                systemLabel: 'County'
-            };
-
-            const listener = createRdioDetectionListener(detections, rdioMetadata, 'test-request-id');
-
-            const detectedAt = new Date().toISOString();
-            listener({
-                detector: { name: 'Fire Station 1', tones: [911, 2938] },
-                detectedAt,
-                matchAverages: [911.2, 2938.5],
-                message: 'Fire Station 1 tone detected',
-                sourceContext: { source: 'rdio', talkgroup: { label: 'Fire Dispatch' } }
-            });
-
-            expect(detections).to.have.length(1);
-            expect(detections[0]).to.have.property('detector', 'Fire Station 1');
-            expect(detections[0]).to.have.property('detectedAt', detectedAt);
-            expect(detections[0]).to.have.property('rdioMetadata');
-            expect(detections[0].rdioMetadata).to.have.property('talkgroupLabel', 'Fire Dispatch');
-        });
-
-        it('should accumulate multiple detections', function() {
-            const detections = [];
-            const rdioMetadata = { talkgroupLabel: 'Fire Dispatch' };
-
-            const listener = createRdioDetectionListener(detections, rdioMetadata, 'test-request-id');
-
-            const now = new Date().toISOString();
-            listener({ detector: { name: 'Det 1', tones: [911] }, detectedAt: now, matchAverages: [911], message: 'det1' });
-            listener({ detector: { name: 'Det 2', tones: [440] }, detectedAt: now, matchAverages: [440], message: 'det2' });
-
-            expect(detections).to.have.length(2);
         });
     });
 });
