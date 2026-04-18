@@ -7,6 +7,7 @@ const {startWebApp} = require('../server');
 const {AudioService} = require('../service/AudioService');
 const { initRecordingAutoCleaningService} = require('../util/recording.cleaner');
 const {TonesDetectorConfig} = require("../obj/config/TonesDetectorConfig");
+const {SourceContext} = require("../obj/SourceContext");
 
 // Global service references for graceful cleanup
 let globalServices = {
@@ -25,13 +26,20 @@ async function fdToneNotify({webServer=false}={}){
         minRecordingLengthSec: config.audio.minRecordingLengthSec,
         maxRecordingLengthSec: config.audio.maxRecordingLengthSec,
         frequencyScaleFactor: config.audio.frequencyScaleFactor,
-        recording: config.detection.hasOwnProperty("isRecordingEnabled") ? !!config.detection.isRecordingEnabled : null //Defaults to null to indicate not set
+        recording: config.detection.hasOwnProperty("isRecordingEnabled") ? !!config.detection.isRecordingEnabled : null, //Defaults to null to indicate not set
+        sourceContext: SourceContext.live()
     });
 
     // Store global references for cleanup
     globalServices.audioInterface = audioInterface;
     globalServices.detectionService = detectionService;
     config.detection.detectors.forEach(detectorConfig => {
+        // Skip talkgroup-exclusive detectors from live audio monitoring
+        if (detectorConfig.talkgroupExclusive) {
+            log.info(`Skipping detector '${detectorConfig.name}' for live audio (talkgroup exclusive)`);
+            return;
+        }
+
         let isRecordingEnabled = detectorConfig.hasOwnProperty("isRecordingEnabled") ? !!detectorConfig.isRecordingEnabled : null;
         if(isRecordingEnabled === null)
             isRecordingEnabled = config.detection.isRecordingEnabled;
@@ -67,7 +75,8 @@ async function fdToneNotify({webServer=false}={}){
             audioInterface: audioInterface,
             frequencyScaleFactor: config.audio.frequencyScaleFactor,
             silenceAmplitude: config.audio.silenceAmplitude,
-            logLevel: process.env.FD_LOG_LEVEL || "info"
+            logLevel: process.env.FD_LOG_LEVEL || "info",
+            sourceContext: SourceContext.live()
         });
         
         // Store global reference for cleanup

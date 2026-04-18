@@ -19,13 +19,15 @@ class TonesDetectorConfig {
      * @param {number} [config.maxRecordingLengthSec] - Maximum recording length in seconds
      * @param {boolean} [config.isRecordingEnabled] - Whether recording is enabled
      * @param {Object} [config.notifications] - Notification configuration
+     * @param {string} [config.talkgroupFilter] - Talkgroup name filter for Rdio Scanner integration
+     * @param {boolean} [config.talkgroupExclusive=false] - When true, detector is excluded from live audio monitoring
      */
     constructor({ name, tones = [], matchThreshold = 6, tolerancePercent = 0.02, resetTimeoutMs = 7000,
                   lockoutTimeoutMs = 5000, minRecordingLengthSec = 30, maxRecordingLengthSec,
-                  isRecordingEnabled, notifications }) {
+                  isRecordingEnabled, notifications, talkgroupFilter, talkgroupExclusive }) {
         this.validateAndSet({ name, tones, matchThreshold, tolerancePercent, resetTimeoutMs,
                              lockoutTimeoutMs, minRecordingLengthSec, maxRecordingLengthSec,
-                             isRecordingEnabled, notifications });
+                             isRecordingEnabled, notifications, talkgroupFilter, talkgroupExclusive });
     }
 
     /**
@@ -34,7 +36,7 @@ class TonesDetectorConfig {
      */
     validateAndSet({ name, tones, matchThreshold, tolerancePercent, resetTimeoutMs,
                      lockoutTimeoutMs, minRecordingLengthSec, maxRecordingLengthSec,
-                     isRecordingEnabled, notifications }) {
+                     isRecordingEnabled, notifications, talkgroupFilter, talkgroupExclusive }) {
         // Validate required fields
         if (!name || typeof name !== 'string') {
             throw ErrorWithStatusCode.validation('Detector "name" is required and must be a string');
@@ -84,6 +86,20 @@ class TonesDetectorConfig {
             throw ErrorWithStatusCode.validation('isRecordingEnabled must be a boolean');
         }
 
+        if (talkgroupExclusive !== undefined && talkgroupExclusive !== null && typeof talkgroupExclusive !== 'boolean') {
+            throw ErrorWithStatusCode.validation('talkgroupExclusive must be a boolean');
+        }
+
+        // Validate talkgroupFilter
+        if (talkgroupFilter !== undefined && talkgroupFilter !== null && talkgroupFilter !== '') {
+            if (typeof talkgroupFilter !== 'string') {
+                throw ErrorWithStatusCode.validation('talkgroupFilter must be a string');
+            }
+            if (talkgroupFilter.length > 255) {
+                throw ErrorWithStatusCode.validation('talkgroupFilter must be 255 characters or less');
+            }
+        }
+
         // Validate notifications
         const notificationsConfig = notifications ? new NotificationsConfig(notifications) : null;
 
@@ -97,6 +113,8 @@ class TonesDetectorConfig {
         this.minRecordingLengthSec = minRecordingLengthSec;
         this.maxRecordingLengthSec = maxRecordingLengthSec || minRecordingLengthSec * 1.5;
         this.isRecordingEnabled = isRecordingEnabled;
+        this.talkgroupFilter = talkgroupFilter || '';
+        this.talkgroupExclusive = talkgroupExclusive ?? false;
         this.notifications = notificationsConfig;
     }
 

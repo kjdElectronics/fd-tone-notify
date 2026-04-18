@@ -182,6 +182,16 @@ async function displayStartupSummary(processManager, statusMonitor, logAggregato
         ]);
     }
     
+    // Add insecure HTTP server info if configured
+    const insecurePort = process.env.FD_INSECURE_HTTP_RDIO_CALL_UPLOAD_PORT;
+    if (insecurePort && insecurePort.trim() !== '') {
+        tableData.push([
+            'Rdio Call-Upload (HTTP)',
+            `http://localhost:${insecurePort.trim()}/api/call-upload`,
+            processStatus.backend.running ? '\u26A0 Insecure HTTP Active' : '\u2717 Unavailable'
+        ]);
+    }
+
     // Display the formatted table
     console.log(''); // Add spacing
     logAggregator.logStatusTable(`🔥 FD TONE NOTIFY SYSTEM STATUS ${statusMonitor.getStatus().healthy ? '✅' : '🛑'}`, tableData);

@@ -10,6 +10,8 @@ const mockConfigData = {
         detectors: [
             {
                 name: 'Existing Test Detector',
+                talkgroupFilter: '',
+                talkgroupExclusive: false,
                 tones: [1200.5, 1400.0],
                 matchThreshold: 6,
                 tolerancePercent: 0.02,
@@ -58,6 +60,8 @@ const mockConfigData = {
  */
 const validDetectorData = {
     name: 'New Test Detector',
+    talkgroupFilter: 'Fire Dispatch',
+    talkgroupExclusive: true,
     tones: [1500.0, 1800.5],
     matchThreshold: 8,
     tolerancePercent: 0.03,

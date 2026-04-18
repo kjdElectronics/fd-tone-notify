@@ -14,12 +14,22 @@ const express = require('express');
 const configUtil = require('../../../server/util/config.file.util');
 const authMiddleware = require('../../../server/middleware/auth.middleware');
 
-// Create global stubs for config operations to handle destructured imports
+// Create global stubs for config operations to handle destructured imports.
+// Guard with isSinonProxy to avoid "already wrapped" errors when both
+// detector.controller.simple.test.js and this file are loaded in the same mocha run.
 const globalConfigStubs = {
-    readConfigFile: sinon.stub(configUtil, 'readConfigFile'),
-    createBackup: sinon.stub(configUtil, 'createBackup'),
-    writeConfigFile: sinon.stub(configUtil, 'writeConfigFile'),
-    markConfigChanged: sinon.stub(configUtil, 'markConfigChanged')
+    readConfigFile: configUtil.readConfigFile.isSinonProxy
+        ? configUtil.readConfigFile
+        : sinon.stub(configUtil, 'readConfigFile'),
+    createBackup: configUtil.createBackup.isSinonProxy
+        ? configUtil.createBackup
+        : sinon.stub(configUtil, 'createBackup'),
+    writeConfigFile: configUtil.writeConfigFile.isSinonProxy
+        ? configUtil.writeConfigFile
+        : sinon.stub(configUtil, 'writeConfigFile'),
+    markConfigChanged: configUtil.markConfigChanged.isSinonProxy
+        ? configUtil.markConfigChanged
+        : sinon.stub(configUtil, 'markConfigChanged'),
 };
 
 // Stub the authentication middleware globally before routes are imported
@@ -66,7 +76,12 @@ describe('Detector Controller Integration Tests', function() {
     });
 
     afterEach(function() {
-        sinon.restore();
+        // Reset stub histories instead of sinon.restore() since stubs may be
+        // shared with detector.controller.simple.test.js in the same mocha run.
+        globalConfigStubs.readConfigFile.resetHistory();
+        globalConfigStubs.createBackup.resetHistory();
+        globalConfigStubs.writeConfigFile.resetHistory();
+        globalConfigStubs.markConfigChanged.resetHistory();
     });
 
     describe('GET /detectors', function() {

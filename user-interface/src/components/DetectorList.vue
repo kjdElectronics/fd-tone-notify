@@ -77,6 +77,15 @@
               <span class="text-sm text-gray-600">
                 {{ detector.isRecordingEnabled ? 'Recording enabled' : 'Recording disabled' }}
               </span>
+              <template v-if="detector.talkgroupFilter">
+                <span class="mx-2 text-gray-400">&bull;</span>
+                <span class="text-sm text-purple-600 font-medium">
+                  TG: {{ detector.talkgroupFilter }}
+                </span>
+                <span v-if="detector.talkgroupExclusive" class="ml-1 text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">
+                  Rdio Only
+                </span>
+              </template>
             </div>
           </div>
           

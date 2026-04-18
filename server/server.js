@@ -128,6 +128,18 @@ function setupGracefulShutdown(server, app) {
         shuttingDown = true;
         log.info(`Received ${signal}. Starting graceful shutdown...`);
         
+        // Close insecure HTTP server if it was started
+        if (app.insecureServer) {
+            log.info('Closing insecure HTTP server...');
+            app.insecureServer.close((err) => {
+                if (err) {
+                    log.error(`Error closing insecure HTTP server: ${err.message}`);
+                } else {
+                    log.info('Insecure HTTP server closed successfully');
+                }
+            });
+        }
+
         // Close HTTP server (stops accepting new connections)
         server.close((err) => {
             if (err) {
@@ -212,4 +224,66 @@ function setupGracefulShutdown(server, app) {
     log.info('Graceful shutdown handlers configured');
 }
 
-module.exports = {startServer};
+/**
+ * Optionally start a plain HTTP server for the Rdio Scanner call-upload endpoint.
+ * Only starts if FD_INSECURE_HTTP_RDIO_CALL_UPLOAD_PORT is set to a non-empty value.
+ * This server exposes ONLY /api/call-upload over unencrypted HTTP.
+ *
+ * @returns {http.Server|null} The HTTP server instance, or null if not enabled
+ */
+function startInsecureRdioServer() {
+    const portEnv = process.env.FD_INSECURE_HTTP_RDIO_CALL_UPLOAD_PORT;
+
+    if (!portEnv || portEnv.trim() === '') {
+        return null;
+    }
+
+    const port = normalizePort(portEnv.trim());
+    if (port === false) {
+        log.error(`Invalid FD_INSECURE_HTTP_RDIO_CALL_UPLOAD_PORT value: "${portEnv}"`);
+        return null;
+    }
+
+    log.warning('='.repeat(70));
+    log.warning('INSECURE HTTP SERVER ENABLED for Rdio Scanner call-upload endpoint');
+    log.warning(`Listening on HTTP (not HTTPS) port ${port}`);
+    log.warning('This server exposes /api/call-upload over unencrypted HTTP.');
+    log.warning('Only use this in trusted network environments.');
+    log.warning('='.repeat(70));
+
+    const express = require('express');
+    const insecureApp = express();
+
+    insecureApp.use(express.json({ limit: '5mb' }));
+    insecureApp.use(express.urlencoded({ extended: true, limit: '5mb' }));
+
+    // Mount ONLY the Rdio Scanner call-upload route
+    const rdioScannerRoutes = require('./routes/rdio-scanner');
+    insecureApp.use('/api/call-upload', rdioScannerRoutes);
+
+    // Reject all other routes
+    insecureApp.use((req, res) => {
+        res.status(404).json({
+            success: false,
+            error: 'Not found. This server only serves /api/call-upload.'
+        });
+    });
+
+    // Basic error handler
+    insecureApp.use((err, req, res, next) => {
+        log.error(`Insecure HTTP server error: ${err.message}`);
+        res.status(500).json({
+            success: false,
+            error: 'Internal server error'
+        });
+    });
+
+    const insecureServer = http.createServer(insecureApp);
+    insecureServer.on('error', onError);
+    insecureServer.on('listening', () => onListening(insecureServer));
+    insecureServer.listen(port, '0.0.0.0');
+
+    return insecureServer;
+}
+
+module.exports = { startServer, startInsecureRdioServer };

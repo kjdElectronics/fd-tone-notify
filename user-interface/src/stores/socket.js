@@ -311,13 +311,11 @@ export const useSocketStore = defineStore('socket', () => {
     
     switch (type) {
       case 'toneDetected':
-        // Handle tone detection events using bounded array helper
         addToBoundedArray(systemStatus.detections, {
           ...data,
-          timestamp: timestamp,
           type: 'configured'
         }, MAX_DETECTIONS)
-        
+
         systemStatus.statistics.totalDetections++
         backendStatus.running = true
         backendStatus.lastHeartbeat = timestamp
@@ -327,12 +325,10 @@ export const useSocketStore = defineStore('socket', () => {
           announceDetection({ detectorName: data.detector.name })
         }
         break
-        
+
       case 'multiToneDetected':
-        // Handle multi-tone detection events using bounded array helper
         addToBoundedArray(systemStatus.detections, {
           ...data,
-          timestamp: timestamp,
           type: 'discovery'
         }, MAX_DETECTIONS)
         

@@ -6,15 +6,24 @@
 const { expect } = require('chai');
 const sinon = require('sinon');
 
-// Setup stubs BEFORE importing controller to handle destructured imports
+// Setup stubs BEFORE importing controller to handle destructured imports.
+// Guard with isSinonProxy to avoid "already wrapped" errors when both
+// detector.controller.test.js and this file are loaded in the same mocha run.
 const configUtil = require('../../../server/util/config.file.util');
 
-// Setup global stubs that will affect destructured imports
 const configStubs = {
-    readConfigFile: sinon.stub(configUtil, 'readConfigFile'),
-    createBackup: sinon.stub(configUtil, 'createBackup'),
-    writeConfigFile: sinon.stub(configUtil, 'writeConfigFile'),
-    markConfigChanged: sinon.stub(configUtil, 'markConfigChanged')
+    readConfigFile: configUtil.readConfigFile.isSinonProxy
+        ? configUtil.readConfigFile
+        : sinon.stub(configUtil, 'readConfigFile'),
+    createBackup: configUtil.createBackup.isSinonProxy
+        ? configUtil.createBackup
+        : sinon.stub(configUtil, 'createBackup'),
+    writeConfigFile: configUtil.writeConfigFile.isSinonProxy
+        ? configUtil.writeConfigFile
+        : sinon.stub(configUtil, 'writeConfigFile'),
+    markConfigChanged: configUtil.markConfigChanged.isSinonProxy
+        ? configUtil.markConfigChanged
+        : sinon.stub(configUtil, 'markConfigChanged'),
 };
 
 // NOW import the controller after stubs are in place
@@ -48,7 +57,12 @@ describe('Detector Controller Validation Tests (Direct)', function() {
     });
 
     afterEach(function() {
-        sinon.restore();
+        // Reset stub histories instead of sinon.restore() since stubs may be
+        // shared with detector.controller.test.js in the same mocha run.
+        configStubs.readConfigFile.resetHistory();
+        configStubs.createBackup.resetHistory();
+        configStubs.writeConfigFile.resetHistory();
+        configStubs.markConfigChanged.resetHistory();
     });
 
     describe('Email Validation in Controller', function() {

@@ -12,6 +12,7 @@ const {NotificationParams} = require('../obj/NotificationParams');
 const path = require('path');
 const config = require('config');
 const {ErrorWithStatusCode} = require("../util/ErrorWithStatusCode");
+const {SourceContext} = require("../obj/SourceContext");
 
 const NO_DATA_INTERVAL_SEC = 30;
 const THREAD_ROTATION_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
@@ -19,12 +20,13 @@ const THREAD_ROTATION_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 class DetectionService extends EventEmitter{
     constructor({audioInterface, sampleRate, recording: isRecordingEnabled, areNotificationsEnabled=true,
                     minRecordingLengthSec=30, maxRecordingLengthSec, frequencyScaleFactor=1,
-                    silenceAmplitude=0.05, fileMode=false
+                    silenceAmplitude=0.05, fileMode=false, sourceContext=null
                 }) {
         super();
 
         this._audioInterface = audioInterface;
         this._fileMode = fileMode;
+        this._sourceContext = sourceContext || (fileMode ? SourceContext.fileUpload() : SourceContext.live());
         
         if(audioInterface && !audioInterface.disabled) {
             this._audioInterface.onData( async (rawBuffer) => {
@@ -178,10 +180,9 @@ class DetectionService extends EventEmitter{
             log.debug(`Processing toneDetected event for ${tonesDetectorConfig.name}`);
             const {matchAverages, message} = result;
             
-            // Use file timestamp in file mode, otherwise use current time
-            const timestamp = this._fileMode && this._currentTimestamp !== undefined
-                ? this._currentTimestamp * 1000 // Convert to milliseconds to match existing format
-                : new Date().getTime();
+            // Resolve wall-clock timestamp for notifications and recording filename
+            const detectedAt = this._sourceContext.resolveDetectedAt();
+            const timestamp = new Date(detectedAt).getTime();
             const filenameOnly = `${timestamp}-${tonesDetectorConfig.name}.wav`; //Include the name of the detector in the filename
             const recordingDirectory = config.recording.directory;
             const fullPath = path.join(recordingDirectory, filenameOnly);
@@ -213,12 +214,13 @@ class DetectionService extends EventEmitter{
             if(notificationPromise)
                 await notificationPromise;
 
-            // Emit detection event with additional context for file mode
+            // Emit detection event with additional context
             const detectionData = notificationParams.toObj();
             if (this._fileMode) {
-                detectionData.timestamp = this._currentTimestamp; // Use seconds for file mode
+                detectionData.fileTimestamp = this._currentTimestamp; // file-relative seconds for formatTimestamp
                 detectionData.filePath = this._currentFilePath;
             }
+            detectionData.sourceContext = this._sourceContext || null;
             this.emit('toneDetected', detectionData);
         }
         catch (e) {
@@ -233,6 +235,10 @@ class DetectionService extends EventEmitter{
                 }, this.maxRecordingLengthSec * 1000 + 15000);
             lock.release();
         }
+    }
+
+    get sourceContext() {
+        return this._sourceContext;
     }
 
     _isRecordingEnabled(detectorLevelIsRecordingEnabled) {

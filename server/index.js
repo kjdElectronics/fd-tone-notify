@@ -17,7 +17,7 @@ const htmlPath = path.join(__dirname, './public/index.css');
 // javascript-obfuscator:disable
 const cssPath = path.join(__dirname, './public/index.html');
 
-const {startServer} = require("./server");
+const {startServer, startInsecureRdioServer} = require("./server");
 const NetworkUtils = require('../util/network-utils');
 
 const corsOptions = {
@@ -61,6 +61,12 @@ async function startWebApp() {
     // Initialize detection store
     detectionStore = getDetectionStore();
     log.info('Detection store initialized');
+
+    // Optionally start insecure HTTP server for Rdio Scanner call-upload
+    const insecureServer = startInsecureRdioServer();
+    if (insecureServer) {
+        app.insecureServer = insecureServer;
+    }
 
     log.info('WebSocket server configured and attached to HTTP server');
     return app;
@@ -165,64 +171,46 @@ function configureWebSocketEvents({detectionService, allToneDetectionService, ws
     detectionService.on('toneDetected', async data => {
         // Create message for WebSocket broadcast
         const message = {type: 'toneDetected', data};
-        
+
         // Broadcast to WebSocket clients
         wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
                 client.send(JSON.stringify(message));
             }
         });
-        
-        // Store the detection (same format as frontend expects)
+
         if (detectionStore) {
-            detectionStore.addDetection({
-                ...data,
-                timestamp: new Date().toISOString(),
-                type: 'configured'
-            });
+            detectionStore.addDetection({ ...data, type: 'configured' });
         }
-        
+
         log.info('Sending toneDetected to ws clients and persisting');
     });
 
     // Handle multiToneDetected events from AllToneDetectionService if enabled
     if (allToneDetectionService) {
         allToneDetectionService.on('multiToneDetected', async eventData => {
-            // Extract data from the event - could be legacy format (just tones array) or new format (object with tones and timestamp)
-            const tones = Array.isArray(eventData) ? eventData : eventData.tones;
-            const detectionTimestamp = Array.isArray(eventData) ? new Date().toISOString() : (eventData.timestamp ? new Date(eventData.timestamp * 1000).toISOString() : new Date().toISOString());
-            
-            // Create standardized message data
             const messageData = {
-                tones: tones,
-                timestamp: detectionTimestamp,
+                tones: eventData.tones,
+                detectedAt: eventData.detectedAt,
+                sourceContext: eventData.sourceContext,
                 detector: {
                     name: 'All Tone Detector',
                     type: 'discovery'
                 }
             };
-            
+
             // Broadcast to WebSocket clients
             wss.clients.forEach(client => {
                 if (client.readyState === WebSocket.OPEN) {
-                    const message = {
-                        type: 'multiToneDetected', 
-                        data: messageData
-                    };
-                    client.send(JSON.stringify(message));
+                    client.send(JSON.stringify({type: 'multiToneDetected', data: messageData}));
                 }
             });
-            
-            // Store the detection (same format as frontend expects)
+
             if (detectionStore) {
-                detectionStore.addDetection({
-                    ...messageData,
-                    timestamp: detectionTimestamp,
-                    type: 'discovery'
-                });
+                detectionStore.addDetection({ ...messageData, type: 'discovery' });
             }
-            
-            log.info(`Sending multiToneDetected to ws clients and persisting: ${tones.map(f => `${f}Hz`).join(', ')}`);
+
+            log.info(`Sending multiToneDetected to ws clients and persisting: ${eventData.tones.map(f => `${f}Hz`).join(', ')}`);
         });
     }
 
