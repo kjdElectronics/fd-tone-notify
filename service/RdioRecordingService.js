@@ -9,13 +9,12 @@ const { NotificationParams } = require('../obj/NotificationParams');
 const { WavToMp3Service } = require('./WavToMp3Service');
 const { sendPostRecordingNotifications } = require('../notifiers');
 
-const DEFAULT_WINDOW_TIMEOUT_SEC = 80;
-const DEFAULT_EARLY_SEND_AFTER_SEC = 45;
-const DEFAULT_EARLY_SEND_MIN_AUDIO_SEC = 15;
+const DEFAULT_MAXIMUM_WAIT_TIME_SEC = 80;
+const DEFAULT_MINIMUM_WAIT_TIME_SEC = 45;
+const DEFAULT_MIN_AUDIO_SEC_TO_FINALIZE_RECORDING = 15;
 
-const STITCH_SAMPLE_RATE = 44100;
-const STITCH_CHANNELS = 1;
-const SILENCE_INPUT_SPEC = `anullsrc=r=${STITCH_SAMPLE_RATE}:cl=mono`;
+const STITCH_OUTPUT_SAMPLE_RATE = 44100;
+const STITCH_OUTPUT_CHANNELS = 1;
 
 const UNIX_MS_THRESHOLD = 1e12; // Values below this are treated as epoch seconds, above as epoch ms.
 
@@ -28,9 +27,9 @@ function getRdioRecordingConfig() {
     const recording = (config && config.recording) || {};
     const rdio = recording.rdio || {};
     return {
-        windowTimeoutSec: rdio.windowTimeoutSec || DEFAULT_WINDOW_TIMEOUT_SEC,
-        earlySendAfterSec: rdio.earlySendAfterSec || DEFAULT_EARLY_SEND_AFTER_SEC,
-        earlySendMinAudioSec: rdio.earlySendMinAudioSec || DEFAULT_EARLY_SEND_MIN_AUDIO_SEC,
+        maximumWaitTimeSec: rdio.maximumWaitTimeSec || DEFAULT_MAXIMUM_WAIT_TIME_SEC,
+        minimumWaitTimeSec: rdio.minimumWaitTimeSec || DEFAULT_MINIMUM_WAIT_TIME_SEC,
+        minAudioSecToFinalizeRecording: rdio.minAudioSecToFinalizeRecording || DEFAULT_MIN_AUDIO_SEC_TO_FINALIZE_RECORDING,
     };
 }
 
@@ -65,17 +64,37 @@ function parseRdioDateTime(dateTime) {
 }
 
 /**
- * Probe a WAV file for its duration (seconds). Resolves 0 on any failure so the
- * caller can proceed — 0 duration only affects silence-gap computation, not
- * correctness.
+ * Probe a WAV file for duration (seconds), sample rate, and channel count.
+ * Resolves with null fields on any failure so the caller can proceed; the
+ * caller falls back to safe defaults when values are missing.
+ *
+ * sampleRate and channels are needed so the silence input in the stitch
+ * filter graph matches the staged calls' format — ffmpeg's `concat` filter
+ * requires matching sample rate and channel layout across all inputs.
  */
-function probeWavDuration(wavPath) {
+function probeWavFormat(wavPath) {
     return new Promise((resolve) => {
         ffmpeg.ffprobe(wavPath, (err, data) => {
-            if (err || !data || !data.format || data.format.duration == null) return resolve(0);
-            resolve(Number(data.format.duration));
+            if (err || !data) return resolve({ duration: 0, sampleRate: null, channels: null });
+            const format = data.format || {};
+            const audioStream = (data.streams || []).find(s => s.codec_type === 'audio') || {};
+            resolve({
+                duration: format.duration != null ? Number(format.duration) : 0,
+                sampleRate: audioStream.sample_rate != null ? Number(audioStream.sample_rate) : null,
+                channels: audioStream.channels != null ? Number(audioStream.channels) : null,
+            });
         });
     });
+}
+
+/**
+ * Map a channel count to the channel-layout string `anullsrc` expects.
+ * Defaults to mono for anything outside {1, 2} since radio audio is
+ * effectively always mono.
+ */
+function channelLayoutForCount(channels) {
+    if (channels === 2) return 'stereo';
+    return 'mono';
 }
 
 /**
@@ -83,11 +102,12 @@ function probeWavDuration(wavPath) {
  * tone detection, stitches them into a single MP3 recording with silence gaps
  * matching real-world timing, and fires post-recording notifications.
  *
- * A "window" is opened on the first tone detection for a talkgroup and closed
- * either early (at earlySendAfterSec, if enough audio has been gathered) or at
- * the hard windowTimeoutSec limit. Additional calls on the same talkgroup —
- * whether they trigger tones or not — are appended via captureCall until the
- * window closes.
+ * A "window" is opened on the first tone detection for a talkgroup. Finalize
+ * happens when a newly-appended call pushes the window past both
+ * minimumWaitTimeSec elapsed and minAudioSecToFinalizeRecording of cumulative
+ * audio, or unconditionally at maximumWaitTimeSec. Additional calls on the
+ * same talkgroup — whether they trigger tones or not — are appended via
+ * captureCall until the window closes.
  */
 class RdioRecordingService {
     constructor({
@@ -96,7 +116,7 @@ class RdioRecordingService {
         postRecordingNotifier,
         mp3Converter,
         ffmpegFactory,
-        probeDuration,
+        probeFormat,
     } = {}) {
         this._windowsByTalkgroup = new Map();
         this._stagingDir = stagingDir || path.join(os.tmpdir(), 'rdio-staging');
@@ -104,7 +124,7 @@ class RdioRecordingService {
         this._postRecordingNotifier = postRecordingNotifier || sendPostRecordingNotifications;
         this._mp3Converter = mp3Converter || WavToMp3Service.convertWavToMp3.bind(WavToMp3Service);
         this._ffmpegFactory = ffmpegFactory || (() => ffmpeg());
-        this._probeDuration = probeDuration || probeWavDuration;
+        this._probeFormat = probeFormat || probeWavFormat;
         this._ensureDirectory(this._stagingDir);
     }
 
@@ -142,7 +162,7 @@ class RdioRecordingService {
         } else {
             window.calls.push(stagedCall);
         }
-        this._tryFinalizeIfThresholdsMet(window);
+        this._finalizeIfReady(window);
     }
 
     /**
@@ -159,7 +179,7 @@ class RdioRecordingService {
         if (!stagedCall) return false;
 
         window.calls.push(stagedCall);
-        this._tryFinalizeIfThresholdsMet(window);
+        this._finalizeIfReady(window);
         return true;
     }
 
@@ -189,23 +209,15 @@ class RdioRecordingService {
             notificationParams,
             calls: [firstCall],
             openedAt: Date.now(),
-            earlyTimer: null,
-            hardTimer: null,
+            maximumWaitTimer: null,
             isFinalizing: false,
         };
 
         // Hard timeout: always fires, guarantees we ship a recording even if no
-        // additional calls arrive or audio stays below the early-send minimum.
-        window.hardTimer = setTimeout(
+        // additional calls arrive or audio stays below the min-audio threshold.
+        window.maximumWaitTimer = setTimeout(
             () => this._finalize(talkgroupKey),
-            rdioConfig.windowTimeoutSec * 1000
-        );
-
-        // Early timer: fires at earlySendAfterSec and finalizes only if enough
-        // audio has been collected. Gives a faster turnaround for active windows.
-        window.earlyTimer = setTimeout(
-            () => this._earlyTimerFired(talkgroupKey),
-            rdioConfig.earlySendAfterSec * 1000
+            rdioConfig.maximumWaitTimeSec * 1000
         );
 
         this._windowsByTalkgroup.set(talkgroupKey, window);
@@ -243,11 +255,13 @@ class RdioRecordingService {
             this._ensureDirectory(this._stagingDir);
             const stagedPath = path.join(this._stagingDir, `${uuidv4()}.wav`);
             fs.copyFileSync(wavFilePath, stagedPath);
-            const duration = await this._probeDuration(stagedPath);
+            const { duration, sampleRate, channels } = await this._probeFormat(stagedPath);
             return {
                 stagedPath,
                 dateTime: parseRdioDateTime(dateTime),
                 duration: duration || 0,
+                sampleRate,
+                channels,
             };
         } catch (err) {
             log.error(`RdioRecordingService: failed to stage wav ${wavFilePath}: ${err.message}`);
@@ -256,35 +270,22 @@ class RdioRecordingService {
     }
 
     /**
-     * Called after each call submission. Finalize immediately if both:
-     *   - Wall-clock elapsed since window opened >= earlySendAfterSec
-     *   - Cumulative audio duration >= earlySendMinAudioSec
+     * Called after each call is appended. Finalize immediately if both:
+     *   - Wall-clock elapsed since window opened >= minimumWaitTimeSec
+     *   - Cumulative audio duration >= minAudioSecToFinalizeRecording
      *
-     * If audio is still below the threshold, the hard timer will eventually
-     * close the window regardless.
+     * Otherwise the window stays open until either another call arrives that
+     * pushes it over the thresholds or the maximumWaitTimer fires.
      */
-    _tryFinalizeIfThresholdsMet(window) {
+    _finalizeIfReady(window) {
         const rdioConfig = getRdioRecordingConfig();
         const elapsedSec = (Date.now() - window.openedAt) / 1000;
-        if (elapsedSec < rdioConfig.earlySendAfterSec) return;
+        if (elapsedSec < rdioConfig.minimumWaitTimeSec) return;
 
         const totalAudioSec = this._sumCallDurations(window);
-        if (totalAudioSec >= rdioConfig.earlySendMinAudioSec) {
+        if (totalAudioSec >= rdioConfig.minAudioSecToFinalizeRecording) {
             this._finalize(window.talkgroupKey);
         }
-    }
-
-    /**
-     * Early-timer callback: at earlySendAfterSec, finalize only if enough audio
-     * has accumulated. Otherwise let the hard timer take over.
-     */
-    _earlyTimerFired(talkgroupKey) {
-        const window = this._windowsByTalkgroup.get(talkgroupKey);
-        if (!window) return;
-
-        const rdioConfig = getRdioRecordingConfig();
-        const totalAudioSec = this._sumCallDurations(window);
-        if (totalAudioSec >= rdioConfig.earlySendMinAudioSec) this._finalize(talkgroupKey);
     }
 
     _sumCallDurations(window) {
@@ -361,6 +362,13 @@ class RdioRecordingService {
      *   - The filter_complex concat filter joins the inputs in order, producing
      *     a single mono audio stream at the configured sample rate.
      *
+     * The silence generator is configured with the first call's sample rate
+     * and channel layout (not a hardcoded 44.1kHz/mono) so all concat inputs
+     * share parameters — ffmpeg's concat filter otherwise rejects the graph.
+     * Calls on the same talkgroup are assumed to share format, so using the
+     * first call's values is sufficient. Probe failures fall back to the
+     * stitch output defaults.
+     *
      * Silence gap between adjacent calls is derived from the wall-clock delta
      * between their dateTime fields, minus the previous call's duration.
      * Negative values (overlapping calls) are clamped to zero.
@@ -370,8 +378,13 @@ class RdioRecordingService {
             const command = this._ffmpegFactory();
             const concatInputRefs = [];
 
+            const firstCall = orderedCalls[0];
+            const silenceRate = firstCall.sampleRate || STITCH_OUTPUT_SAMPLE_RATE;
+            const silenceChannelLayout = channelLayoutForCount(firstCall.channels || STITCH_OUTPUT_CHANNELS);
+            const silenceInputSpec = `anullsrc=r=${silenceRate}:cl=${silenceChannelLayout}`;
+
             // First call — no preceding silence.
-            command.input(orderedCalls[0].stagedPath);
+            command.input(firstCall.stagedPath);
             let ffmpegInputIndex = 0;
             concatInputRefs.push(`[${ffmpegInputIndex}:a]`);
 
@@ -383,7 +396,7 @@ class RdioRecordingService {
 
                 if (silenceGapSec > 0) {
                     command
-                        .input(SILENCE_INPUT_SPEC)
+                        .input(silenceInputSpec)
                         .inputOptions(['-f', 'lavfi', '-t', String(silenceGapSec)]);
                     ffmpegInputIndex++;
                     concatInputRefs.push(`[${ffmpegInputIndex}:a]`);
@@ -397,7 +410,7 @@ class RdioRecordingService {
             const concatFilter = `${concatInputRefs.join('')}concat=n=${concatInputRefs.length}:v=0:a=1[out]`;
             command
                 .complexFilter(concatFilter)
-                .outputOptions(['-map', '[out]', '-ar', String(STITCH_SAMPLE_RATE), '-ac', String(STITCH_CHANNELS)])
+                .outputOptions(['-map', '[out]', '-ar', String(STITCH_OUTPUT_SAMPLE_RATE), '-ac', String(STITCH_OUTPUT_CHANNELS)])
                 .on('error', (err) => reject(err))
                 .on('end', () => resolve(outputWavPath))
                 .save(outputWavPath);
@@ -405,8 +418,7 @@ class RdioRecordingService {
     }
 
     _clearWindowTimers(window) {
-        if (window.earlyTimer) clearTimeout(window.earlyTimer);
-        if (window.hardTimer) clearTimeout(window.hardTimer);
+        if (window.maximumWaitTimer) clearTimeout(window.maximumWaitTimer);
     }
 
     _ensureDirectory(dir) {

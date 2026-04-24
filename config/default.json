@@ -156,9 +156,9 @@
     "directory": "./recordings",
     "autoDeleteOlderThanDays": 7,
     "rdio": {
-      "windowTimeoutSec": 80,
-      "earlySendAfterSec": 45,
-      "earlySendMinAudioSec": 15
+      "maximumWaitTimeSec": 80,
+      "minimumWaitTimeSec": 45,
+      "minAudioSecToFinalizeRecording": 15
     }
   },
   "coralogix": {

@@ -62,9 +62,13 @@ describe('RdioRecordingService', function() {
     let tmpRecordingDir;
     let notifierSpy;
     let mp3ConverterStub;
-    let probeDurationStub;
+    let probeFormatStub;
     let ffmpegFactory;
     let service;
+
+    function probeResult({ duration = 5, sampleRate = 44100, channels = 1 } = {}) {
+        return { duration, sampleRate, channels };
+    }
 
     beforeEach(function() {
         tmpStagingDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rdio-rec-stage-'));
@@ -74,7 +78,7 @@ describe('RdioRecordingService', function() {
             fs.writeFileSync(outputPath, 'fake-mp3');
             return Promise.resolve(outputPath);
         });
-        probeDurationStub = sinon.stub().resolves(5);
+        probeFormatStub = sinon.stub().resolves(probeResult());
         ffmpegFactory = makeFakeFfmpegFactory();
         service = new RdioRecordingService({
             stagingDir: tmpStagingDir,
@@ -82,7 +86,7 @@ describe('RdioRecordingService', function() {
             postRecordingNotifier: notifierSpy,
             mp3Converter: mp3ConverterStub,
             ffmpegFactory,
-            probeDuration: probeDurationStub,
+            probeFormat: probeFormatStub,
         });
         clock = sinon.useFakeTimers({ shouldAdvanceTime: false });
     });
@@ -147,7 +151,7 @@ describe('RdioRecordingService', function() {
         });
     });
 
-    describe('hard timeout finalization', function() {
+    describe('finalize at maximum wait', function() {
         it('single call: skips stitching, converts to MP3, fires post-recording notifier', async function() {
             await service.onToneDetected({
                 wavFilePath: SAMPLE_WAV,
@@ -167,7 +171,7 @@ describe('RdioRecordingService', function() {
         });
 
         it('two calls: stitches with silence gap computed from dateTime', async function() {
-            probeDurationStub.resolves(5);
+            probeFormatStub.resolves(probeResult({ duration: 5 }));
             await service.onToneDetected({
                 wavFilePath: SAMPLE_WAV,
                 dateTime: '2024-01-01T00:00:00Z',
@@ -195,7 +199,7 @@ describe('RdioRecordingService', function() {
         });
 
         it('silence gap is clamped to zero when calls overlap', async function() {
-            probeDurationStub.resolves(20);
+            probeFormatStub.resolves(probeResult({ duration: 20 }));
             await service.onToneDetected({
                 wavFilePath: SAMPLE_WAV,
                 dateTime: '2024-01-01T00:00:00Z',
@@ -214,11 +218,9 @@ describe('RdioRecordingService', function() {
             expect(cmd.inputs).to.have.length(2);
             expect(cmd.filter).to.equal('[0:a][1:a]concat=n=2:v=0:a=1[out]');
         });
-    });
 
-    describe('early send', function() {
-        it('finalizes early at 45s when cumulative audio >= 15s', async function() {
-            probeDurationStub.resolves(8);
+        it('silence generator matches the staged calls sample rate and channel layout', async function() {
+            probeFormatStub.resolves(probeResult({ duration: 5, sampleRate: 8000, channels: 1 }));
             await service.onToneDetected({
                 wavFilePath: SAMPLE_WAV,
                 dateTime: '2024-01-01T00:00:00Z',
@@ -231,13 +233,56 @@ describe('RdioRecordingService', function() {
                 talkgroupLabel: 'Fire Dispatch',
             });
 
-            await clock.tickAsync(45 * 1000 + 50);
-            expect(notifierSpy.calledOnce).to.be.true;
-            expect(service.hasActiveWindow('Fire Dispatch')).to.be.false;
+            await clock.tickAsync(80 * 1000 + 100);
+
+            const cmd = ffmpegFactory._commands[0];
+            expect(cmd.inputs[1]).to.equal('anullsrc=r=8000:cl=mono');
         });
 
-        it('does NOT finalize early when audio < 15s, waits for hard timeout', async function() {
-            probeDurationStub.resolves(5);
+        it('silence generator uses stereo layout when calls are stereo', async function() {
+            probeFormatStub.resolves(probeResult({ duration: 5, sampleRate: 16000, channels: 2 }));
+            await service.onToneDetected({
+                wavFilePath: SAMPLE_WAV,
+                dateTime: '2024-01-01T00:00:00Z',
+                talkgroupLabel: 'Fire Dispatch',
+                detectionData: makeDetectionData(),
+            });
+            await service.captureCall({
+                wavFilePath: SAMPLE_WAV,
+                dateTime: '2024-01-01T00:00:10Z',
+                talkgroupLabel: 'Fire Dispatch',
+            });
+
+            await clock.tickAsync(80 * 1000 + 100);
+
+            const cmd = ffmpegFactory._commands[0];
+            expect(cmd.inputs[1]).to.equal('anullsrc=r=16000:cl=stereo');
+        });
+
+        it('silence generator falls back to 44100/mono when probe returned null format', async function() {
+            probeFormatStub.resolves({ duration: 5, sampleRate: null, channels: null });
+            await service.onToneDetected({
+                wavFilePath: SAMPLE_WAV,
+                dateTime: '2024-01-01T00:00:00Z',
+                talkgroupLabel: 'Fire Dispatch',
+                detectionData: makeDetectionData(),
+            });
+            await service.captureCall({
+                wavFilePath: SAMPLE_WAV,
+                dateTime: '2024-01-01T00:00:10Z',
+                talkgroupLabel: 'Fire Dispatch',
+            });
+
+            await clock.tickAsync(80 * 1000 + 100);
+
+            const cmd = ffmpegFactory._commands[0];
+            expect(cmd.inputs[1]).to.equal('anullsrc=r=44100:cl=mono');
+        });
+    });
+
+    describe('finalize on call arrival after minimum wait', function() {
+        it('call arriving past minimumWaitTimeSec with cumulative audio >= minAudioSecToFinalizeRecording finalizes immediately', async function() {
+            probeFormatStub.resolves(probeResult({ duration: 8 }));
             await service.onToneDetected({
                 wavFilePath: SAMPLE_WAV,
                 dateTime: '2024-01-01T00:00:00Z',
@@ -249,12 +294,57 @@ describe('RdioRecordingService', function() {
             expect(notifierSpy.called).to.be.false;
             expect(service.hasActiveWindow('Fire Dispatch')).to.be.true;
 
+            await service.captureCall({
+                wavFilePath: SAMPLE_WAV,
+                dateTime: '2024-01-01T00:00:45Z',
+                talkgroupLabel: 'Fire Dispatch',
+            });
+            await clock.tickAsync(10);
+
+            expect(notifierSpy.calledOnce).to.be.true;
+            expect(service.hasActiveWindow('Fire Dispatch')).to.be.false;
+        });
+
+        it('no further call arrives after minimumWaitTimeSec: waits for maximum wait', async function() {
+            probeFormatStub.resolves(probeResult({ duration: 20 }));
+            await service.onToneDetected({
+                wavFilePath: SAMPLE_WAV,
+                dateTime: '2024-01-01T00:00:00Z',
+                talkgroupLabel: 'Fire Dispatch',
+                detectionData: makeDetectionData(),
+            });
+
+            // Past minimumWaitTimeSec (45s) with >= 15s of audio, but no new call arrives
+            // to trigger the check. The window stays open until maximumWaitTimeSec.
+            await clock.tickAsync(45 * 1000 + 50);
+            expect(notifierSpy.called).to.be.false;
+            expect(service.hasActiveWindow('Fire Dispatch')).to.be.true;
+
             await clock.tickAsync(35 * 1000 + 50);
             expect(notifierSpy.calledOnce).to.be.true;
         });
 
-        it('captureCall after 45s with enough audio triggers immediate finalize', async function() {
-            probeDurationStub.resolves(8);
+        it('appended call before minimumWaitTimeSec does not finalize', async function() {
+            probeFormatStub.resolves(probeResult({ duration: 20 }));
+            await service.onToneDetected({
+                wavFilePath: SAMPLE_WAV,
+                dateTime: '2024-01-01T00:00:00Z',
+                talkgroupLabel: 'Fire Dispatch',
+                detectionData: makeDetectionData(),
+            });
+            await service.captureCall({
+                wavFilePath: SAMPLE_WAV,
+                dateTime: '2024-01-01T00:00:10Z',
+                talkgroupLabel: 'Fire Dispatch',
+            });
+
+            await clock.tickAsync(10 * 1000);
+            expect(notifierSpy.called).to.be.false;
+            expect(service.hasActiveWindow('Fire Dispatch')).to.be.true;
+        });
+
+        it('call arriving past minimumWaitTimeSec but with audio < minAudioSecToFinalizeRecording does not finalize', async function() {
+            probeFormatStub.resolves(probeResult({ duration: 5 }));
             await service.onToneDetected({
                 wavFilePath: SAMPLE_WAV,
                 dateTime: '2024-01-01T00:00:00Z',
@@ -263,7 +353,6 @@ describe('RdioRecordingService', function() {
             });
 
             await clock.tickAsync(50 * 1000);
-            expect(notifierSpy.called).to.be.false;
 
             await service.captureCall({
                 wavFilePath: SAMPLE_WAV,
@@ -272,7 +361,8 @@ describe('RdioRecordingService', function() {
             });
             await clock.tickAsync(10);
 
-            expect(notifierSpy.calledOnce).to.be.true;
+            expect(notifierSpy.called).to.be.false;
+            expect(service.hasActiveWindow('Fire Dispatch')).to.be.true;
         });
     });
 
