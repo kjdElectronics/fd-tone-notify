@@ -88,13 +88,45 @@ function probeWavFormat(wavPath) {
 }
 
 /**
- * Map a channel count to the channel-layout string `anullsrc` expects.
- * Defaults to mono for anything outside {1, 2} since radio audio is
- * effectively always mono.
+ * Write a silent PCM 16-bit signed WAV file of the given duration. Used to
+ * insert real-world silence gaps between staged calls in the stitch filter
+ * graph.
+ *
+ * Earlier versions of this service generated silence with ffmpeg's lavfi
+ * `anullsrc` virtual input. That breaks on minimal ffmpeg builds (notably some
+ * Windows distributions) that ship without libavfilter — every multi-call
+ * stitch fails, the fallback keeps only the first staged call, and the user
+ * gets a tones-only recording with the dispatch audio dropped. PCM WAV has no
+ * codec/filter dependency and works on every ffmpeg build.
+ *
+ * The format matches the staged calls' sample rate and channel count so all
+ * concat-filter inputs share parameters (ffmpeg's concat filter requires this).
  */
-function channelLayoutForCount(channels) {
-    if (channels === 2) return 'stereo';
-    return 'mono';
+function writeSilenceWav(filePath, durationSec, sampleRate, channels) {
+    const bitsPerSample = 16;
+    const bytesPerSample = bitsPerSample / 8;
+    const blockAlign = channels * bytesPerSample;
+    const byteRate = sampleRate * blockAlign;
+    const numSamples = Math.max(0, Math.round(durationSec * sampleRate));
+    const dataSize = numSamples * blockAlign;
+
+    const buf = Buffer.alloc(44 + dataSize);
+    buf.write('RIFF', 0, 'ascii');
+    buf.writeUInt32LE(36 + dataSize, 4);
+    buf.write('WAVE', 8, 'ascii');
+    buf.write('fmt ', 12, 'ascii');
+    buf.writeUInt32LE(16, 16);          // PCM fmt chunk size
+    buf.writeUInt16LE(1, 20);           // PCM format code
+    buf.writeUInt16LE(channels, 22);
+    buf.writeUInt32LE(sampleRate, 24);
+    buf.writeUInt32LE(byteRate, 28);
+    buf.writeUInt16LE(blockAlign, 32);
+    buf.writeUInt16LE(bitsPerSample, 34);
+    buf.write('data', 36, 'ascii');
+    buf.writeUInt32LE(dataSize, 40);
+    // Audio payload is all zeros — Buffer.alloc already zero-filled.
+
+    fs.writeFileSync(filePath, buf);
 }
 
 /**
@@ -357,31 +389,32 @@ class RdioRecordingService {
      * FFmpeg filter-graph construction:
      *   - Inputs are added to the command in the order they will appear in the
      *     output: call 0, (optional silence, call 1), (optional silence, call 2)...
-     *   - Each input gets a sequential index (0, 1, 2, ...). Silence inputs are
-     *     `anullsrc` lavfi generators with `-t <gap>` to bound their duration.
+     *   - Each input gets a sequential index (0, 1, 2, ...).
      *   - The filter_complex concat filter joins the inputs in order, producing
      *     a single mono audio stream at the configured sample rate.
      *
-     * The silence generator is configured with the first call's sample rate
-     * and channel layout (not a hardcoded 44.1kHz/mono) so all concat inputs
-     * share parameters — ffmpeg's concat filter otherwise rejects the graph.
-     * Calls on the same talkgroup are assumed to share format, so using the
-     * first call's values is sufficient. Probe failures fall back to the
-     * stitch output defaults.
+     * Silence between calls is generated as a real PCM WAV file (see
+     * writeSilenceWav) and consumed as a normal file input. The file is
+     * generated at the first call's sample rate and channel count so all
+     * concat inputs share parameters; calls on the same talkgroup are assumed
+     * to share format. Probe failures fall back to the stitch output defaults.
      *
      * Silence gap between adjacent calls is derived from the wall-clock delta
      * between their dateTime fields, minus the previous call's duration.
      * Negative values (overlapping calls) are clamped to zero.
+     *
+     * Silence files are written to the staging directory and unlinked on both
+     * success and failure paths.
      */
     _stitchCalls(orderedCalls, outputWavPath) {
         return new Promise((resolve, reject) => {
             const command = this._ffmpegFactory();
             const concatInputRefs = [];
+            const silenceFiles = [];
 
             const firstCall = orderedCalls[0];
             const silenceRate = firstCall.sampleRate || STITCH_OUTPUT_SAMPLE_RATE;
-            const silenceChannelLayout = channelLayoutForCount(firstCall.channels || STITCH_OUTPUT_CHANNELS);
-            const silenceInputSpec = `anullsrc=r=${silenceRate}:cl=${silenceChannelLayout}`;
+            const silenceChannels = firstCall.channels || STITCH_OUTPUT_CHANNELS;
 
             // First call — no preceding silence.
             command.input(firstCall.stagedPath);
@@ -395,9 +428,10 @@ class RdioRecordingService {
                 const silenceGapSec = Math.max(0, wallClockGapSec - previousCall.duration);
 
                 if (silenceGapSec > 0) {
-                    command
-                        .input(silenceInputSpec)
-                        .inputOptions(['-f', 'lavfi', '-t', String(silenceGapSec)]);
+                    const silencePath = path.join(this._stagingDir, `silence-${uuidv4()}.wav`);
+                    writeSilenceWav(silencePath, silenceGapSec, silenceRate, silenceChannels);
+                    silenceFiles.push(silencePath);
+                    command.input(silencePath);
                     ffmpegInputIndex++;
                     concatInputRefs.push(`[${ffmpegInputIndex}:a]`);
                 }
@@ -407,12 +441,16 @@ class RdioRecordingService {
                 concatInputRefs.push(`[${ffmpegInputIndex}:a]`);
             }
 
+            const cleanupSilence = () => {
+                for (const f of silenceFiles) this._safeUnlink(f);
+            };
+
             const concatFilter = `${concatInputRefs.join('')}concat=n=${concatInputRefs.length}:v=0:a=1[out]`;
             command
                 .complexFilter(concatFilter)
                 .outputOptions(['-map', '[out]', '-ar', String(STITCH_OUTPUT_SAMPLE_RATE), '-ac', String(STITCH_OUTPUT_CHANNELS)])
-                .on('error', (err) => reject(err))
-                .on('end', () => resolve(outputWavPath))
+                .on('error', (err) => { cleanupSilence(); reject(err); })
+                .on('end', () => { cleanupSilence(); resolve(outputWavPath); })
                 .save(outputWavPath);
         });
     }

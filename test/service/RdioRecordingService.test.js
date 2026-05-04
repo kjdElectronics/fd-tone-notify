@@ -29,12 +29,25 @@ function makeFakeFfmpegFactory() {
     const factory = () => {
         const cmd = {
             inputs: [],
+            // Snapshot file bytes at input() time. _stitchCalls cleans up silence
+            // files on `end`/`error`, so reading them after save() resolves would
+            // race the cleanup. Capturing here makes assertions deterministic.
+            inputBytes: [],
             inputOptionsHistory: [],
             filter: null,
             outputOpts: null,
             savedTo: null,
             _listeners: {},
-            input(src) { this.inputs.push(src); return this; },
+            input(src) {
+                this.inputs.push(src);
+                if (typeof src === 'string' && fs.existsSync(src)) {
+                    try { this.inputBytes.push(fs.readFileSync(src)); }
+                    catch (e) { this.inputBytes.push(null); }
+                } else {
+                    this.inputBytes.push(null);
+                }
+                return this;
+            },
             inputOptions(opts) { this.inputOptionsHistory.push(opts); return this; },
             complexFilter(f) { this.filter = f; return this; },
             outputOptions(o) { this.outputOpts = o; return this; },
@@ -54,6 +67,21 @@ function makeFakeFfmpegFactory() {
     factory._commands = commands;
     factory._forceError = (err) => { shouldError = err; };
     return factory;
+}
+
+function expectSilenceWav(buf, { sampleRate, channels, durationSec }) {
+    expect(buf).to.be.instanceOf(Buffer);
+    expect(buf.toString('ascii', 0, 4)).to.equal('RIFF');
+    expect(buf.toString('ascii', 8, 12)).to.equal('WAVE');
+    expect(buf.toString('ascii', 12, 16)).to.equal('fmt ');
+    expect(buf.readUInt16LE(20)).to.equal(1);              // PCM format code
+    expect(buf.readUInt16LE(22)).to.equal(channels);
+    expect(buf.readUInt32LE(24)).to.equal(sampleRate);
+    expect(buf.readUInt16LE(34)).to.equal(16);             // bits per sample
+    expect(buf.toString('ascii', 36, 40)).to.equal('data');
+    const expectedDataSize = Math.round(durationSec * sampleRate) * channels * 2;
+    expect(buf.readUInt32LE(40)).to.equal(expectedDataSize);
+    expect(buf.length).to.equal(44 + expectedDataSize);
 }
 
 describe('RdioRecordingService', function() {
@@ -190,9 +218,11 @@ describe('RdioRecordingService', function() {
             const cmd = ffmpegFactory._commands[0];
             expect(cmd.inputs).to.have.length(3);
             expect(cmd.inputs[0]).to.match(/\.wav$/);
-            expect(cmd.inputs[1]).to.equal('anullsrc=r=44100:cl=mono');
+            expect(cmd.inputs[1]).to.match(/silence-[a-f0-9-]+\.wav$/);
+            expect(cmd.inputs[1].startsWith(tmpStagingDir)).to.be.true;
             expect(cmd.inputs[2]).to.match(/\.wav$/);
-            expect(cmd.inputOptionsHistory[0]).to.deep.equal(['-f', 'lavfi', '-t', '5']);
+            expectSilenceWav(cmd.inputBytes[1], { sampleRate: 44100, channels: 1, durationSec: 5 });
+            expect(cmd.inputOptionsHistory).to.have.length(0);
             expect(cmd.filter).to.equal('[0:a][1:a][2:a]concat=n=3:v=0:a=1[out]');
             expect(mp3ConverterStub.calledOnce).to.be.true;
             expect(notifierSpy.calledOnce).to.be.true;
@@ -219,7 +249,7 @@ describe('RdioRecordingService', function() {
             expect(cmd.filter).to.equal('[0:a][1:a]concat=n=2:v=0:a=1[out]');
         });
 
-        it('silence generator matches the staged calls sample rate and channel layout', async function() {
+        it('silence file matches the staged calls sample rate and channel count', async function() {
             probeFormatStub.resolves(probeResult({ duration: 5, sampleRate: 8000, channels: 1 }));
             await service.onToneDetected({
                 wavFilePath: SAMPLE_WAV,
@@ -236,10 +266,10 @@ describe('RdioRecordingService', function() {
             await clock.tickAsync(80 * 1000 + 100);
 
             const cmd = ffmpegFactory._commands[0];
-            expect(cmd.inputs[1]).to.equal('anullsrc=r=8000:cl=mono');
+            expectSilenceWav(cmd.inputBytes[1], { sampleRate: 8000, channels: 1, durationSec: 5 });
         });
 
-        it('silence generator uses stereo layout when calls are stereo', async function() {
+        it('silence file uses stereo channel count when calls are stereo', async function() {
             probeFormatStub.resolves(probeResult({ duration: 5, sampleRate: 16000, channels: 2 }));
             await service.onToneDetected({
                 wavFilePath: SAMPLE_WAV,
@@ -256,10 +286,10 @@ describe('RdioRecordingService', function() {
             await clock.tickAsync(80 * 1000 + 100);
 
             const cmd = ffmpegFactory._commands[0];
-            expect(cmd.inputs[1]).to.equal('anullsrc=r=16000:cl=stereo');
+            expectSilenceWav(cmd.inputBytes[1], { sampleRate: 16000, channels: 2, durationSec: 5 });
         });
 
-        it('silence generator falls back to 44100/mono when probe returned null format', async function() {
+        it('silence file falls back to 44100/mono when probe returned null format', async function() {
             probeFormatStub.resolves({ duration: 5, sampleRate: null, channels: null });
             await service.onToneDetected({
                 wavFilePath: SAMPLE_WAV,
@@ -276,7 +306,50 @@ describe('RdioRecordingService', function() {
             await clock.tickAsync(80 * 1000 + 100);
 
             const cmd = ffmpegFactory._commands[0];
-            expect(cmd.inputs[1]).to.equal('anullsrc=r=44100:cl=mono');
+            expectSilenceWav(cmd.inputBytes[1], { sampleRate: 44100, channels: 1, durationSec: 5 });
+        });
+
+        it('silence files are unlinked after a successful stitch', async function() {
+            probeFormatStub.resolves(probeResult({ duration: 5 }));
+            await service.onToneDetected({
+                wavFilePath: SAMPLE_WAV,
+                dateTime: '2024-01-01T00:00:00Z',
+                talkgroupLabel: 'Fire Dispatch',
+                detectionData: makeDetectionData(),
+            });
+            await service.captureCall({
+                wavFilePath: SAMPLE_WAV,
+                dateTime: '2024-01-01T00:00:10Z',
+                talkgroupLabel: 'Fire Dispatch',
+            });
+
+            await clock.tickAsync(80 * 1000 + 100);
+
+            const silencePath = ffmpegFactory._commands[0].inputs[1];
+            expect(silencePath).to.match(/silence-/);
+            expect(fs.existsSync(silencePath)).to.be.false;
+        });
+
+        it('silence files are unlinked after a failed stitch', async function() {
+            ffmpegFactory._forceError(new Error('ffmpeg died'));
+            probeFormatStub.resolves(probeResult({ duration: 5 }));
+            await service.onToneDetected({
+                wavFilePath: SAMPLE_WAV,
+                dateTime: '2024-01-01T00:00:00Z',
+                talkgroupLabel: 'Fire Dispatch',
+                detectionData: makeDetectionData(),
+            });
+            await service.captureCall({
+                wavFilePath: SAMPLE_WAV,
+                dateTime: '2024-01-01T00:00:10Z',
+                talkgroupLabel: 'Fire Dispatch',
+            });
+
+            await clock.tickAsync(80 * 1000 + 100);
+
+            const silencePath = ffmpegFactory._commands[0].inputs[1];
+            expect(silencePath).to.match(/silence-/);
+            expect(fs.existsSync(silencePath)).to.be.false;
         });
     });
 
