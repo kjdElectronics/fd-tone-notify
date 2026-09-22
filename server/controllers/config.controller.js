@@ -15,7 +15,15 @@ async function getConfiguration(req, res) {
         const configData = await readConfigFile();
         const secretsData = await readSecretsFile();
 
+        // Write-only secrets: never echoed back to the UI once set, only
+        // ever accepted on PUT /api/config (see updateSecretsFromData()
+        // below). UI_PASSWORD_HASH is a bcrypt hash rather than the
+        // plaintext password, but there's still no reason to send it back.
         delete secretsData.UI_PASSWORD_HASH;
+        delete secretsData.FD_PUSHOVER_APP_TOKEN;
+        delete secretsData.FD_TELEGRAM_BOT_TOKEN;
+        delete secretsData.FD_DETECTION_WEBHOOK_URL;
+        delete secretsData.FD_DETECTION_WEBHOOK_SECRET;
 
         res.json({
             success: true,
@@ -232,7 +240,9 @@ function updateConfigFromData(configData, configurationData) {
 
 function updateSecretsFromData(secretsData, configurationData) {
     const secretKeys = [
-        'FD_SMTP_USERNAME', 'FD_SMTP_PASSWORD', 'FD_PUSHBULLET_API_KEY', 
+        'FD_SMTP_USERNAME', 'FD_SMTP_PASSWORD', 'FD_PUSHBULLET_API_KEY',
+        'FD_PUSHOVER_APP_TOKEN', 'FD_TELEGRAM_BOT_TOKEN',
+        'FD_DETECTION_WEBHOOK_URL', 'FD_DETECTION_WEBHOOK_SECRET',
         'FD_CORALOGIX_PRIVATE_KEY', 'UI_PASSWORD_HASH', 'AWS_ACCESS_KEY_ID',
         'AWS_SECRET_ACCESS_KEY_ID', 'BUCKET_NAME'
     ];

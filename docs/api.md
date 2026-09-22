@@ -110,8 +110,11 @@ immediately - no restart needed for the new password to work.
 **Auth: read.**
 
 Returns the full contents of the active config file (`config/<NODE_ENV>.json`,
-`default.json` unless `NODE_ENV` is set) plus non-sensitive secrets
-(`UI_PASSWORD_HASH` is stripped from the response).
+`default.json` unless `NODE_ENV` is set) plus non-sensitive secrets.
+Write-only secrets are never included in the response, even though
+`PUT /api/config` (below) accepts them: `UI_PASSWORD_HASH`,
+`FD_PUSHOVER_APP_TOKEN`, `FD_TELEGRAM_BOT_TOKEN`, `FD_DETECTION_WEBHOOK_URL`,
+`FD_DETECTION_WEBHOOK_SECRET`.
 
 ```json
 {
