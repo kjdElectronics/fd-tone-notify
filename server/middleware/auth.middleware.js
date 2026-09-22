@@ -1,7 +1,9 @@
 const log = require('../../util/logger');
 const bcrypt = require('bcrypt');
+const fs = require('fs').promises;
 const sessions = require('../auth/sessions');
 const apiKeys = require('../auth/apiKeys');
+const configFileUtil = require('../util/config.file.util');
 
 function extractBearerToken(req) {
     const authHeader = req.headers.authorization;
@@ -121,4 +123,79 @@ function hashPassword(plainTextPassword) {
     return bcrypt.hashSync(plainTextPassword, 10);
 }
 
-module.exports = { authenticate, login, hashPassword };
+/**
+ * Persist a new UI_PASSWORD_HASH into the secrets file, preserving every
+ * other key already in it (API keys, other FD_* secrets, etc). Mirrors the
+ * read/write pattern in server/auth/apiKeys.js.
+ * @param {string} newHash
+ */
+async function _persistPasswordHash(newHash) {
+    let secrets = {};
+    try {
+        const data = await fs.readFile(configFileUtil.getSecretsFilePath(), 'utf8');
+        secrets = JSON.parse(data);
+    } catch (error) {
+        log.warning(`Failed to read secrets file while changing UI password: ${error.message}`);
+    }
+
+    secrets.UI_PASSWORD_HASH = newHash;
+    await fs.writeFile(configFileUtil.getSecretsFilePath(), JSON.stringify(secrets, null, 2));
+}
+
+/**
+ * POST /api/auth/password - change the UI password. Requires an actual UI
+ * session (not an API key, even an admin-scoped one): this is a UI-only
+ * flow for the person who just logged in with the password to change it,
+ * mirrored by the "force a password change on the default password" prompt
+ * in the Vue UI. Verifies the current password before accepting a new one,
+ * hashes it the same way as the rest of the app (bcrypt, see
+ * hashPassword()), and persists it to the secrets file, keeping
+ * UI_PASSWORD_HASH as the source of truth (env var or config/secrets.json -
+ * see util/config.secrets.js).
+ */
+async function changePassword(req, res) {
+    if (!req.auth || req.auth.type !== 'session') {
+        return res.status(403).json({
+            success: false,
+            error: 'A UI session is required to change the password (API keys cannot be used for this route)'
+        });
+    }
+
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+        return res.status(400).json({
+            success: false,
+            error: 'currentPassword and newPassword are required'
+        });
+    }
+    if (typeof newPassword !== 'string' || newPassword.length < 8) {
+        return res.status(400).json({
+            success: false,
+            error: 'newPassword must be at least 8 characters'
+        });
+    }
+
+    const currentHash = process.env.UI_PASSWORD_HASH;
+    if (!currentHash || !bcrypt.compareSync(currentPassword, currentHash)) {
+        log.warning('Failed password change attempt (incorrect current password) from ' + req.ip);
+        return res.status(401).json({ success: false, error: 'Current password is incorrect' });
+    }
+
+    const newHash = hashPassword(newPassword);
+
+    try {
+        await _persistPasswordHash(newHash);
+    } catch (error) {
+        log.error(`Failed to persist new UI password: ${error.message}`);
+        return res.status(500).json({ success: false, error: 'Failed to save new password' });
+    }
+
+    // Keep the running process in sync so the new password works immediately,
+    // without waiting for a restart to reload it from the secrets file.
+    process.env.UI_PASSWORD_HASH = newHash;
+
+    log.info('UI password changed from ' + req.ip);
+    res.json({ success: true, message: 'Password changed successfully' });
+}
+
+module.exports = { authenticate, login, hashPassword, changePassword };

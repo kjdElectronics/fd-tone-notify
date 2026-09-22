@@ -86,6 +86,25 @@ Response (401): `{ "success": false, "error": "Invalid password" }`
 The returned `token` is a random session token (`server/auth/sessions.js`,
 24h TTL, in-memory only), not the password.
 
+### `POST /api/auth/password`
+
+**Auth: UI session only** - not satisfied by an API key, even an
+`admin`-scoped one. This is a UI-only flow for the person who just logged in
+with the password to change it (the Vue UI forces this on first login while
+the password is still the shipped default).
+
+Request: `{ "currentPassword": "admin123", "newPassword": "at least 8 characters" }`
+
+Response (200): `{ "success": true, "message": "Password changed successfully" }`
+Response (400): missing fields, or `newPassword` under 8 characters
+Response (401): `currentPassword` doesn't match the current `UI_PASSWORD_HASH`
+Response (403): authenticated with an API key instead of a UI session
+
+On success the new bcrypt hash is written to `UI_PASSWORD_HASH` in
+`config/secrets.json` (or wherever the active secrets file is, see
+[Authentication](#authentication)) and also applied to the running process
+immediately - no restart needed for the new password to work.
+
 ### `GET /api/config`
 
 **Auth: read.**
@@ -179,6 +198,11 @@ Same `:id` resolution. Response (200): `{ "success": true, "message": "Detector 
 **Auth: none** (this endpoint is intentionally open - see Deviations in the
 project's PR/commit history; treat it as trusted-network-only, same caveat
 as the Rdio insecure HTTP port).
+
+Also available at `POST /api/detections` (and `GET /api/detections` for
+[recent detections](#get-apidetections) below) - both paths are mounted from
+the same router (`server/routes/router.js`), kept for backwards
+compatibility with anything already using the older, undocumented path.
 
 `multipart/form-data` upload for one-off tone detection against an audio
 file, without touching the persisted config.
@@ -512,9 +536,10 @@ corresponding `fdtn_...` key, then restrict a detector to Site A only:
 
 - `PUT /api/config` only accepts a fixed, flat set of `FD_*` keys, not the
   full nested JSON shape `GET /api/config` returns.
-- `POST /api/detect-tones` is unauthenticated by design in the current
-  implementation (treat it as trusted-network-only). `GET /api/detections`
-  now requires `read` scope (see "Deviation" note under Authentication).
+- `POST /api/detect-tones` (also reachable as `POST /api/detections`, see
+  above) is unauthenticated by design in the current implementation (treat
+  it as trusted-network-only). `GET /api/detections` now requires `read`
+  scope (see "Deviation" note under Authentication).
 - UI sessions are in-memory only (`server/auth/sessions.js`) - they reset on
   every backend restart and aren't shared across instances. A
   multi-instance control-plane deployment should prefer API keys (which

@@ -7,7 +7,7 @@ const systemRoutes = require('./system');
 const notificationRoutes = require('./notifications');
 const rdioScannerRoutes = require('./rdio-scanner');
 const keysRoutes = require('./keys');
-const { login } = require('../middleware/auth.middleware');
+const { login, authenticate, changePassword } = require('../middleware/auth.middleware');
 
 /**
  * Configure all API routes
@@ -28,12 +28,23 @@ function configureRoutes(app) {
     // session token (server/auth/sessions.js). See docs/api.md.
     app.post('/api/auth/login', login);
 
+    // Change the UI password. Requires an existing UI session (not an API
+    // key - see changePassword()'s doc comment). This is what the Vue UI's
+    // forced first-login password change flow calls. See docs/api.md.
+    app.post('/api/auth/password', authenticate('admin'), changePassword);
+
     // Mount route modules
     app.use('/api/config', configRoutes);
     app.use('/api/detectors', detectorRoutes);
     app.use('/api/system', systemRoutes);
     app.use('/api/notifications', notificationRoutes);
     app.use('/api/detections', detectionRoutes);
+    // docs/api.md documents file-upload tone detection as POST
+    // /api/detect-tones, but detectionRoutes (POST /) has always actually
+    // been mounted at /api/detections - a doc/route mismatch. Mount the same
+    // router at both paths so the documented path works without breaking
+    // the original one anything already depends on.
+    app.use('/api/detect-tones', detectionRoutes);
     app.use('/api/call-upload', rdioScannerRoutes);
     app.use('/api/keys', keysRoutes);
 

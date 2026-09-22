@@ -15,8 +15,10 @@ headless service that a separate program controls over HTTP:
   the full key is returned once, only its hash is ever stored. Send it as
   `Authorization: Bearer fdtn_...`, alongside (not instead of) the existing
   UI login flow, which now returns a real random session token instead of
-  echoing the password back. Full contract, including which scope each
-  route needs: [docs/api.md](./docs/api.md#authentication).
+  echoing the password back. `POST /api/auth/password` lets a logged-in UI
+  session change the UI password - the Vue UI forces this on first login
+  while the password is still the shipped default. Full contract, including
+  which scope each route needs: [docs/api.md](./docs/api.md#authentication).
 - **Docker image**: a `Dockerfile` and `docker-compose.yml` in the repo root
   build and run the backend (API + built web UI) as a container, with
   `/app/config` and `/app/recordings` as persistent volumes. See
