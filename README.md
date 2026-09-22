@@ -7,9 +7,16 @@
 
 ## FD Tone Notify 2.0: running as a service / control plane target
 
-2.0 adds three things aimed at running FD Tone Notify unattended, as a
+2.0 adds several things aimed at running FD Tone Notify unattended, as a
 headless service that a separate program controls over HTTP:
 
+- **API keys with scopes**: `POST /api/keys` creates a key
+  (`fdtn_<keyId>.<secret>`) scoped to `admin`, `read`, or `ingest` -
+  the full key is returned once, only its hash is ever stored. Send it as
+  `Authorization: Bearer fdtn_...`, alongside (not instead of) the existing
+  UI login flow, which now returns a real random session token instead of
+  echoing the password back. Full contract, including which scope each
+  route needs: [docs/api.md](./docs/api.md#authentication).
 - **Docker image**: a `Dockerfile` and `docker-compose.yml` in the repo root
   build and run the backend (API + built web UI) as a container, with
   `/app/config` and `/app/recordings` as persistent volumes. See

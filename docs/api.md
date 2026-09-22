@@ -16,24 +16,46 @@ that port - see [Rdio Scanner call-upload](#post-apicall-upload) below.
 
 ## Authentication
 
-Two schemes are in use:
+Three schemes are in use, and most routes accept the first two
+interchangeably:
 
-- **UI password auth** (`server/middleware/auth.middleware.js`): send
-  `Authorization: Bearer <password>` (or just `Authorization: <password>`).
-  The password is checked against the bcrypt hash in `UI_PASSWORD_HASH`
-  (`config/secrets.json`, or the `UI_PASSWORD_HASH` env var/secret). The
-  default password shipped in `config/secrets.template.json` is `admin123`
-  for the username `admin` - **change it before exposing the API**.
-  `POST /api/auth/login` exchanges a plaintext password for a token, but the
-  "token" is literally the password again (`server/middleware/auth.middleware.js`
-  `login()`) - there is no session/JWT, so a control plane can just send the
-  password as the bearer token on every request without calling `/login` at
-  all.
-- **Rdio Scanner API key auth** (`server/middleware/rdio-auth.middleware.js`):
-  only applies to `POST /api/call-upload`. See that section.
+- **UI session** (`server/auth/sessions.js`, `server/middleware/auth.middleware.js`):
+  `POST /api/auth/login` exchanges the UI password for a random, opaque
+  session token (an in-memory session, 24h TTL - **not** the password, and
+  **not** a JWT; it doesn't survive a backend restart and isn't shared
+  across instances). Send it as `Authorization: Bearer <token>` (or just
+  `Authorization: <token>`). A session satisfies every scope below - this is
+  what the Vue UI itself uses, and it hasn't changed.
+- **API keys with scopes** (`server/auth/apiKeys.js`): a key looks like
+  `fdtn_<keyId>.<secret>` and carries one or more scopes - `admin`, `read`,
+  or `ingest`. Send it the same way, `Authorization: Bearer fdtn_...`. Only
+  `sha256(secret)` is ever persisted (`config/secrets.json`'s `apiKeys`
+  array), compared with a constant-time comparison; the full key is
+  returned exactly once, at creation time (`POST /api/keys`), and is not
+  recoverable after that. An `admin`-scoped key satisfies every scope.
+  Manage keys with `GET/POST/DELETE /api/keys` (below) - those routes
+  themselves require `admin` scope or a UI session.
+- **Rdio Scanner key auth** (`server/middleware/rdio-auth.middleware.js`):
+  only applies to `POST /api/call-upload`, which Rdio Scanner's wire format
+  can't put a bearer token on. It accepts either an `ingest`- or
+  `admin`-scoped API key, or the legacy bcrypt-hashed shared secret
+  (`FD_RDIO_API_KEY_HASH`), both in the multipart form's `key` field. See
+  that route's section.
 
-Routes below are marked **Auth: none**, **Auth: UI password**, or
-**Auth: Rdio key**.
+The default password shipped in `config/secrets.template.json` is
+`admin123` for the username `admin` (checked against the bcrypt hash in
+`UI_PASSWORD_HASH` - `config/secrets.json`, or the `UI_PASSWORD_HASH` env
+var/secret) - **change it before exposing the API**.
+
+Routes below are marked **Auth: none**, **Auth: read** (UI session or a
+`read`/`admin`-scoped key), **Auth: admin** (UI session or an
+`admin`-scoped key), or **Auth: Rdio key** (see above).
+
+> Deviation from earlier 2.0 builds: `authenticate()` no longer accepts the
+> raw UI password directly as a bearer token. That only ever worked because
+> `POST /api/auth/login`'s "token" used to literally be the password; now
+> that login returns a real session token, sending the password itself is
+> rejected (401) - call `/login` for a session, or use an API key.
 
 ## Routes
 
@@ -58,12 +80,15 @@ Liveness/readiness probe (this is what the Dockerfile's `HEALTHCHECK` calls).
 
 Request: `{ "password": "admin123" }`
 
-Response (200): `{ "success": true, "token": "admin123", "message": "Authentication successful" }`
+Response (200): `{ "success": true, "token": "<random opaque session token>", "message": "Authentication successful" }`
 Response (401): `{ "success": false, "error": "Invalid password" }`
+
+The returned `token` is a random session token (`server/auth/sessions.js`,
+24h TTL, in-memory only), not the password.
 
 ### `GET /api/config`
 
-**Auth: UI password.**
+**Auth: read.**
 
 Returns the full contents of the active config file (`config/<NODE_ENV>.json`,
 `default.json` unless `NODE_ENV` is set) plus non-sensitive secrets
@@ -82,7 +107,7 @@ Returns the full contents of the active config file (`config/<NODE_ENV>.json`,
 
 ### `PUT /api/config`
 
-**Auth: UI password.**
+**Auth: admin.**
 
 Updates a fixed set of `FD_*`-named fields (see
 `server/controllers/config.controller.js` `updateConfigFromData()` /
@@ -100,7 +125,7 @@ not implemented).
 
 ### `GET /api/detectors`
 
-**Auth: UI password.**
+**Auth: read.**
 
 ```json
 { "success": true, "detectors": [ { "id": "6f8...", "name": "Engine 1", "tones": [911, 2938], "...": "..." } ], "count": 1, "timestamp": "..." }
@@ -108,7 +133,7 @@ not implemented).
 
 ### `GET /api/detectors/:id`
 
-**Auth: UI password.**
+**Auth: read.**
 
 `:id` is the detector's stable UUID `id` (see [Stable detector ids](#stable-detector-ids)
 below). For backwards compatibility, if no detector's `id` matches, `:id` is
@@ -119,7 +144,7 @@ Response (404): `{ "success": false, "error": "Detector not found", "details": "
 
 ### `POST /api/detectors`
 
-**Auth: UI password.**
+**Auth: admin.**
 
 Creates a detector. The server always assigns the `id` (any `id` in the
 request body is ignored) and applies defaults for any omitted field (see
@@ -132,7 +157,7 @@ Response (400): validation error (duplicate name, bad tone frequency, invalid em
 
 ### `PUT /api/detectors/:id`
 
-**Auth: UI password.**
+**Auth: admin.**
 
 Same `:id` resolution as `GET /api/detectors/:id` (UUID first, numeric index
 fallback). Merges the request body onto the existing detector (missing
@@ -145,7 +170,7 @@ Response (404): `{ "success": false, "error": "Detector not found" }`
 
 ### `DELETE /api/detectors/:id`
 
-**Auth: UI password.**
+**Auth: admin.**
 
 Same `:id` resolution. Response (200): `{ "success": true, "message": "Detector deleted successfully", "deletedDetector": { "...": "..." } }`
 
@@ -188,7 +213,8 @@ Form fields:
 
 ### `GET /api/detections`
 
-**Auth: none.**
+**Auth: read.** (Previously unauthenticated - see "Deviation" note above;
+now requires a UI session or a `read`/`admin`-scoped API key.)
 
 Recent detections from the in-memory detection store (mic, file, and Rdio
 detections all land here - capacity and TTL are set in
@@ -206,7 +232,7 @@ Query: `limit` (default 50, max 50).
 
 ### `POST /api/notifications/test`
 
-**Auth: UI password.**
+**Auth: admin.**
 
 Body: `{ "testAll": true }` to test every configured notification for every
 detector, or `{ "detectorName", "trigger": "preRecording"|"postRecording",
@@ -215,11 +241,11 @@ to test one specific notification.
 
 ### `GET /api/system/status`
 
-**Auth: UI password.** Process uptime/memory/PID/Node version/env.
+**Auth: read.** Process uptime/memory/PID/Node version/env.
 
 ### `POST /api/system/restart`
 
-**Auth: UI password.** Spawns `bin/restart-helper.js` and gracefully shuts
+**Auth: admin.** Spawns `bin/restart-helper.js` and gracefully shuts
 the backend down for it to relaunch (with `--legacy --web-server`, plus
 `--port`/`--instance-name`/`--recording-directory` if those were set on the
 current process - `index.js` requires `--legacy` for `--web-server` to be
@@ -227,8 +253,41 @@ accepted at all, see `validateOptions()`).
 
 ### `POST /api/system/stop`
 
-**Auth: UI password.** Gracefully shuts the backend down; nothing restarts
+**Auth: admin.** Gracefully shuts the backend down; nothing restarts
 it unless the process supervisor does (e.g. Docker's `restart: unless-stopped`).
+
+### `GET /api/keys`
+
+**Auth: admin.**
+
+List API keys. Never includes hashes or plaintext secrets.
+
+```json
+{ "success": true, "keys": [ { "id": "a1b2c3d4e5f60718", "name": "Control Plane", "scopes": ["admin"], "createdAt": "2025-01-15T10:30:45.123Z", "lastUsedAt": "2025-01-15T11:00:00.000Z" } ] }
+```
+
+### `POST /api/keys`
+
+**Auth: admin.**
+
+Creates a new API key. **The full plaintext key is only ever returned in
+this response** - only `sha256(secret)` is persisted, so it cannot be
+recovered later; if it's lost, delete the key and create a new one.
+
+Request: `{ "name": "Control Plane", "scopes": ["admin"] }` (`scopes` is a
+non-empty array of `"admin"`, `"read"`, `"ingest"`)
+
+Response (201): `{ "success": true, "key": { "id": "a1b2c3d4e5f60718", "name": "Control Plane", "scopes": ["admin"], "createdAt": "...", "key": "fdtn_a1b2c3d4e5f60718.<48 hex chars>" } }`
+Response (400): `{ "success": false, "error": "..." }` (missing `name`, or `scopes` isn't a non-empty array of valid scopes)
+
+### `DELETE /api/keys/:id`
+
+**Auth: admin.**
+
+Revokes a key by its `id` (not the full key) immediately.
+
+Response (200): `{ "success": true, "message": "API key deleted" }`
+Response (404): `{ "success": false, "error": "API key not found" }`
 
 ### `POST /api/call-upload`
 
@@ -241,21 +300,31 @@ uploader at this URL. This is also the one route additionally exposed on a
 (for scanner hardware/software that can't do HTTPS) - see docs/docker.md.
 
 `multipart/form-data` fields (standard Rdio Scanner call-upload payload):
-`key` (the API key, checked against the bcrypt hash in
-`FD_RDIO_API_KEY_HASH`), `audio` (the call's audio file), `dateTime`,
-`talkgroup`, `talkgroupLabel` (used to match against each detector's
-`talkgroupFilter`), `talkgroupGroup`, `talkgroupTag`, `system`,
-`systemLabel`, `source`, `frequency`.
+`key`, `audio` (the call's audio file), `dateTime`, `talkgroup`,
+`talkgroupLabel` (used to match against each detector's `talkgroupFilter`),
+`talkgroupGroup`, `talkgroupTag`, `system`, `systemLabel`, `source`,
+`frequency`.
 
-If `FD_RDIO_API_KEY_HASH` is unset, the endpoint allows all requests
-unauthenticated (logged as a warning) - set it before exposing this route.
+`key` is checked two ways, in order:
+
+1. A scoped API key (`fdtn_<id>.<secret>`, `ingest` or `admin` scope -
+   create one via `POST /api/keys`). This is the current, preferred way to
+   authenticate an ingest source - it also tags the resulting detections
+   with the key's `id`/`name` as a `sourceId`/`sourceName` (see
+   [Per-source ingest keys](#per-source-ingest-keys) below).
+2. If `key` isn't one of those, the legacy shared secret: checked against
+   the bcrypt hash in `FD_RDIO_API_KEY_HASH`. If `FD_RDIO_API_KEY_HASH` is
+   unset, the endpoint allows all requests unauthenticated (logged as a
+   warning) - set it, or require an API key instead, before exposing this
+   route.
 
 Response: `200 "Call imported successfully"` on success (also on a
 talkgroup with no matching detector, and on SDRTrunk's connectivity probe
 when it includes a talkgroup); `417` on SDRTrunk's connectivity probe when
 it has no talkgroup (this is the response SDRTrunk expects to confirm
-connectivity, not a real error); `400`/`401`/`500` JSON error bodies
-otherwise.
+connectivity, not a real error); `400`/`401`/`403`/`500` JSON error bodies
+otherwise (`403` for a well-formed API key that lacks `ingest`/`admin`
+scope).
 
 ---
 
@@ -395,5 +464,11 @@ event data (`detectionData.detector.id`) both come from this same `id`.
 
 - `PUT /api/config` only accepts a fixed, flat set of `FD_*` keys, not the
   full nested JSON shape `GET /api/config` returns.
-- `POST /api/detect-tones` and `GET /api/detections` are unauthenticated by
-  design in the current implementation.
+- `POST /api/detect-tones` is unauthenticated by design in the current
+  implementation (treat it as trusted-network-only). `GET /api/detections`
+  now requires `read` scope (see "Deviation" note under Authentication).
+- UI sessions are in-memory only (`server/auth/sessions.js`) - they reset on
+  every backend restart and aren't shared across instances. A
+  multi-instance control-plane deployment should prefer API keys (which
+  persist in `config/secrets.json`) over UI sessions for anything that
+  needs to survive a restart.
