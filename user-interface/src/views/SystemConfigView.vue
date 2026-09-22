@@ -376,6 +376,26 @@
           </div>
 
           <div>
+            <label class="label" for="pushover-app-token">Pushover App Token</label>
+            <SecurePasswordField
+              v-model="config.secrets.FD_PUSHOVER_APP_TOKEN"
+              field-id="pushover-app-token"
+              placeholder="Enter Pushover application token"
+            />
+            <p class="help-text">Application token for Pushover notifications (write-only - never shown once set)</p>
+          </div>
+
+          <div>
+            <label class="label" for="telegram-bot-token">Telegram Bot Token</label>
+            <SecurePasswordField
+              v-model="config.secrets.FD_TELEGRAM_BOT_TOKEN"
+              field-id="telegram-bot-token"
+              placeholder="Enter Telegram bot token"
+            />
+            <p class="help-text">Bot token for Telegram notifications (write-only - never shown once set)</p>
+          </div>
+
+          <div>
             <label class="label">Coralogix Application Name</label>
             <input
               v-model="config.coralogix.applicationName"
@@ -405,6 +425,43 @@
               placeholder="Enter Coralogix private key"
             />
             <p class="help-text">Private key for Coralogix logging service</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detection Webhook (Optional) -->
+      <div class="card">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <LinkIcon class="w-5 h-5 mr-2 text-fire-600" />
+          Detection Webhook (Optional)
+        </h2>
+        <p class="text-sm text-gray-600 mb-4">
+          An outbound, HMAC-signed webhook FDTN calls on every tone detection - the single integration point
+          for a control plane to learn about detections without polling. See
+          <code class="bg-gray-100 px-1 rounded">docs/api.md</code>'s "System-wide detection webhook" section
+          for the payload/signature contract. Leave the URL blank to disable it.
+        </p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="label" for="detection-webhook-url">Webhook URL</label>
+            <input
+              id="detection-webhook-url"
+              v-model="config.secrets.FD_DETECTION_WEBHOOK_URL"
+              type="url"
+              class="input-field"
+              placeholder="https://example.com/fdtn-webhook"
+            />
+            <p class="help-text">Write-only - never shown once set. Leave blank to keep the current value.</p>
+          </div>
+
+          <div>
+            <label class="label" for="detection-webhook-secret">Webhook Signing Secret</label>
+            <SecurePasswordField
+              v-model="config.secrets.FD_DETECTION_WEBHOOK_SECRET"
+              field-id="detection-webhook-secret"
+              placeholder="Enter HMAC signing secret"
+            />
+            <p class="help-text">Used to sign the X-FDTN-Signature header (write-only - never shown once set)</p>
           </div>
         </div>
       </div>
@@ -534,7 +591,8 @@ import {
   BellIcon,
   ServerIcon,
   CloudArrowUpIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  LinkIcon
 } from '@heroicons/vue/24/outline'
 
 const notificationStore = useNotificationStore()
@@ -602,6 +660,10 @@ const config = ref({
     FD_SMTP_USERNAME: '',
     FD_SMTP_PASSWORD: '',
     FD_PUSHBULLET_API_KEY: '',
+    FD_PUSHOVER_APP_TOKEN: '',
+    FD_TELEGRAM_BOT_TOKEN: '',
+    FD_DETECTION_WEBHOOK_URL: '',
+    FD_DETECTION_WEBHOOK_SECRET: '',
     FD_CORALOGIX_PRIVATE_KEY: '',
     UI_PASSWORD_HASH: '',
     AWS_ACCESS_KEY_ID: '',
