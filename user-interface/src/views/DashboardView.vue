@@ -5,6 +5,24 @@
       <p class="text-gray-600">System overview and real-time status</p>
     </div>
 
+    <!-- Getting Started - next-step guidance while the system isn't fully set up yet -->
+    <div v-if="showGettingStarted" class="card mb-8 border-fire-200 bg-fire-50">
+      <h2 class="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+        <RocketLaunchIcon class="w-5 h-5 mr-2 text-fire-600" />
+        Getting Started
+      </h2>
+      <ul class="space-y-2">
+        <li v-if="!detectorsStore.hasDetectors" class="flex items-center justify-between bg-white rounded-lg p-3">
+          <span class="text-sm text-gray-700">No detectors yet</span>
+          <router-link to="/detectors" class="btn-primary btn-sm">Create your first detector</router-link>
+        </li>
+        <li v-if="!apiKeysStore.hasIngestKeys" class="flex items-center justify-between bg-white rounded-lg p-3">
+          <span class="text-sm text-gray-700">No sources connected</span>
+          <router-link to="/sources" class="btn-primary btn-sm">Connect a server</router-link>
+        </li>
+      </ul>
+    </div>
+
     <!-- Status Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
       <SystemStatusCard />
@@ -137,24 +155,44 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useSocketStore } from '../stores/socket'
 import { useSystemStatus } from '../composables/useSystemStatus'
+import { useDetectorsStore } from '../stores/detectors'
+import { useApiKeysStore } from '../stores/apiKeys'
 import SystemStatusCard from '../components/SystemStatusCard.vue'
 import DetectionItem from '../components/DetectionItem.vue'
 import {
   CheckCircleIcon,
   SpeakerWaveIcon,
   BellIcon,
-  ClockIcon
+  ClockIcon,
+  RocketLaunchIcon
 } from '@heroicons/vue/24/outline'
 
 const socketStore = useSocketStore()
 const systemStatus = useSystemStatus()
+const detectorsStore = useDetectorsStore()
+const apiKeysStore = useApiKeysStore()
 
 const recentDetections = computed(() => {
   // Show most recent detections first (reverse order)
   return socketStore.systemStatus.detections.slice().reverse().slice(0, 5)
+})
+
+// Next-step guidance while the system isn't fully set up yet. Hidden once
+// both a detector exists and a source is connected.
+const showGettingStarted = computed(() => {
+  return !detectorsStore.hasDetectors || !apiKeysStore.hasIngestKeys
+})
+
+onMounted(() => {
+  if (!detectorsStore.hasDetectors) {
+    detectorsStore.fetchDetectors()
+  }
+  if (apiKeysStore.keys.length === 0) {
+    apiKeysStore.fetchKeys()
+  }
 })
 
 function formatTime(timestamp) {

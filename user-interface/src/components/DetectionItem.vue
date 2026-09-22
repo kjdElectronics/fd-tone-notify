@@ -29,6 +29,13 @@
           >
             TG: {{ detection.sourceContext.talkgroup.label }}
           </span>
+          <span
+            v-if="detection.sourceContext?.sourceName"
+            class="ml-1 text-xs bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded"
+            title="Ingest key that authenticated this detection"
+          >
+            {{ detection.sourceContext.sourceName }}
+          </span>
         </div>
         <div class="text-sm text-gray-600">
           Tones: {{ getTonesDisplay() }}
