@@ -21,6 +21,10 @@ class EmailConfig {
      * @private
      */
     validateAndSet({ to, bcc, subject, text }) {
+        if (!to || typeof to !== 'string') {
+            throw ErrorWithStatusCode.validation('Email "to" field is required and must be a string');
+        }
+
         if (!subject || typeof subject !== 'string') {
             throw ErrorWithStatusCode.validation('Email "subject" field is required and must be a string');
         }
@@ -30,9 +34,7 @@ class EmailConfig {
         }
 
         // Validate email format
-        if(to){
-            this.validateEmailList(to, 'to');
-        }
+        this.validateEmailList(to, 'to');
         if (bcc) {
             this.validateEmailList(bcc, 'bcc');
         }
