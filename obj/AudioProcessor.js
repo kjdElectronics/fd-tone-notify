@@ -38,17 +38,6 @@ class AudioProcessor extends EventEmitter{
             }
         }
         
-        // Prevent unbounded buffer growth - drop old data if buffer gets too large
-        if (this._processingBuffer.length > MAX_BUFFER_SIZE) {
-            const excessData = this._processingBuffer.length - MAX_BUFFER_SIZE;
-            this._processingBuffer.splice(0, excessData); // Remove old data from beginning
-            
-            // Hint garbage collection when buffer overflow occurs to prevent accumulation
-            if (Math.random() < 0.005) { // 0.5% chance to avoid excessive GC calls
-                garbageCollect("Audio Processor 0.5%");
-            }
-        }
-        
         if(this._processingBuffer.length < this.sampleSize){
             return []; //No complete data chunks
         }
@@ -85,7 +74,24 @@ class AudioProcessor extends EventEmitter{
         if (consumedSamples > SLICE_SIZE * 2) {
             this._processingBuffer = this._processingBuffer.slice(0, remainder);
         }
-        
+
+        // Defensive cap on the leftover remainder only - it should always be
+        // < SLICE_SIZE here, so this is a no-op in practice. It exists so a
+        // future change to the chunking logic above can't reintroduce
+        // unbounded growth. This must run after chunks are extracted, not
+        // before: capping the buffer before chunking would silently discard
+        // data that a single large call (e.g. a whole decoded file, or a big
+        // mic read) was about to process.
+        if (this._processingBuffer.length > MAX_BUFFER_SIZE) {
+            const excessData = this._processingBuffer.length - MAX_BUFFER_SIZE;
+            this._processingBuffer.splice(0, excessData);
+
+            // Hint garbage collection when buffer overflow occurs to prevent accumulation
+            if (Math.random() < 0.005) { // 0.5% chance to avoid excessive GC calls
+                garbageCollect("Audio Processor 0.5%");
+            }
+        }
+
         return dataSlices;
     }
 
