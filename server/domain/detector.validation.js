@@ -82,7 +82,69 @@ function validatePushbulletNotification(pushbulletConfig, timing, index) {
     if (pushbulletConfig.channelTag !== undefined && typeof pushbulletConfig.channelTag !== 'string') {
         errors.push(`${timing} pushbullet notification ${index + 1} 'channelTag' must be a string`);
     }
-    
+
+    return errors;
+}
+
+/**
+ * Validate Pushover notification configuration
+ * @param {Object} pushoverConfig - Pushover notification configuration
+ * @param {string} timing - 'preRecording' or 'postRecording'
+ * @param {number} index - Index of the notification for error messages
+ * @returns {string[]} Array of error messages, empty if valid
+ */
+function validatePushoverNotification(pushoverConfig, timing, index) {
+    const errors = [];
+
+    if (!pushoverConfig || typeof pushoverConfig !== 'object') {
+        errors.push(`${timing} pushover notification ${index + 1} must be an object`);
+        return errors;
+    }
+
+    if (pushoverConfig.title !== undefined && typeof pushoverConfig.title !== 'string') {
+        errors.push(`${timing} pushover notification ${index + 1} 'title' must be a string`);
+    }
+
+    if (pushoverConfig.body !== undefined && typeof pushoverConfig.body !== 'string') {
+        errors.push(`${timing} pushover notification ${index + 1} 'body' must be a string`);
+    }
+
+    if (pushoverConfig.user !== undefined && typeof pushoverConfig.user !== 'string') {
+        errors.push(`${timing} pushover notification ${index + 1} 'user' must be a string`);
+    }
+
+    return errors;
+}
+
+/**
+ * Validate Telegram notification configuration
+ * @param {Object} telegramConfig - Telegram notification configuration
+ * @param {string} timing - 'preRecording' or 'postRecording'
+ * @param {number} index - Index of the notification for error messages
+ * @returns {string[]} Array of error messages, empty if valid
+ */
+function validateTelegramNotification(telegramConfig, timing, index) {
+    const errors = [];
+
+    if (!telegramConfig || typeof telegramConfig !== 'object') {
+        errors.push(`${timing} telegram notification ${index + 1} must be an object`);
+        return errors;
+    }
+
+    if (telegramConfig.title !== undefined && typeof telegramConfig.title !== 'string') {
+        errors.push(`${timing} telegram notification ${index + 1} 'title' must be a string`);
+    }
+
+    if (telegramConfig.body !== undefined && typeof telegramConfig.body !== 'string') {
+        errors.push(`${timing} telegram notification ${index + 1} 'body' must be a string`);
+    }
+
+    if (telegramConfig.chatId !== undefined
+        && typeof telegramConfig.chatId !== 'string'
+        && typeof telegramConfig.chatId !== 'number') {
+        errors.push(`${timing} telegram notification ${index + 1} 'chatId' must be a string or number`);
+    }
+
     return errors;
 }
 
@@ -227,7 +289,23 @@ function validateNotifications(notifications) {
                 errors.push(...pushbulletErrors);
             });
         }
-        
+
+        // Validate pushover notifications
+        if (timingNotifications.pushover && Array.isArray(timingNotifications.pushover)) {
+            timingNotifications.pushover.forEach((pushoverConfig, index) => {
+                const pushoverErrors = validatePushoverNotification(pushoverConfig, timing, index);
+                errors.push(...pushoverErrors);
+            });
+        }
+
+        // Validate telegram notifications
+        if (timingNotifications.telegram && Array.isArray(timingNotifications.telegram)) {
+            timingNotifications.telegram.forEach((telegramConfig, index) => {
+                const telegramErrors = validateTelegramNotification(telegramConfig, timing, index);
+                errors.push(...telegramErrors);
+            });
+        }
+
         // Validate webhook notifications
         if (timingNotifications.webhooks && Array.isArray(timingNotifications.webhooks)) {
             timingNotifications.webhooks.forEach((webhookConfig, index) => {
@@ -424,6 +502,8 @@ module.exports = {
     validateRecordingSettings,
     validateEmailNotification,
     validatePushbulletNotification,
+    validatePushoverNotification,
+    validateTelegramNotification,
     validateWebhookNotification,
     validateExternalCommandNotification
 };

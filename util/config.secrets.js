@@ -2,6 +2,8 @@ const log = require('../util/logger');
 const path = require('path');
 const SECRET_NAMES = [
     "FD_PUSHBULLET_API_KEY",
+    "FD_PUSHOVER_APP_TOKEN",
+    "FD_TELEGRAM_BOT_TOKEN",
     "FD_CORALOGIX_PRIVATE_KEY",
     "FD_SMTP_USERNAME",
     "FD_SMTP_PASSWORD",
