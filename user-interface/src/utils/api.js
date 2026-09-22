@@ -43,8 +43,12 @@ api.interceptors.response.use(
     
     // Handle common errors
     if (error.response?.status === 401) {
-      // Unauthorized - redirect to login
+      // Unauthorized (expired/invalid session token) - drop everything about
+      // the stale session and return to login. A full reload is used (not
+      // just clearing Pinia state) so every open view re-fetches with a
+      // fresh, unauthenticated app state instead of showing stale data.
       localStorage.removeItem('ui-authenticated')
+      localStorage.removeItem('ui-token')
       window.location.reload()
     }
     

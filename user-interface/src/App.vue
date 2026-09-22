@@ -2,7 +2,11 @@
   <div id="app" class="min-h-screen">
     <!-- Show login if not authenticated -->
     <LoginView v-if="!authStore.isAuthenticated" />
-    
+
+    <!-- Force a password change away from the shipped default before the
+         rest of the app is reachable (see stores/auth.js) -->
+    <ChangePasswordView v-else-if="authStore.mustChangePassword" />
+
     <!-- Main application layout -->
     <div v-else class="flex h-screen bg-gray-50">
       <!-- Sidebar Navigation -->
@@ -207,6 +211,7 @@ import { useConfigStore } from './stores/config'
 import { useSystemStatus } from './composables/useSystemStatus'
 import { useSSLStatus } from './composables/useSSLStatus'
 import LoginView from './views/LoginView.vue'
+import ChangePasswordView from './views/ChangePasswordView.vue'
 import NotificationToast from './components/NotificationToast.vue'
 import api from './utils/api'
 
