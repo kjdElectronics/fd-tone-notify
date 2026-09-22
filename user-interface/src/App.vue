@@ -226,7 +226,8 @@ import {
   ExclamationTriangleIcon,
   InformationCircleIcon,
   ArrowPathIcon,
-  StopIcon
+  StopIcon,
+  ServerIcon
 } from '@heroicons/vue/24/outline'
 import ManualStartModal from './components/ManualStartModal.vue'
 import StopServerModal from './components/StopServerModal.vue'
@@ -250,6 +251,7 @@ const navigation = [
   { name: 'Dashboard', path: '/', icon: HomeIcon },
   { name: 'Live Monitoring', path: '/monitoring', icon: ChartBarIcon },
   { name: 'Detector Config', path: '/detectors', icon: SpeakerWaveIcon },
+  { name: 'Sources', path: '/sources', icon: ServerIcon },
   { name: 'System Config', path: '/config', icon: CogIcon },
   { name: 'File Analysis', path: '/analysis', icon: DocumentTextIcon },
   { name: 'Testing', path: '/testing', icon: WrenchScrewdriverIcon },

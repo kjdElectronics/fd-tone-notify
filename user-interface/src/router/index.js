@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/auth'
 import DashboardView from '../views/DashboardView.vue'
 import MonitoringView from '../views/MonitoringView.vue'
 import DetectorConfigView from '../views/DetectorConfigView.vue'
+import SourcesView from '../views/SourcesView.vue'
 import SystemConfigView from '../views/SystemConfigView.vue'
 import FileAnalysisView from '../views/FileAnalysisView.vue'
 import TestingView from '../views/TestingView.vue'
@@ -27,6 +28,12 @@ const routes = [
     path: '/detectors',
     name: 'DetectorConfig',
     component: DetectorConfigView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/sources',
+    name: 'Sources',
+    component: SourcesView,
     meta: { requiresAuth: true }
   },
   {
