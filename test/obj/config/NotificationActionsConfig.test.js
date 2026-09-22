@@ -6,11 +6,55 @@ describe('NotificationActionsConfig', function() {
     describe('Constructor', function() {
         it('should create empty NotificationActionsConfig with no parameters', function() {
             const config = new NotificationActionsConfig();
-            
+
             expect(config.emails).to.be.an('array').that.is.empty;
             expect(config.pushbullet).to.be.an('array').that.is.empty;
+            expect(config.pushover).to.be.an('array').that.is.empty;
+            expect(config.telegram).to.be.an('array').that.is.empty;
             expect(config.webhooks).to.be.an('array').that.is.empty;
             expect(config.externalCommands).to.be.an('array').that.is.empty;
+        });
+
+        it('should create NotificationActionsConfig with pushover', function() {
+            const config = new NotificationActionsConfig({
+                pushover: [{
+                    title: 'Test Title',
+                    body: 'Test body',
+                    user: 'u1a2b3c4d5e6f7g8h9'
+                }]
+            });
+
+            expect(config.pushover).to.have.length(1);
+            expect(config.pushover[0].title).to.equal('Test Title');
+            expect(config.emails).to.be.an('array').that.is.empty;
+            expect(config.telegram).to.be.an('array').that.is.empty;
+        });
+
+        it('should create NotificationActionsConfig with telegram', function() {
+            const config = new NotificationActionsConfig({
+                telegram: [{
+                    title: 'Test Title',
+                    body: 'Test body',
+                    chatId: '-1001234567890'
+                }]
+            });
+
+            expect(config.telegram).to.have.length(1);
+            expect(config.telegram[0].title).to.equal('Test Title');
+            expect(config.emails).to.be.an('array').that.is.empty;
+            expect(config.pushover).to.be.an('array').that.is.empty;
+        });
+
+        it('should throw error for non-array pushover', function() {
+            expect(() => {
+                new NotificationActionsConfig({ pushover: 'not an array' });
+            }).to.throw(ErrorWithStatusCode).with.property('statusCode', 400);
+        });
+
+        it('should throw error for non-array telegram', function() {
+            expect(() => {
+                new NotificationActionsConfig({ telegram: 'not an array' });
+            }).to.throw(ErrorWithStatusCode).with.property('statusCode', 400);
         });
 
         it('should create NotificationActionsConfig with emails', function() {
@@ -146,12 +190,27 @@ describe('NotificationActionsConfig', function() {
             const obj = config.toJSON();
             expect(obj).to.have.property('emails');
             expect(obj).to.have.property('pushbullet');
+            expect(obj).to.have.property('pushover');
+            expect(obj).to.have.property('telegram');
             expect(obj).to.have.property('webhooks');
             expect(obj).to.have.property('externalCommands');
             expect(obj.emails).to.have.length(1);
             expect(obj.emails[0]).to.have.property('to', 'test@example.com');
             expect(obj.webhooks).to.have.length(1);
             expect(obj.webhooks[0]).to.have.property('address', 'https://example.com/webhook');
+        });
+
+        it('should include pushover/telegram in JSON representation', function() {
+            const config = new NotificationActionsConfig({
+                pushover: [{ title: 'T', body: 'B', user: 'u1' }],
+                telegram: [{ title: 'T', body: 'B', chatId: '123' }]
+            });
+
+            const obj = config.toJSON();
+            expect(obj.pushover).to.have.length(1);
+            expect(obj.pushover[0]).to.have.property('user', 'u1');
+            expect(obj.telegram).to.have.length(1);
+            expect(obj.telegram[0]).to.have.property('chatId', '123');
         });
     });
 
@@ -196,6 +255,20 @@ describe('NotificationActionsConfig', function() {
                 externalCommands: [{
                     command: 'echo "test"'
                 }]
+            });
+            expect(config.hasActions()).to.be.true;
+        });
+
+        it('should return true when pushover is configured', function() {
+            const config = new NotificationActionsConfig({
+                pushover: [{ title: 'T', body: 'B', user: 'u1' }]
+            });
+            expect(config.hasActions()).to.be.true;
+        });
+
+        it('should return true when telegram is configured', function() {
+            const config = new NotificationActionsConfig({
+                telegram: [{ title: 'T', body: 'B', chatId: '123' }]
             });
             expect(config.hasActions()).to.be.true;
         });

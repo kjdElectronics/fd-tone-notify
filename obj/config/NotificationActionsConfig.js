@@ -1,11 +1,14 @@
 const { ErrorWithStatusCode } = require('../../util/ErrorWithStatusCode');
 const { EmailConfig } = require('./EmailConfig');
 const { PushbulletConfig } = require('./PushbulletConfig');
+const { PushoverConfig } = require('./PushoverConfig');
+const { TelegramConfig } = require('./TelegramConfig');
 const { WebhookConfig } = require('./WebhookConfig');
 const { ExternalCommandConfig } = require('./ExternalCommandConfig');
 
 /**
- * Configuration object for notification actions (emails, pushbullet, webhooks, external commands)
+ * Configuration object for notification actions (emails, pushbullet,
+ * pushover, telegram, webhooks, external commands)
  */
 class NotificationActionsConfig {
     /**
@@ -13,20 +16,24 @@ class NotificationActionsConfig {
      * @param {Object} config - Notification actions configuration
      * @param {Array} [config.emails] - Array of email configurations
      * @param {Array} [config.pushbullet] - Array of pushbullet configurations
+     * @param {Array} [config.pushover] - Array of Pushover configurations
+     * @param {Array} [config.telegram] - Array of Telegram configurations
      * @param {Array} [config.webhooks] - Array of webhook configurations
      * @param {Array} [config.externalCommands] - Array of external command configurations
      */
-    constructor({ emails, pushbullet, webhooks, externalCommands } = {}) {
-        this.validateAndSet({ emails, pushbullet, webhooks, externalCommands });
+    constructor({ emails, pushbullet, pushover, telegram, webhooks, externalCommands } = {}) {
+        this.validateAndSet({ emails, pushbullet, pushover, telegram, webhooks, externalCommands });
     }
 
     /**
      * Validate and set notification actions configuration properties
      * @private
      */
-    validateAndSet({ emails, pushbullet, webhooks, externalCommands }) {
+    validateAndSet({ emails, pushbullet, pushover, telegram, webhooks, externalCommands }) {
         this.emails = [];
         this.pushbullet = [];
+        this.pushover = [];
+        this.telegram = [];
         this.webhooks = [];
         this.externalCommands = [];
 
@@ -44,6 +51,22 @@ class NotificationActionsConfig {
                 throw ErrorWithStatusCode.validation('pushbullet must be an array');
             }
             this.pushbullet = pushbullet.map(pb => new PushbulletConfig(pb));
+        }
+
+        // Validate and set pushover array
+        if (pushover) {
+            if (!Array.isArray(pushover)) {
+                throw ErrorWithStatusCode.validation('pushover must be an array');
+            }
+            this.pushover = pushover.map(po => new PushoverConfig(po));
+        }
+
+        // Validate and set telegram array
+        if (telegram) {
+            if (!Array.isArray(telegram)) {
+                throw ErrorWithStatusCode.validation('telegram must be an array');
+            }
+            this.telegram = telegram.map(tg => new TelegramConfig(tg));
         }
 
         // Validate and set webhooks array
@@ -71,6 +94,8 @@ class NotificationActionsConfig {
         return {
             emails: this.emails.map(email => email.toJSON()),
             pushbullet: this.pushbullet.map(pb => pb.toJSON()),
+            pushover: this.pushover.map(po => po.toJSON()),
+            telegram: this.telegram.map(tg => tg.toJSON()),
             webhooks: this.webhooks.map(webhook => webhook.toJSON()),
             externalCommands: this.externalCommands.map(cmd => cmd.toJSON())
         };
@@ -81,9 +106,11 @@ class NotificationActionsConfig {
      * @returns {boolean}
      */
     hasActions() {
-        return this.emails.length > 0 || 
-               this.pushbullet.length > 0 || 
-               this.webhooks.length > 0 || 
+        return this.emails.length > 0 ||
+               this.pushbullet.length > 0 ||
+               this.pushover.length > 0 ||
+               this.telegram.length > 0 ||
+               this.webhooks.length > 0 ||
                this.externalCommands.length > 0;
     }
 }

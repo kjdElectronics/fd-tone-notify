@@ -120,6 +120,50 @@ describe("NotificationParams", function() {
             expect(preEmail.subject).to.have.string("%d");
         });
     });
+
+    describe("#getPushovers", function() {
+        it("should return an empty list if there are no pushover notifications", function() {
+            const notificationParams = new NotificationParams(DEFAULT_PARAMS);
+            expect(notificationParams.getPushovers('PRE')).deep.equals([]);
+            expect(notificationParams.getPushovers('POST')).deep.equals([]);
+        });
+
+        it("should return the configured pushover notifications", function() {
+            const prePushover = { title: "PRE Title", body: "PRE Body", user: "u1" };
+            const postPushover = { title: "POST Title", body: "POST Body", user: "u2" };
+
+            newParams = deep_copy(DEFAULT_PARAMS);
+            newParams.notifications.preRecording.pushover = [prePushover];
+            newParams.notifications.postRecording.pushover = [postPushover];
+
+            const notificationParams = new NotificationParams(newParams);
+
+            expect(notificationParams.getPushovers('PRE')).deep.equals([prePushover]);
+            expect(notificationParams.getPushovers('POST')).deep.equals([postPushover]);
+        });
+    });
+
+    describe("#getTelegrams", function() {
+        it("should return an empty list if there are no telegram notifications", function() {
+            const notificationParams = new NotificationParams(DEFAULT_PARAMS);
+            expect(notificationParams.getTelegrams('PRE')).deep.equals([]);
+            expect(notificationParams.getTelegrams('POST')).deep.equals([]);
+        });
+
+        it("should return the configured telegram notifications", function() {
+            const preTelegram = { title: "PRE Title", body: "PRE Body", chatId: "123" };
+            const postTelegram = { title: "POST Title", body: "POST Body", chatId: "456" };
+
+            newParams = deep_copy(DEFAULT_PARAMS);
+            newParams.notifications.preRecording.telegram = [preTelegram];
+            newParams.notifications.postRecording.telegram = [postTelegram];
+
+            const notificationParams = new NotificationParams(newParams);
+
+            expect(notificationParams.getTelegrams('PRE')).deep.equals([preTelegram]);
+            expect(notificationParams.getTelegrams('POST')).deep.equals([postTelegram]);
+        });
+    });
 });
 
 function deep_copy(obj) {

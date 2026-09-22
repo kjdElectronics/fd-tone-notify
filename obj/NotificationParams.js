@@ -38,6 +38,14 @@ class NotificationParams{
         return this.__getNotificationOptions({prePostType, notificationKey: "pushbullet"});
     }
 
+    getPushovers(prePostType){
+        return this.__getNotificationOptions({prePostType, notificationKey: "pushover"});
+    }
+
+    getTelegrams(prePostType){
+        return this.__getNotificationOptions({prePostType, notificationKey: "telegram"});
+    }
+
     getEmails(prePostType){
         const emails = this.__getNotificationOptions({prePostType, notificationKey: "emails"});
         const updatedEmails = emails.map(email => {

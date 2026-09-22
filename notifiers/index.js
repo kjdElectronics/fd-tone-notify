@@ -3,6 +3,8 @@ const {runExternalCommand} = require('./external.command');
 const {sendEmail} = require('./send.email');
 const {postJson, postMultiPartFormDataWithFile} = require('./webhook');
 const {PushBulletService} = require('./PushBulletService');
+const {PushoverService} = require('./PushoverService');
+const {TelegramService} = require('./TelegramService');
 const chalk = require('chalk');
 const log = require('../util/logger');
 const path = require('path');
@@ -20,7 +22,9 @@ async function sendPreRecordingNotifications(notificationParams){
 
     log.debug(`Processing PRE recording notifications for ${notificationParams.detector.name}. UUID: ${notificationParams.uuid}`);
     const p = _pushbulletNotifications(notificationParams, PRE);
-    let promises = [p];
+    const po = _pushoverNotifications(notificationParams, PRE);
+    const tg = _telegramNotifications(notificationParams, PRE);
+    let promises = [p, po, tg];
     if(notificationParams.notifications.preRecording) {
         promises = promises.concat(_emailNotifications(notificationParams, PRE));
         promises = promises.concat(_webhooks(notificationParams, PRE));
@@ -38,7 +42,9 @@ async function sendPostRecordingNotifications(notificationParams){
 
     log.debug(`Processing POST recording notifications ${notificationParams.detector.name}. UUID: ${notificationParams.uuid}`);
     const p = _pushbulletNotifications(notificationParams, POST);
-    let promises = [p];
+    const po = _pushoverNotifications(notificationParams, POST);
+    const tg = _telegramNotifications(notificationParams, POST);
+    let promises = [p, po, tg];
     if(notificationParams.notifications.postRecording) {
         promises = promises.concat(_emailNotifications(notificationParams, POST));
         promises = promises.concat(_webhooks(notificationParams, POST));
@@ -76,6 +82,75 @@ async function _pushbulletNotifications(params, prePostType) {
                 .then(r => log.info("Push Audio Link Sent"))
                 .catch(err => {
                     log.error("Error Audio Link Push");
+                    log.debug(err.stack);
+                });
+        }
+    });
+}
+
+async function _pushoverNotifications(params, prePostType) {
+    const pushovers = params.getPushovers(prePostType);
+    if (pushovers.length === 0) {
+        log.debug(`No Pushover ${prePostType} Recording notifications`);
+        return;
+    }
+
+    log.info(`Sending ${pushovers.length}x ${prePostType} Recording Pushover notifications`);
+    return pushovers.map(po => {
+        const options = new PushMessageOptions({...po, timestamp: params.timestamp, isTest: params.isTest});
+        if (prePostType === PRE) {
+            return PushoverService.push({title: options.title, message: options.body, user: po.user, priority: po.priority, sound: po.sound})
+                .then(r => log.info(chalk.bold.green("Initial Pushover Push Sent")))
+                .catch(err => {
+                    log.error("Error sending Initial Pushover push");
+                    log.debug(err.stack);
+                });
+        } else {
+            return PushoverService.pushFile({
+                title: `${params.detector ? params.detector.name : ''} Dispatch Audio`,
+                message: options.body,
+                user: po.user,
+                priority: po.priority,
+                sound: po.sound,
+                absolutePath: path.resolve(params.filename),
+            })
+                .then(r => log.info("Pushover Audio Attachment Sent"))
+                .catch(err => {
+                    log.error("Error sending Pushover audio attachment");
+                    log.debug(err.stack);
+                });
+        }
+    });
+}
+
+async function _telegramNotifications(params, prePostType) {
+    const telegrams = params.getTelegrams(prePostType);
+    if (telegrams.length === 0) {
+        log.debug(`No Telegram ${prePostType} Recording notifications`);
+        return;
+    }
+
+    log.info(`Sending ${telegrams.length}x ${prePostType} Recording Telegram notifications`);
+    return telegrams.map(tg => {
+        const options = new PushMessageOptions({...tg, timestamp: params.timestamp, isTest: params.isTest});
+        if (prePostType === PRE) {
+            return TelegramService.push({title: options.title, message: options.body, chatId: tg.chatId})
+                .then(r => log.info(chalk.bold.green("Initial Telegram Message Sent")))
+                .catch(err => {
+                    log.error("Error sending Initial Telegram message");
+                    log.debug(err.stack);
+                });
+        } else {
+            return TelegramService.pushFile({
+                title: `${params.detector ? params.detector.name : ''} Dispatch Audio`,
+                message: options.body,
+                chatId: tg.chatId,
+                absolutePath: path.resolve(params.filename),
+                filename: path.basename(params.filename),
+            })
+                .then(r => log.info("Telegram Audio Attachment Sent"))
+                .catch(err => {
+                    log.error("Error sending Telegram audio attachment");
                     log.debug(err.stack);
                 });
         }
