@@ -8,11 +8,15 @@ const {decodeRawAudioBuffer} = require("../util/util");
 const EventEmitter = require('events');
 const {RecordingThread} = require("./RecordingThread");
 const {sendPreRecordingNotifications} = require('../notifiers');
+const {sendDetectionWebhook} = require('../notifiers/DetectionWebhookService');
 const {NotificationParams} = require('../obj/NotificationParams');
 const path = require('path');
 const config = require('config');
 const {ErrorWithStatusCode} = require("../util/ErrorWithStatusCode");
 const {SourceContext} = require("../obj/SourceContext");
+
+// Maps SourceContext's internal source values to the public webhook source.type vocabulary
+const WEBHOOK_SOURCE_TYPE_MAP = { live: 'mic', 'file-upload': 'file', rdio: 'rdio' };
 
 const NO_DATA_INTERVAL_SEC = 30;
 const THREAD_ROTATION_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
@@ -187,6 +191,12 @@ class DetectionService extends EventEmitter{
             const recordingDirectory = config.recording.directory;
             const fullPath = path.join(recordingDirectory, filenameOnly);
 
+            // System-wide detection webhook: fires once per detection independent of
+            // any per-detector/service notification configuration. Fire-and-forget -
+            // never awaited, and the service itself guarantees it never throws.
+            this.__fireDetectionWebhook({tonesDetectorConfig, matchAverages, detectedAt,
+                filenameOnly, calculatedIsRecordingEnabled});
+
             const notificationParams = new NotificationParams({
                 detector: tonesDetector,
                 timestamp,
@@ -235,6 +245,32 @@ class DetectionService extends EventEmitter{
                 }, this.maxRecordingLengthSec * 1000 + 15000);
             lock.release();
         }
+    }
+
+    /**
+     * Fire the system-wide detection webhook for a single detection. No-ops
+     * internally when FD_DETECTION_WEBHOOK_URL is unset. Never throws and is
+     * intentionally not awaited by the caller - a webhook outage must never
+     * delay or block tone detection processing.
+     * @private
+     */
+    __fireDetectionWebhook({tonesDetectorConfig, matchAverages, detectedAt, filenameOnly, calculatedIsRecordingEnabled}) {
+        const sourceContextObj = this._sourceContext ? this._sourceContext.toJSON() : {};
+        const {source: rawSourceType, ...restContext} = sourceContextObj;
+        const source = {
+            type: WEBHOOK_SOURCE_TYPE_MAP[rawSourceType] || rawSourceType,
+            ...restContext
+        };
+
+        sendDetectionWebhook({
+            detectorId: tonesDetectorConfig.id,
+            detectorName: tonesDetectorConfig.name,
+            tones: tonesDetectorConfig.tones,
+            matchAverages,
+            timestamp: detectedAt,
+            source,
+            recordingRelativePath: calculatedIsRecordingEnabled ? filenameOnly : null
+        }).catch(err => log.warning(`Detection webhook dispatch failed unexpectedly: ${err.message}`));
     }
 
     get sourceContext() {

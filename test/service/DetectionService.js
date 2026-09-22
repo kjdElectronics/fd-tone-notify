@@ -1,5 +1,7 @@
 require('dotenv').config();
 const expect  = require("chai").expect;
+const sinon = require('sinon');
+const axios = require('axios');
 const fs = require('fs');
 const WavDecoder = require('wav-decoder');
 const path = require('path');
@@ -223,6 +225,155 @@ describe("DetectionService", function() {
                     filePath: 'test.wav'
                 });
             }).to.throw('processAudioData can only be used in file mode');
+        });
+    });
+
+    describe('system-wide detection webhook', function() {
+        let originalUrl, originalSecret;
+
+        beforeEach(function() {
+            originalUrl = process.env.FD_DETECTION_WEBHOOK_URL;
+            originalSecret = process.env.FD_DETECTION_WEBHOOK_SECRET;
+            process.env.FD_DETECTION_WEBHOOK_URL = 'http://localhost:9999/webhook';
+            process.env.FD_DETECTION_WEBHOOK_SECRET = 'test-secret';
+        });
+
+        afterEach(function() {
+            sinon.restore();
+            if (originalUrl === undefined) delete process.env.FD_DETECTION_WEBHOOK_URL;
+            else process.env.FD_DETECTION_WEBHOOK_URL = originalUrl;
+            if (originalSecret === undefined) delete process.env.FD_DETECTION_WEBHOOK_SECRET;
+            else process.env.FD_DETECTION_WEBHOOK_SECRET = originalSecret;
+        });
+
+        it('should fire the webhook with detectorId/tones/matchAverages/source.type="mic", independent of per-detector notification config', async function() {
+            const postStub = sinon.stub(axios, 'post').resolves({ status: 200, data: 'ok' });
+            const args = DYNAMIC_TEST_ARGS[0]; // raw.wav, tones [911, 2934]
+            const filePath = path.resolve("./test/wav", args.filename);
+            const audioFileService = new AudioFileService({ chunkDurationSeconds: 1 });
+
+            const detection = new DetectionService({
+                audioInterface: null,
+                sampleRate: args.sampleRate,
+                frequencyScaleFactor: args.frequencyScaleFactor,
+                fileMode: true,
+                recording: false,
+                sourceContext: SourceContext.live() // exercise the mic mapping regardless of the audio pipeline used in this test
+            });
+
+            detection.addToneDetector(new TonesDetectorConfig({
+                id: '11111111-1111-4111-8111-111111111111',
+                name: 'Webhook Independence Test',
+                tones: args.tones,
+                matchThreshold: 6,
+                tolerancePercent: 0.05
+                // Deliberately no `notifications` configured on this detector
+            }));
+
+            await new Promise((resolve, reject) => {
+                const failTimeout = setTimeout(() => reject(new Error('Timeout: toneDetected not fired')), 8000);
+
+                detection.on('toneDetected', () => {
+                    clearTimeout(failTimeout);
+                    resolve();
+                });
+
+                audioFileService.on('audioData', (audioData) => detection.processAudioData(audioData));
+                audioFileService.processFile(filePath).catch(reject);
+            });
+
+            expect(postStub.calledOnce).to.be.true;
+            const payload = JSON.parse(postStub.getCall(0).args[1]);
+            expect(payload.event).to.equal('detection');
+            expect(payload.detectorId).to.equal('11111111-1111-4111-8111-111111111111');
+            expect(payload.detectorName).to.equal('Webhook Independence Test');
+            expect(payload.tones).to.deep.equal(args.tones);
+            expect(payload.matchAverages).to.be.an('array').with.length(2);
+            expect(payload.source).to.have.property('type', 'mic');
+            expect(payload.recordingRelativePath).to.be.null;
+            expect(payload.fdtnVersion).to.be.a('string');
+        });
+
+        it('should map an Rdio sourceContext to source.type="rdio" and include talkgroup metadata', async function() {
+            const postStub = sinon.stub(axios, 'post').resolves({ status: 200, data: 'ok' });
+            const args = DYNAMIC_TEST_ARGS[0];
+            const filePath = path.resolve("./test/wav", args.filename);
+            const audioFileService = new AudioFileService({ chunkDurationSeconds: 1 });
+            const sourceContext = SourceContext.fromRdioMetadata({
+                dateTime: '1712754541',
+                talkgroupLabel: 'Fire Dispatch',
+                talkgroup: '1001'
+            });
+
+            const detection = new DetectionService({
+                audioInterface: null,
+                sampleRate: args.sampleRate,
+                frequencyScaleFactor: args.frequencyScaleFactor,
+                fileMode: true,
+                recording: false,
+                sourceContext
+            });
+
+            detection.addToneDetector(new TonesDetectorConfig({
+                name: 'Rdio Webhook Test',
+                tones: args.tones,
+                matchThreshold: 6,
+                tolerancePercent: 0.05
+            }));
+
+            await new Promise((resolve, reject) => {
+                const failTimeout = setTimeout(() => reject(new Error('Timeout: toneDetected not fired')), 8000);
+
+                detection.on('toneDetected', () => {
+                    clearTimeout(failTimeout);
+                    resolve();
+                });
+
+                audioFileService.on('audioData', (audioData) => detection.processAudioData(audioData));
+                audioFileService.processFile(filePath).catch(reject);
+            });
+
+            expect(postStub.calledOnce).to.be.true;
+            const payload = JSON.parse(postStub.getCall(0).args[1]);
+            expect(payload.source).to.have.property('type', 'rdio');
+            expect(payload.source).to.have.nested.property('talkgroup.label', 'Fire Dispatch');
+        });
+
+        it('should not send the webhook when FD_DETECTION_WEBHOOK_URL is unset', async function() {
+            delete process.env.FD_DETECTION_WEBHOOK_URL;
+            const postStub = sinon.stub(axios, 'post').resolves({ status: 200, data: 'ok' });
+            const args = DYNAMIC_TEST_ARGS[0];
+            const filePath = path.resolve("./test/wav", args.filename);
+            const audioFileService = new AudioFileService({ chunkDurationSeconds: 1 });
+
+            const detection = new DetectionService({
+                audioInterface: null,
+                sampleRate: args.sampleRate,
+                frequencyScaleFactor: args.frequencyScaleFactor,
+                fileMode: true,
+                recording: false
+            });
+
+            detection.addToneDetector(new TonesDetectorConfig({
+                name: 'No Webhook Test',
+                tones: args.tones,
+                matchThreshold: 6,
+                tolerancePercent: 0.05
+            }));
+
+            await new Promise((resolve, reject) => {
+                const failTimeout = setTimeout(() => reject(new Error('Timeout: toneDetected not fired')), 8000);
+
+                detection.on('toneDetected', () => {
+                    clearTimeout(failTimeout);
+                    resolve();
+                });
+
+                audioFileService.on('audioData', (audioData) => detection.processAudioData(audioData));
+                audioFileService.processFile(filePath).catch(reject);
+            });
+
+            expect(postStub.called).to.be.false;
         });
     });
 
