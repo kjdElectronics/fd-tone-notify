@@ -220,15 +220,10 @@ to test one specific notification.
 ### `POST /api/system/restart`
 
 **Auth: UI password.** Spawns `bin/restart-helper.js` and gracefully shuts
-the backend down for it to relaunch.
-
-**Known bug:** the args it passes to the restart helper
-(`server/routes/system.js`) are `['--web-server', ...]` - missing
-`--legacy`. `index.js` requires `--legacy` for `--web-server` to be accepted
-(see `validateOptions()`), so the relaunched process currently exits
-immediately with a validation error instead of coming back up. A control
-plane should not rely on this endpoint working until that's fixed; prefer
-restarting the container instead.
+the backend down for it to relaunch (with `--legacy --web-server`, plus
+`--port`/`--instance-name`/`--recording-directory` if those were set on the
+current process - `index.js` requires `--legacy` for `--web-server` to be
+accepted at all, see `validateOptions()`).
 
 ### `POST /api/system/stop`
 
@@ -398,8 +393,6 @@ event data (`detectionData.detector.id`) both come from this same `id`.
 
 ## Known gaps for a control plane to be aware of
 
-- `PUT /api/system/restart` cannot currently bring the process back up (see
-  above) - restart the container/process instead.
 - `PUT /api/config` only accepts a fixed, flat set of `FD_*` keys, not the
   full nested JSON shape `GET /api/config` returns.
 - `POST /api/detect-tones` and `GET /api/detections` are unauthenticated by

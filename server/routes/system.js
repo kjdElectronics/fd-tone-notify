@@ -17,7 +17,10 @@ router.post('/restart', authenticate, async (req, res) => {
         const currentPid = process.pid;
         
         // Prepare arguments to pass to the restarted process
-        const restartArgs = ['--web-server'];
+        // --legacy is required: index.js's validateOptions() rejects
+        // --web-server (and exits) unless --legacy is also set, since
+        // --web-server is a legacy-mode-only option.
+        const restartArgs = ['--legacy', '--web-server'];
         
         // Add port if it was specified
         if (process.env.FD_PORT) {

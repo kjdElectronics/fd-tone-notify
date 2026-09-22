@@ -120,9 +120,9 @@ docker compose exec fdtn node -e \
 ```
 
 Put the printed hash into `config/secrets.json`'s `UI_PASSWORD_HASH`, then
-restart the container (`docker compose restart fdtn`) - config file changes
-are picked up on process start, not live (see the "known gaps" note in
-docs/api.md about `POST /api/system/restart`).
+restart the container (`docker compose restart fdtn`, or
+`POST /api/system/restart` - see docs/api.md) - config file changes are
+picked up on process start, not live.
 
 ## Where config lives
 
@@ -236,8 +236,6 @@ config to initialize).
 
 ## Known limitations
 
-- `POST /api/system/restart` cannot currently bring the backend back up (see
-  docs/api.md) - use `docker compose restart fdtn` instead.
 - The image is built for the platform you build it on. For multi-arch (e.g.
   building an amd64 image on Apple Silicon for a Raspberry Pi/ARM host), use
   `docker buildx build --platform linux/amd64,linux/arm64 ...`.
