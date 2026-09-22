@@ -61,5 +61,5 @@ function writeFile(){
     fs.writeFileSync(LICENCE_PATH, LICENCE);
 }
 
-module.exports = {checkLicense};
+module.exports = {checkLicense, LICENCE};
 

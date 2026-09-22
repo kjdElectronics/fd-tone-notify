@@ -1,0 +1,16 @@
+services:
+  fdtn:
+    build: .
+    image: fdtn:latest
+    container_name: fdtn
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./config:/app/config
+      - ./recordings:/app/recordings
+    env_file:
+      - .env
+    # Backend serves HTTPS with a self-signed certificate by default
+    # (util/ssl-manager.js) - see docs/docker.md for the first-run steps
+    # (seeding ./config) and how to reach the API.
