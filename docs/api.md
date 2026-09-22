@@ -419,6 +419,10 @@ Field notes:
   from the Rdio call metadata (`dateTime`, `talkgroup`, `talkgroupLabel`,
   `talkgroupGroup`, `talkgroupTag`, `system`, `systemLabel`, `source`,
   `frequency`).
+- `source.sourceId` / `source.sourceName` are only present for `"rdio"`
+  sources authenticated with a scoped API key (not the legacy
+  `FD_RDIO_API_KEY_HASH` shared secret) - see
+  [Per-source ingest keys](#per-source-ingest-keys).
 - `recordingRelativePath` is the filename (relative to
   `FD_RECORDING_DIRECTORY`) the recording **will be** written to, or `null`
   if recording is disabled for that detection. It reflects the intended
@@ -459,6 +463,50 @@ to backfill ids for an existing installation.
 event data (`detectionData.detector.id`) both come from this same `id`.
 
 ---
+
+## Per-source ingest keys
+
+An ingest-scoped API key (`ingest` or `admin` scope, `POST /api/keys` - see
+[Authentication](#authentication)) used to authenticate
+`POST /api/call-upload` carries its own identity through the whole
+detection pipeline, distinct from the legacy `FD_RDIO_API_KEY_HASH` shared
+secret (which has no per-source identity at all):
+
+- The call's `SourceContext` (`obj/SourceContext.js`) is tagged with
+  `sourceId` (the key's `id`) and `sourceName` (the key's `name`).
+- Both fields appear in the detection webhook payload's `source` object
+  (`source.sourceId`/`source.sourceName`) and in `GET /api/detections` /
+  the WebSocket `toneDetected` event's `sourceContext` - wherever
+  `source`/`sourceContext` already appears, alongside `talkgroup`.
+- A detector can optionally be restricted to specific ingest sources with
+  `sources: ["<keyId>", ...]` (`POST`/`PUT /api/detectors`, default `[]`).
+  A non-empty `sources` array means the detector only matches Rdio calls
+  authenticated with one of those key ids; `[]` (the default) matches
+  every source, same as before this feature existed. A call authenticated
+  via the legacy shared secret has no `sourceId`, so it never matches a
+  source-restricted detector - only ingest-key-authenticated calls can.
+
+Example: two Rdio Scanner instances forwarding to the same FDTN backend,
+each with its own key, and a detector that should only fire for one of
+them:
+
+```bash
+# One ingest key per physical source
+curl -sk https://<host>:3000/api/keys -H "Authorization: Bearer <admin key or UI session>" \
+  -d '{"name": "Site A Rdio Scanner", "scopes": ["ingest"]}'
+# -> {"success":true,"key":{"id":"a1b2c3d4e5f60718", ..., "key":"fdtn_a1b2c3d4e5f60718.<secret>"}}
+
+curl -sk https://<host>:3000/api/keys -H "Authorization: Bearer <admin key or UI session>" \
+  -d '{"name": "Site B Rdio Scanner", "scopes": ["ingest"]}'
+# -> {"success":true,"key":{"id":"b2c3d4e5f6071829", ..., "key":"fdtn_b2c3d4e5f6071829.<secret>"}}
+```
+
+Configure each Rdio Scanner instance's downstream API key to the
+corresponding `fdtn_...` key, then restrict a detector to Site A only:
+
+```json
+{ "name": "Site A Only", "tones": [850, 950], "sources": ["a1b2c3d4e5f60718"] }
+```
 
 ## Known gaps for a control plane to be aware of
 
