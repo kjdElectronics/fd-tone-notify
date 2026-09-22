@@ -32,8 +32,12 @@ const globalConfigStubs = {
         : sinon.stub(configUtil, 'markConfigChanged'),
 };
 
-// Stub the authentication middleware globally before routes are imported
-const authStub = sinon.stub(authMiddleware, 'authenticate');
+// Stub the authentication middleware globally before routes are imported.
+// Guard with isSinonProxy since another test file loaded in the same mocha
+// run (e.g. config.controller.test.js) may have already stubbed this.
+const authStub = authMiddleware.authenticate.isSinonProxy
+    ? authMiddleware.authenticate
+    : sinon.stub(authMiddleware, 'authenticate');
 authStub.callsFake((req, res, next) => {
     req.user = { id: 'test-user', role: 'admin' };
     req.app = { wss: { broadcastLog: sinon.stub() } };
@@ -52,6 +56,8 @@ const {
     mockAuthMiddleware,
     expectedResponseFormat
 } = require('../../fixtures/detector-test-data');
+
+const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 describe('Detector Controller Integration Tests', function() {
     let app;
@@ -123,6 +129,50 @@ describe('Detector Controller Integration Tests', function() {
 
             expect(response.body.detectors).to.be.an('array').that.is.empty;
             expect(response.body.count).to.equal(0);
+        });
+    });
+
+    describe('GET /detectors/:id', function() {
+        const idConfig = {
+            detection: {
+                detectors: [
+                    { name: 'No Id Detector', tones: [800] },
+                    { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', name: 'Id Based Detector', tones: [900] }
+                ]
+            }
+        };
+
+        it('should return a detector by its UUID id', async function() {
+            globalConfigStubs.readConfigFile.resolves(JSON.parse(JSON.stringify(idConfig)));
+
+            const response = await request(app)
+                .get('/detectors/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
+                .expect(200);
+
+            expect(response.body).to.have.property('success', true);
+            expect(response.body.detector).to.have.property('name', 'Id Based Detector');
+            expect(response.body.detector).to.have.property('id', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+        });
+
+        it('should fall back to numeric index when no detector matches the id', async function() {
+            globalConfigStubs.readConfigFile.resolves(JSON.parse(JSON.stringify(idConfig)));
+
+            const response = await request(app)
+                .get('/detectors/0')
+                .expect(200);
+
+            expect(response.body.detector).to.have.property('name', 'No Id Detector');
+        });
+
+        it('should return 404 when neither an id nor an index matches', async function() {
+            globalConfigStubs.readConfigFile.resolves(JSON.parse(JSON.stringify(idConfig)));
+
+            const response = await request(app)
+                .get('/detectors/does-not-exist')
+                .expect(404);
+
+            expect(response.body).to.have.property('success', false);
+            expect(response.body).to.have.property('error', 'Detector not found');
         });
     });
 
@@ -198,6 +248,7 @@ describe('Detector Controller Integration Tests', function() {
             const createdDetector = response.body.detector;
             expect(createdDetector).to.have.property('name', validDetectorData.name);
             expect(createdDetector).to.have.property('tones').that.deep.equals(validDetectorData.tones);
+            expect(createdDetector).to.have.property('id').that.matches(UUID_V4_REGEX);
 
             // Verify all config operations were called in correct order
             expect(globalConfigStubs.createBackup.calledOnce).to.be.true;
@@ -300,6 +351,43 @@ describe('Detector Controller Integration Tests', function() {
             expect(response.body).to.have.property('success', false);
             expect(response.body).to.have.property('error', 'Detector not found');
         });
+
+        it('should update a detector addressed by its UUID id and preserve that id', async function() {
+            const idConfig = {
+                detection: {
+                    detectors: [
+                        { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', name: 'Id Based Detector', tones: [900] }
+                    ]
+                }
+            };
+            globalConfigStubs.readConfigFile.resolves(JSON.parse(JSON.stringify(idConfig)));
+
+            const response = await request(app)
+                .put('/detectors/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
+                .send({ name: 'Renamed' })
+                .expect(200);
+
+            expect(response.body.detector).to.have.property('id', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+            expect(response.body.detector).to.have.property('name', 'Renamed');
+        });
+
+        it('should assign a new id to a detector that never had one', async function() {
+            const idConfig = {
+                detection: {
+                    detectors: [
+                        { name: 'No Id Detector', tones: [900] }
+                    ]
+                }
+            };
+            globalConfigStubs.readConfigFile.resolves(JSON.parse(JSON.stringify(idConfig)));
+
+            const response = await request(app)
+                .put('/detectors/0')
+                .send({ name: 'Renamed' })
+                .expect(200);
+
+            expect(response.body.detector).to.have.property('id').that.matches(UUID_V4_REGEX);
+        });
     });
 
     describe('DELETE /detectors/:id', function() {
@@ -326,6 +414,23 @@ describe('Detector Controller Integration Tests', function() {
 
             expect(response.body).to.have.property('success', false);
             expect(response.body).to.have.property('error', 'Detector not found');
+        });
+
+        it('should delete a detector addressed by its UUID id', async function() {
+            const idConfig = {
+                detection: {
+                    detectors: [
+                        { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', name: 'Id Based Detector', tones: [900] }
+                    ]
+                }
+            };
+            globalConfigStubs.readConfigFile.resolves(JSON.parse(JSON.stringify(idConfig)));
+
+            const response = await request(app)
+                .delete('/detectors/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
+                .expect(200);
+
+            expect(response.body.deletedDetector).to.have.property('id', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
         });
     });
 

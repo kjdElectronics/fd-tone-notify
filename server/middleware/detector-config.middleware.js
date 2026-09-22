@@ -22,6 +22,7 @@ function parseDetectorConfig(req, res, next) {
         detectorsToUse.forEach(detectorConfig => {
             // Create TonesDetectorConfig with validation
             const detectorConfigObj = new TonesDetectorConfig({
+                id: detectorConfig.id,
                 name: detectorConfig.name,
                 talkgroupFilter: detectorConfig.talkgroupFilter,
                 talkgroupExclusive: detectorConfig.talkgroupExclusive,

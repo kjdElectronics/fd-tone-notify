@@ -45,6 +45,7 @@ async function fdToneNotify({webServer=false}={}){
             isRecordingEnabled = config.detection.isRecordingEnabled;
 
         const options = {
+            id: detectorConfig.id,
             name: detectorConfig.name,
             tones: detectorConfig.tones,
             resetTimeoutMs: detectorConfig.resetTimeoutMs ? detectorConfig.resetTimeoutMs : config.detection.defaultResetTimeoutMs,

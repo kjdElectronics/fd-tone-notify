@@ -21,6 +21,22 @@ describe("TonesDetector", function() {
         expect(tonesDetector._detectors.length).equals(2);
     });
 
+    it("should carry the config id through to the detector and toObj()", async function() {
+        const configWithId = new TonesDetectorConfig({
+            id: '22222222-2222-4222-8222-222222222222',
+            name: "Test",
+            tones: [1000, 1300]
+        });
+        const tonesDetector = new TonesDetector(configWithId);
+        expect(tonesDetector.id).equals('22222222-2222-4222-8222-222222222222');
+        expect(tonesDetector.toObj()).to.have.property('id', '22222222-2222-4222-8222-222222222222');
+    });
+
+    it("should leave id undefined on the detector when the config has none", async function() {
+        const tonesDetector = new TonesDetector(DEFAULT_CONFIG);
+        expect(tonesDetector.id).to.be.undefined;
+    });
+
     it("should be able process values and progress through proper states", async function() {
         const PITCH_VALUES = [400, 400, 400, 400, 1000, 1002, 988, 975, 1002, 1020, 988,
             1018, 1000, 399, 1300, 1310, 300, 300, 300, 300, 1295, 1290, 1300,

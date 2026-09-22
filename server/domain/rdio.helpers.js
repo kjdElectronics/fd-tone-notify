@@ -58,6 +58,7 @@ function findMatchingDetectors(talkgroupLabel) {
  */
 function createMatchingDetectorConfigs(matchingDetectors) {
     return matchingDetectors.map(detectorConfig => new TonesDetectorConfig({
+        id: detectorConfig.id,
         name: detectorConfig.name,
         tones: detectorConfig.tones,
         talkgroupFilter: detectorConfig.talkgroupFilter,

@@ -2,6 +2,7 @@ const log = require('../../util/logger');
 const config = require('config');
 const fs = require('fs').promises;
 const path = require('path');
+const crypto = require('crypto');
 
 // Paths for configuration files
 const PROJECT_ROOT = path.join(__dirname, '../..');
@@ -35,11 +36,40 @@ function markConfigChanged(req) {
 
 // Helper functions for config file operations
 
+/**
+ * Assign a stable UUID v4 id (via crypto.randomUUID()) to any detector in the
+ * given array that is missing one. Mutates the detectors in place.
+ * @param {Array} detectors - Array of detector config objects
+ * @returns {boolean} true if any detector was assigned a new id
+ */
+function assignDetectorIds(detectors) {
+    if (!Array.isArray(detectors)) return false;
+
+    let changed = false;
+    detectors.forEach(detector => {
+        if (detector && !detector.id) {
+            detector.id = crypto.randomUUID();
+            changed = true;
+        }
+    });
+    return changed;
+}
+
 async function readConfigFile() {
     try {
         const configPath = getConfigFilePath();
         const data = await fs.readFile(configPath, 'utf8');
-        return JSON.parse(data);
+        const configData = JSON.parse(data);
+
+        // Self-heal: assign stable ids to any detectors missing one, and
+        // persist immediately so the ids are stable on the next read/boot.
+        const detectors = configData.detection && configData.detection.detectors;
+        if (assignDetectorIds(detectors)) {
+            log.info(`Assigned stable id(s) to detector(s) missing one; persisting config`);
+            await writeConfigFile(configData);
+        }
+
+        return configData;
     } catch (error) {
         log.warning(`Failed to read config file: ${error.message}`);
         return {};
@@ -91,4 +121,4 @@ async function createBackup() {
     }
 }
 
-module.exports = {markConfigChanged, readConfigFile, writeConfigFile, createBackup, getSecretsFilePath, getConfigFilePath}
+module.exports = {markConfigChanged, readConfigFile, writeConfigFile, createBackup, getSecretsFilePath, getConfigFilePath, assignDetectorIds}

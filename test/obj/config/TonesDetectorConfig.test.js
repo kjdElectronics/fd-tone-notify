@@ -16,6 +16,25 @@ describe('TonesDetectorConfig', function() {
             expect(config.tolerancePercent).to.equal(0.02);
         });
 
+        it('should leave id undefined when not provided', function() {
+            const config = new TonesDetectorConfig({
+                name: 'Test Detector',
+                tones: [800, 1200]
+            });
+
+            expect(config.id).to.be.undefined;
+        });
+
+        it('should carry through a provided id unchanged', function() {
+            const config = new TonesDetectorConfig({
+                id: '11111111-1111-4111-8111-111111111111',
+                name: 'Test Detector',
+                tones: [800, 1200]
+            });
+
+            expect(config.id).to.equal('11111111-1111-4111-8111-111111111111');
+        });
+
         it('should create valid TonesDetectorConfig with all fields', function() {
             const config = new TonesDetectorConfig({
                 name: 'Test Detector',
@@ -232,6 +251,17 @@ describe('TonesDetectorConfig', function() {
 
             const obj = config.toJSON();
             expect(obj).to.have.property('talkgroupExclusive', true);
+        });
+
+        it('should include id in toJSON output when provided', function() {
+            const config = new TonesDetectorConfig({
+                id: '11111111-1111-4111-8111-111111111111',
+                name: 'Test Detector',
+                tones: [800, 1200]
+            });
+
+            const obj = config.toJSON();
+            expect(obj).to.have.property('id', '11111111-1111-4111-8111-111111111111');
         });
     });
 

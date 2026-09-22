@@ -9,6 +9,7 @@ class TonesDetectorConfig {
     /**
      * Create a TonesDetectorConfig
      * @param {Object} config - Detector configuration
+     * @param {string} [config.id] - Stable UUID identifying this detector across config saves
      * @param {string} config.name - Detector name
      * @param {number[]} config.tones - Array of tone frequencies in Hz
      * @param {number} [config.matchThreshold=6] - Number of matches required for detection
@@ -22,10 +23,10 @@ class TonesDetectorConfig {
      * @param {string} [config.talkgroupFilter] - Talkgroup name filter for Rdio Scanner integration
      * @param {boolean} [config.talkgroupExclusive=false] - When true, detector is excluded from live audio monitoring
      */
-    constructor({ name, tones = [], matchThreshold = 6, tolerancePercent = 0.02, resetTimeoutMs = 7000,
+    constructor({ id, name, tones = [], matchThreshold = 6, tolerancePercent = 0.02, resetTimeoutMs = 7000,
                   lockoutTimeoutMs = 5000, minRecordingLengthSec = 30, maxRecordingLengthSec,
                   isRecordingEnabled, notifications, talkgroupFilter, talkgroupExclusive }) {
-        this.validateAndSet({ name, tones, matchThreshold, tolerancePercent, resetTimeoutMs,
+        this.validateAndSet({ id, name, tones, matchThreshold, tolerancePercent, resetTimeoutMs,
                              lockoutTimeoutMs, minRecordingLengthSec, maxRecordingLengthSec,
                              isRecordingEnabled, notifications, talkgroupFilter, talkgroupExclusive });
     }
@@ -34,7 +35,7 @@ class TonesDetectorConfig {
      * Validate and set detector configuration properties
      * @private
      */
-    validateAndSet({ name, tones, matchThreshold, tolerancePercent, resetTimeoutMs,
+    validateAndSet({ id, name, tones, matchThreshold, tolerancePercent, resetTimeoutMs,
                      lockoutTimeoutMs, minRecordingLengthSec, maxRecordingLengthSec,
                      isRecordingEnabled, notifications, talkgroupFilter, talkgroupExclusive }) {
         // Validate required fields
@@ -104,6 +105,7 @@ class TonesDetectorConfig {
         const notificationsConfig = notifications ? new NotificationsConfig(notifications) : null;
 
         // Set properties
+        this.id = id || undefined;
         this.name = name.trim();
         this.tones = [...tones]; // Create a copy
         this.matchThreshold = matchThreshold;

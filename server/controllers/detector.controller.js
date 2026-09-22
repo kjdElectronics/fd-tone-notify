@@ -1,7 +1,31 @@
 
+const crypto = require('crypto');
 const log = require('../../util/logger');
 const {readConfigFile, createBackup, writeConfigFile, markConfigChanged} = require("../util/config.file.util");
 const { validateDetector } = require('../domain/detector.validation');
+
+/**
+ * Resolve a detector's array index from a route param that may be either its
+ * stable UUID `id` or (for backwards compatibility) a numeric array index.
+ * UUIDs are checked first so a numeric-looking id never accidentally resolves
+ * to an index.
+ * @param {Array} detectors
+ * @param {string} idParam - req.params.id
+ * @returns {number} the resolved index, or -1 if no match
+ */
+function resolveDetectorIndex(detectors, idParam) {
+    if (!Array.isArray(detectors)) return -1;
+
+    const byId = detectors.findIndex(detector => detector && detector.id === idParam);
+    if (byId !== -1) return byId;
+
+    if (/^\d+$/.test(String(idParam))) {
+        const index = parseInt(idParam, 10);
+        if (index >= 0 && index < detectors.length) return index;
+    }
+
+    return -1;
+}
 
 /**
  * Get all detectors from configuration
@@ -10,7 +34,7 @@ async function getDetectors(req, res) {
     try {
         const configData = await readConfigFile();
         const detectors = configData.detection?.detectors || [];
-        
+
         res.json({
             success: true,
             detectors: detectors,
@@ -22,6 +46,39 @@ async function getDetectors(req, res) {
         res.status(500).json({
             success: false,
             error: 'Failed to retrieve detectors',
+            details: error.message
+        });
+    }
+}
+
+/**
+ * Get a single detector by id (UUID) or, for backwards compatibility, by its
+ * numeric array index.
+ */
+async function getDetector(req, res) {
+    try {
+        const configData = await readConfigFile();
+        const detectors = configData.detection?.detectors || [];
+        const index = resolveDetectorIndex(detectors, req.params.id);
+
+        if (index === -1) {
+            return res.status(404).json({
+                success: false,
+                error: 'Detector not found',
+                details: `No detector matches id or index "${req.params.id}"`
+            });
+        }
+
+        res.json({
+            success: true,
+            detector: detectors[index],
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        log.error(`Failed to get detector: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to retrieve detector',
             details: error.message
         });
     }
@@ -52,7 +109,9 @@ async function createDetector(req, res) {
         
         // Apply smart defaults
         const newDetector = applyDefaults(detectorData, configData);
-        
+        // Server always assigns the authoritative id for a newly created detector
+        newDetector.id = crypto.randomUUID();
+
         // Ensure detectors array exists
         configData.detection = configData.detection || {};
         configData.detection.detectors = configData.detection.detectors || [];
@@ -102,7 +161,6 @@ async function createDetector(req, res) {
  */
 async function updateDetector(req, res) {
     try {
-        const detectorId = parseInt(req.params.id);
         const detectorData = req.body;
 
         // Validate detector data
@@ -120,29 +178,30 @@ async function updateDetector(req, res) {
 
         // Read current config
         const configData = await readConfigFile();
-        
+
         if (!configData.detection?.detectors || !Array.isArray(configData.detection.detectors)) {
             return res.status(404).json({
                 success: false,
                 error: 'No detectors found in configuration'
             });
         }
-        
-        // Find detector by index
-        if (detectorId < 0 || detectorId >= configData.detection.detectors.length) {
+
+        // Find detector by id (UUID) first, falling back to numeric index
+        const detectorIndex = resolveDetectorIndex(configData.detection.detectors, req.params.id);
+        if (detectorIndex === -1) {
             return res.status(404).json({
                 success: false,
                 error: 'Detector not found',
-                details: `Detector index ${detectorId} does not exist`
+                details: `Detector index ${req.params.id} does not exist`
             });
         }
-        
-        const existingDetector = configData.detection.detectors[detectorId];
-        
+
+        const existingDetector = configData.detection.detectors[detectorIndex];
+
         // Check for duplicate names (excluding current detector)
         if (detectorData.name && detectorData.name !== existingDetector.name) {
             const duplicateDetector = configData.detection.detectors.find(
-                (detector, index) => index !== detectorId && detector.name === detectorData.name
+                (detector, index) => index !== detectorIndex && detector.name === detectorData.name
             );
             if (duplicateDetector) {
                 return res.status(400).json({
@@ -152,20 +211,23 @@ async function updateDetector(req, res) {
                 });
             }
         }
-        
+
         // Apply defaults to any missing fields and merge with existing detector
         const updatedDetector = applyDefaults({
             ...existingDetector,
             ...detectorData
         }, configData);
-        
+        // Identity is resolved by the URL, not the request body - preserve the
+        // existing detector's id (assigning one if it never had one).
+        updatedDetector.id = existingDetector.id || crypto.randomUUID();
+
         // Update detector in config
-        configData.detection.detectors[detectorId] = updatedDetector;
-        
+        configData.detection.detectors[detectorIndex] = updatedDetector;
+
         // Write updated config
         await writeConfigFile(configData);
-        
-        log.info(`Detector updated: ${updatedDetector.name} (index: ${detectorId})`);
+
+        log.info(`Detector updated: ${updatedDetector.name} (index: ${detectorIndex})`);
         
         // Mark config as changed
         markConfigChanged(req);
@@ -192,39 +254,38 @@ async function updateDetector(req, res) {
  */
 async function deleteDetector(req, res) {
     try {
-        const detectorId = parseInt(req.params.id);
-
         // Create backup
         await createBackup();
 
         // Read current config
         const configData = await readConfigFile();
-        
+
         if (!configData.detection?.detectors || !Array.isArray(configData.detection.detectors)) {
             return res.status(404).json({
                 success: false,
                 error: 'No detectors found in configuration'
             });
         }
-        
-        // Find detector by index
-        if (detectorId < 0 || detectorId >= configData.detection.detectors.length) {
+
+        // Find detector by id (UUID) first, falling back to numeric index
+        const detectorIndex = resolveDetectorIndex(configData.detection.detectors, req.params.id);
+        if (detectorIndex === -1) {
             return res.status(404).json({
                 success: false,
                 error: 'Detector not found',
-                details: `Detector index ${detectorId} does not exist`
+                details: `Detector index ${req.params.id} does not exist`
             });
         }
-        
-        const detectorToDelete = configData.detection.detectors[detectorId];
-        
+
+        const detectorToDelete = configData.detection.detectors[detectorIndex];
+
         // Remove detector from config
-        configData.detection.detectors.splice(detectorId, 1);
-        
+        configData.detection.detectors.splice(detectorIndex, 1);
+
         // Write updated config
         await writeConfigFile(configData);
-        
-        log.info(`Detector deleted: ${detectorToDelete.name} (index: ${detectorId})`);
+
+        log.info(`Detector deleted: ${detectorToDelete.name} (index: ${detectorIndex})`);
         
         // Mark config as changed
         markConfigChanged(req);
@@ -253,6 +314,7 @@ function applyDefaults(detectorData, configData) {
     const defaults = configData.detection || {};
     
     return {
+        id: detectorData.id,
         name: detectorData.name || `New Tone ${new Date().toLocaleString()}`,
         talkgroupFilter: detectorData.talkgroupFilter ?? '',
         talkgroupExclusive: detectorData.talkgroupExclusive ?? false,
@@ -282,9 +344,11 @@ function applyDefaults(detectorData, configData) {
 }
 
 
-module.exports = { 
-    getDetectors, 
-    createDetector, 
-    updateDetector, 
-    deleteDetector 
+module.exports = {
+    getDetectors,
+    getDetector,
+    createDetector,
+    updateDetector,
+    deleteDetector,
+    resolveDetectorIndex
 };

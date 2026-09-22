@@ -13,6 +13,7 @@ class TonesDetector extends EventEmitter{
             throw new Error('TonesDetector constructor requires a TonesDetectorConfig instance');
         }
 
+        this.id = config.id;
         this.name = config.name || '';
         this.tones = config.tones;
         this.tolerancePercent = config.tolerancePercent;
@@ -96,6 +97,7 @@ class TonesDetector extends EventEmitter{
 
     toObj(){
         return {
+            id: this.id,
             name: this.name,
             tones: this.tones,
             tolerancePercent:  this.tolerancePercent,

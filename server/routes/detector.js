@@ -1,9 +1,10 @@
 const express = require('express');
-const { 
-    getDetectors, 
-    createDetector, 
-    updateDetector, 
-    deleteDetector 
+const {
+    getDetectors,
+    getDetector,
+    createDetector,
+    updateDetector,
+    deleteDetector
 } = require('../controllers/detector.controller');
 const { authenticate } = require('../middleware/auth.middleware');
 
@@ -23,14 +24,21 @@ router.get('/', authenticate, getDetectors);
 router.post('/', authenticate, createDetector);
 
 /**
+ * GET /detectors/:id
+ * Get a single detector by its stable UUID id, falling back to its numeric
+ * array index for backwards compatibility.
+ */
+router.get('/:id', authenticate, getDetector);
+
+/**
  * PUT /detectors/:id
- * Update an existing detector by index
+ * Update an existing detector by id (UUID) or, for backwards compatibility, index
  */
 router.put('/:id', authenticate, updateDetector);
 
 /**
  * DELETE /detectors/:id
- * Delete a detector by index
+ * Delete a detector by id (UUID) or, for backwards compatibility, index
  */
 router.delete('/:id', authenticate, deleteDetector);
 
