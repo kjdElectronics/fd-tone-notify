@@ -14,7 +14,7 @@ const notificationTestService = new NotificationTestService();
  * - {testAll: true} - Test all notifications for all detectors
  * - {detectorName, trigger, type, index} - Test single specific notification
  */
-router.post('/test', authenticate, async (req, res) => {
+router.post('/test', authenticate('admin'), async (req, res) => {
     try {
         const { testAll, detectorName, trigger, type, index } = req.body;
 

@@ -9,7 +9,7 @@ const { authenticate } = require('../middleware/auth.middleware');
  * POST /api/system/restart
  * Restart the backend server using the restart helper process
  */
-router.post('/restart', authenticate, async (req, res) => {
+router.post('/restart', authenticate('admin'), async (req, res) => {
     try {
         log.info('Restart request received from authenticated user');
         
@@ -103,7 +103,7 @@ router.post('/restart', authenticate, async (req, res) => {
  * POST /api/system/stop
  * Stop the backend server gracefully
  */
-router.post('/stop', authenticate, async (req, res) => {
+router.post('/stop', authenticate('admin'), async (req, res) => {
     try {
         log.info('Stop request received from authenticated user');
         
@@ -145,7 +145,7 @@ router.post('/stop', authenticate, async (req, res) => {
  * GET /api/system/status
  * Get system status information
  */
-router.get('/status', authenticate, (req, res) => {
+router.get('/status', authenticate('read'), (req, res) => {
     try {
         const uptime = process.uptime();
         const memoryUsage = process.memoryUsage();

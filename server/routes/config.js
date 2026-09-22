@@ -8,12 +8,12 @@ const router = express.Router();
  * GET /config
  * Get current detector configuration
  */
-router.get('/', authenticate, getConfiguration);
+router.get('/', authenticate('read'), getConfiguration);
 
 /**
  * PUT /config/configuration
  * Update system configuration (requires authentication)
  */
-router.put('/', authenticate, updateConfig);
+router.put('/', authenticate('admin'), updateConfig);
 
 module.exports = router;

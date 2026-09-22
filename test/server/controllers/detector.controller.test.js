@@ -35,10 +35,14 @@ const globalConfigStubs = {
 // Stub the authentication middleware globally before routes are imported.
 // Guard with isSinonProxy since another test file loaded in the same mocha
 // run (e.g. config.controller.test.js) may have already stubbed this.
+// authenticate() is now a scope-taking factory (authenticate('read'|'admin'|
+// 'ingest') returns the actual middleware - see auth.middleware.js) rather
+// than a bare (req,res,next) middleware, so the stub must return a function
+// too.
 const authStub = authMiddleware.authenticate.isSinonProxy
     ? authMiddleware.authenticate
     : sinon.stub(authMiddleware, 'authenticate');
-authStub.callsFake((req, res, next) => {
+authStub.callsFake((requiredScope) => (req, res, next) => {
     req.user = { id: 'test-user', role: 'admin' };
     req.app = { wss: { broadcastLog: sinon.stub() } };
     next();

@@ -24,11 +24,14 @@ const sinon = require('sinon');
 const request = require('supertest');
 const express = require('express');
 
+// authenticate() is a scope-taking factory (authenticate('read'|'admin'|
+// 'ingest') returns the actual middleware - see auth.middleware.js), so the
+// stub must return a function too.
 const authMiddleware = require('../../../server/middleware/auth.middleware');
 const authStub = authMiddleware.authenticate.isSinonProxy
     ? authMiddleware.authenticate
     : sinon.stub(authMiddleware, 'authenticate');
-authStub.callsFake((req, res, next) => next());
+authStub.callsFake((requiredScope) => (req, res, next) => next());
 
 const childProcess = require('child_process');
 const spawnStub = childProcess.spawn.isSinonProxy

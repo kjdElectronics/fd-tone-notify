@@ -2,6 +2,7 @@ const express = require('express');
 const { upload } = require('../middleware/upload.middleware');
 const { parseDetectorConfig } = require('../middleware/detector-config.middleware');
 const { detectTones, getRecentDetections } = require('../controllers/detection.controller');
+const { authenticate } = require('../middleware/auth.middleware');
 
 const router = express.Router();
 
@@ -94,6 +95,6 @@ router.post('/', (req, res) => {
  *   }
  * }
  */
-router.get('/', getRecentDetections);
+router.get('/', authenticate('read'), getRecentDetections);
 
 module.exports = router;
