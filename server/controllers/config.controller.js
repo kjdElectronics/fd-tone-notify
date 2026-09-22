@@ -3,7 +3,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const log = require('../../util/logger');
 const { hashPassword } = require('../middleware/auth.middleware');
-const {writeConfigFile, readConfigFile, getConfigFilePath, getSecretsFilePath} = require("../util/config.file.util");
+const {writeConfigFile, readConfigFile, createBackup, markConfigChanged, getConfigFilePath, getSecretsFilePath} = require("../util/config.file.util");
 
 
 /**
