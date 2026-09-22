@@ -6,6 +6,7 @@ const detectorRoutes = require('./detector');
 const systemRoutes = require('./system');
 const notificationRoutes = require('./notifications');
 const rdioScannerRoutes = require('./rdio-scanner');
+const keysRoutes = require('./keys');
 const { login } = require('../middleware/auth.middleware');
 
 /**
@@ -23,7 +24,8 @@ function configureRoutes(app) {
         });
     });
 
-    // Authentication endpoint - //TODO This is a placeholder for now
+    // Authentication endpoint - exchanges the UI password for an opaque
+    // session token (server/auth/sessions.js). See docs/api.md.
     app.post('/api/auth/login', login);
 
     // Mount route modules
@@ -33,6 +35,7 @@ function configureRoutes(app) {
     app.use('/api/notifications', notificationRoutes);
     app.use('/api/detections', detectionRoutes);
     app.use('/api/call-upload', rdioScannerRoutes);
+    app.use('/api/keys', keysRoutes);
 
     // SPA fallback: the production Docker image serves the built Vue UI (a
     // client-side, history-mode router) as static files out of server/public.
