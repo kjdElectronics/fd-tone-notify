@@ -11,7 +11,7 @@ const PARAMS = {
         'header-test': 'value',
         "from-env-var": "CUSTOM_ENV_VAR_AUTH_HEADER", //Testing Value above
     },
-    timestamp: new Date().getTime(),
+    detectedAt: new Date().toISOString(),
     tones: [1000, 2000],
     matchAverages: [1001, 2001],
     filename: "raw.wav",
@@ -29,7 +29,10 @@ describe("Webhook Test", function() {
             .matchHeader('Content-Type', 'application/json')
             .matchHeader('header-test', PARAMS.headers['header-test'])
             .matchHeader('from-env-var', process.env.AUTH_HEADER)
-            .matchHeader('accept',"*/*")
+            // axios 1.x's default Accept header is "application/json, text/plain, */*",
+            // not a bare "*/*" - match on the "*/*" axios always includes rather than
+            // pinning the exact string, which is an axios implementation detail.
+            .matchHeader('accept', /\*\/\*/)
             .post('/test')
             .reply(200,  (uri, requestBody) => requestBody);
 
