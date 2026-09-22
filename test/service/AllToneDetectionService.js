@@ -41,8 +41,13 @@ describe("AllToneDetectionService", function() {
         return new Promise((resolve, reject) => {
             //Setup pass condition
             detection.on("multiToneDetected", multiToneMatch => {
+                // 2.0: multiToneDetected now emits an object with tones/detectedAt/sourceContext
+                // instead of a bare array (detection events carry source metadata - see README).
+                expect(multiToneMatch).to.have.property('tones');
+                expect(multiToneMatch).to.have.property('detectedAt');
+                expect(multiToneMatch).to.have.property('sourceContext');
                 //The rounded average of 850 and 860 is condensed to a single match followed by matches for 350 and 700
-                expect(multiToneMatch).to.deep.equal([850, 352, 701]);
+                expect(multiToneMatch.tones).to.deep.equal([851, 352, 700]);
                 resolve(multiToneMatch);
             });
             //Process data
