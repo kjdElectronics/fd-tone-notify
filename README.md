@@ -5,6 +5,38 @@
 > - All detection events include a `sourceContext` object with source metadata
 > - File upload API response no longer includes `timestamp` field (use `timestampSeconds` for file position, `detectedAt` for wall-clock time)
 
+## FD Tone Notify 2.0: running as a service / control plane target
+
+2.0 adds three things aimed at running FD Tone Notify unattended, as a
+headless service that a separate program controls over HTTP:
+
+- **Docker image**: a `Dockerfile` and `docker-compose.yml` in the repo root
+  build and run the backend (API + built web UI) as a container, with
+  `/app/config` and `/app/recordings` as persistent volumes. See
+  [docs/docker.md](./docs/docker.md) for build/run instructions, first
+  login, where config lives, and how to point Rdio Scanner, SDRTrunk's Rdio
+  Scanner broadcaster, or Thin Line Radio at this instance's
+  `POST /api/call-upload`.
+- **System-wide detection webhook**: set `FD_DETECTION_WEBHOOK_URL` (and
+  `FD_DETECTION_WEBHOOK_SECRET`) and FDTN will POST an HMAC-signed JSON
+  payload to that URL on *every* tone detection - live mic, file upload, or
+  Rdio ingest alike - independent of any per-detector notification config.
+  This is the single integration point for a control plane to learn about
+  detections without polling. Full payload/header/signature contract:
+  [docs/api.md](./docs/api.md#system-wide-detection-webhook).
+- **Stable detector ids**: every detector in `detection.detectors[]` now
+  has a stable UUID `id` (assigned automatically the first time an existing
+  installation's config is read through the API if it doesn't have one
+  yet). `/api/detectors/:id` accepts that id, and still accepts a numeric
+  array index for backwards compatibility. `detectorId` appears in the
+  detection webhook payload and in `toneDetected` event data. Full route
+  reference: [docs/api.md](./docs/api.md).
+
+For every other route the API exposes (config, notifications, system
+status/restart, the file-upload detection endpoint), see
+[docs/api.md](./docs/api.md) - it's the same reference document a hosted
+control plane talking to FDTN only over HTTP would use.
+
 FD Tone Notify is Dispatch Tone Notification Software for Fire Departments and Enthusiasts
   - Simultaneously detect tones for multiple departments or stations.
   - Send Pushbullet, SMS, or email notifications. Integrate with Custom Webhooks
@@ -649,6 +681,8 @@ are used as environment and in the `secrets.json`. :information_source: Remember
   [here](https://app.sendgrid.com/settings/api_keys).
  - `FD_RECORDING_DIRECTORY`: The directory where audio recordings are saved. Defaults to `./recordings`
  - `FD_AUTO_DELETE_RECORDINGS_OLDER_THAN_DAYS`: Number of days to keep recordings before auto-deletion. Defaults to `7`. Set to `0` to disable. 
+ - `FD_DETECTION_WEBHOOK_URL`: If set, every tone detection (mic, file upload, or Rdio ingest) POSTs an HMAC-signed JSON payload to this URL - see [docs/api.md](./docs/api.md#system-wide-detection-webhook)
+ - `FD_DETECTION_WEBHOOK_SECRET`: HMAC-SHA256 signing secret used to sign the `FD_DETECTION_WEBHOOK_URL` payloads
   
 :information_source: Environment variables override values set by secrets file. To change this behavior use the 
 `--force-secrets-file` option.
@@ -716,4 +750,6 @@ fd-tone-notify --auto-delete-recording-age-days 0
   - FD_SMTP_PASSWORD: Overrides `secrets.FD_PUSHBULLET_API_KEY`
   - FD_RECORDING_DIRECTORY: Overrides `config.recording.directory`
   - FD_AUTO_DELETE_RECORDINGS_OLDER_THAN_DAYS: Overrides `config.recording.autoDeleteOlderThanDays`
+  - FD_DETECTION_WEBHOOK_URL: URL for the system-wide, HMAC-signed detection webhook (fires on every tone detection). Unset = disabled. See [docs/api.md](./docs/api.md#system-wide-detection-webhook)
+  - FD_DETECTION_WEBHOOK_SECRET: HMAC-SHA256 signing secret for `FD_DETECTION_WEBHOOK_URL`. Overrides `secrets.FD_DETECTION_WEBHOOK_SECRET`
   
