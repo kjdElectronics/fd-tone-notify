@@ -529,6 +529,34 @@ delivered within seconds making Pushbullet ideal for `preRecording` notification
   
   When Pushbullet notifications are specified in `postRecording` the push notification will include the recorded
   dispatch audio. 
+###### Pushover
+[Pushover.net](https://pushover.net/) sends push notifications to the Pushover Android/iOS/desktop apps. Create an
+Application at [pushover.net/apps/build](https://pushover.net/apps/build) to get an App Token (see
+[Environment Variables and Secrets](#Environment-Variables-and-Secrets)), then find your User Key (or a Group Key to
+notify multiple people) on your [Pushover dashboard](https://pushover.net/).
+  - `title`: Any string that serves as the title for the notification. Typically a department/station name
+  - `body`: Message text for the notification. Can use `%d` to dynamically insert the date & time.
+  - `user`: The Pushover User Key (or Group Key) to deliver to. **IMPORTANT Must be paired with the
+  `FD_PUSHOVER_APP_TOKEN` secret for the Application that will send the notification.**
+  - `priority` (Optional): Integer from `-2` (lowest) to `1` (high). Pushover's emergency priority (`2`, which requires
+  acknowledgement) is not supported.
+  - `sound` (Optional): A [Pushover notification sound](https://pushover.net/api#sounds) name, e.g. `siren`.
+
+  When Pushover notifications are specified in `postRecording` the notification will include the recorded dispatch
+  audio as an attachment.
+###### Telegram
+Sends notifications to a Telegram chat via a [Telegram bot](https://core.telegram.org/bots). Message
+[@BotFather](https://t.me/BotFather) on Telegram to create a bot and get its Bot Token (see
+[Environment Variables and Secrets](#Environment-Variables-and-Secrets)), then find the chat id to notify - for a
+direct message to yourself or a private group, add the bot to the chat and use a tool like
+[@userinfobot](https://t.me/userinfobot) or the Bot API's `getUpdates` to find the numeric chat id; for a public
+channel, the `@channelusername` itself can be used.
+  - `title`: Any string that serves as the title for the message. Typically a department/station name
+  - `body`: Message text. Can use `%d` to dynamically insert the date & time.
+  - `chatId`: The Telegram chat id (numeric, or an `@channelusername` string) to deliver to.
+
+  When Telegram notifications are specified in `postRecording` the message will include the recorded dispatch audio
+  as an audio attachment.
 ###### Webhooks
 Webhooks can be used to integrate FD Tone Notify into other software applications. Webhooks specified in the `preRecording`
 section will POST JSON to the `address` specified with the following format.
@@ -588,6 +616,22 @@ sent to use Brevo by default. Make sure to change this or orverride with an ENV 
 ###### Example Full Notifications Configuration
 ```
  {
+              "pushover": [
+                {
+                  "title": "Test Fire Department",
+                  "body": "Tone Received %d",
+                  "user": "u1a2b3c4d5e6f7g8h9",
+                  "priority": 1,
+                  "sound": "siren"
+                }
+              ],
+              "telegram": [
+                {
+                  "title": "Test Fire Department",
+                  "body": "Tone Received %d",
+                  "chatId": "-1001234567890"
+                }
+              ],
               "webhooks": [
                 {
                   "address": "http://localhost:8500/endpoint",
@@ -682,6 +726,12 @@ are used as environment and in the `secrets.json`. :information_source: Remember
  - `FD_PUSHBULLET_API_KEY`: The API key for Pushbullet. This API key must be the owner/creator of the channel tags 
  used to send notifications. After setting up a Pushbullet account use the Create Access Token button on the
   [Account Page](https://www.pushbullet.com/#settings/account) to get an API Key
+ - `FD_PUSHOVER_APP_TOKEN`: The Application Token for Pushover. Create an Application at
+  [pushover.net/apps/build](https://pushover.net/apps/build) to get one. Each notification's recipient (`user` -
+  a User or Group Key) is set per-notification in the config file, not here - see [Pushover](#Pushover) above.
+ - `FD_TELEGRAM_BOT_TOKEN`: The Bot Token for Telegram. Message [@BotFather](https://t.me/BotFather) on Telegram to
+  create a bot and get one. Each notification's recipient (`chatId`) is set per-notification in the config file, not
+  here - see [Telegram](#Telegram) above.
  - `FD_CORALOGIX_PRIVATE_KEY`: If using Coralogix enter the Private Key here
  - `FD_SMTP_USERNAME`: The SMTP username. For Sendgrid this will always be `apikey`
  - `FD_SMTP_PASSWORD`: The SMTP password. For Sendgrid this an API Key. Sendgrid API keys can be created
@@ -753,6 +803,8 @@ fd-tone-notify --auto-delete-recording-age-days 0
   - FD_CORALOGIX_SUBSYSTEM_NAME: Set the input device. Overrides `config.coralogix.subsystemName`
   - FD_CORALOGIX_PRIVATE_KEY: Set the private key for coralogix. Overrides `secrets.FD_CORALOGIX_PRIVATE_KEY`
   - FD_PUSHBULLET_API_KEY: Api key for Pushbullet. Overrides `secrets.FD_PUSHBULLET_API_KEY`
+  - FD_PUSHOVER_APP_TOKEN: Application token for Pushover. Overrides `secrets.FD_PUSHOVER_APP_TOKEN`
+  - FD_TELEGRAM_BOT_TOKEN: Bot token for Telegram. Overrides `secrets.FD_TELEGRAM_BOT_TOKEN`
   - FD_SMTP_USERNAME: Overrides `secrets.FD_PUSHBULLET_API_KEY`
   - FD_SMTP_PASSWORD: Overrides `secrets.FD_PUSHBULLET_API_KEY`
   - FD_RECORDING_DIRECTORY: Overrides `config.recording.directory`
