@@ -155,12 +155,21 @@ Env vars win if both are set.
 `config/default.json`'s `audio.disabled` is `false` by default, which makes
 the backend try to spawn `arecord` for live microphone input on startup -
 containers have no sound device by default, and that crashes the process.
-This image ships `/app/config/local.json` with `{"audio":{"disabled":true}}`
-(node-config's standard override file, merged on top of `default.json`) so
-a fresh, headless deployment (API + Rdio Scanner ingestion only) just works.
+
+The primary switch is the `FD_AUDIO_DISABLED` env var - set it in `.env` (or
+`docker-compose.yml`'s `environment:`) to `true`/`false` to override
+`audio.disabled` without touching any config file
+(`config/custom-environment-variables.js` maps it, coerced to a real
+boolean). As a second, belt-and-braces layer, this image also ships
+`/app/config/local.json` with `{"audio":{"disabled":true}}` (node-config's
+standard override file, merged on top of `default.json`) so a fresh,
+headless deployment (API + Rdio Scanner ingestion only) is disabled by
+default even if `FD_AUDIO_DISABLED` is never set.
+
 If you *have* mounted a real capture device (e.g. `--device /dev/snd` plus
-ALSA userspace tools you install yourself - not present in this image).
-delete `config/local.json` or set `"disabled": false` in it.
+ALSA userspace tools you install yourself - not present in this image), set
+`FD_AUDIO_DISABLED=false` in `.env`, or delete `config/local.json` / set
+`"disabled": false` in it.
 
 ## Pointing Rdio Scanner / SDRTrunk / Thin Line Radio at this container
 
