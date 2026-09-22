@@ -32,6 +32,28 @@
         @update="updateNotification('preRecording', 'pushbullet', $event.index, $event.data)"
       />
 
+      <!-- Pushover Notifications -->
+      <NotificationSection
+        v-model="notifications.preRecording.pushover"
+        title="Pushover Notifications"
+        type="pushover"
+        :template="pushoverTemplate"
+        @add="addNotification('preRecording', 'pushover')"
+        @remove="removeNotification('preRecording', 'pushover', $event)"
+        @update="updateNotification('preRecording', 'pushover', $event.index, $event.data)"
+      />
+
+      <!-- Telegram Notifications -->
+      <NotificationSection
+        v-model="notifications.preRecording.telegram"
+        title="Telegram Notifications"
+        type="telegram"
+        :template="telegramTemplate"
+        @add="addNotification('preRecording', 'telegram')"
+        @remove="removeNotification('preRecording', 'telegram', $event)"
+        @update="updateNotification('preRecording', 'telegram', $event.index, $event.data)"
+      />
+
       <!-- Webhook Notifications -->
       <NotificationSection
         v-model="notifications.preRecording.webhooks"
@@ -87,6 +109,28 @@
         @update="updateNotification('postRecording', 'pushbullet', $event.index, $event.data)"
       />
 
+      <!-- Pushover Notifications -->
+      <NotificationSection
+        v-model="notifications.postRecording.pushover"
+        title="Pushover Notifications"
+        type="pushover"
+        :template="pushoverTemplate"
+        @add="addNotification('postRecording', 'pushover')"
+        @remove="removeNotification('postRecording', 'pushover', $event)"
+        @update="updateNotification('postRecording', 'pushover', $event.index, $event.data)"
+      />
+
+      <!-- Telegram Notifications -->
+      <NotificationSection
+        v-model="notifications.postRecording.telegram"
+        title="Telegram Notifications"
+        type="telegram"
+        :template="telegramTemplate"
+        @add="addNotification('postRecording', 'telegram')"
+        @remove="removeNotification('postRecording', 'telegram', $event)"
+        @update="updateNotification('postRecording', 'telegram', $event.index, $event.data)"
+      />
+
       <!-- Webhook Notifications -->
       <NotificationSection
         v-model="notifications.postRecording.webhooks"
@@ -132,12 +176,16 @@ const emit = defineEmits(['update:modelValue'])
 const notifications = ref({
   preRecording: {
     pushbullet: [],
+    pushover: [],
+    telegram: [],
     webhooks: [],
     externalCommands: [],
     emails: []
   },
   postRecording: {
     pushbullet: [],
+    pushover: [],
+    telegram: [],
     webhooks: [],
     externalCommands: [],
     emails: []
@@ -157,6 +205,20 @@ const pushbulletTemplate = {
   title: 'Tone Detected',
   channelTag: '',
   body: 'Tone detected for detector %d'
+}
+
+const pushoverTemplate = {
+  title: 'Tone Detected',
+  body: 'Tone detected for detector %d',
+  user: '',
+  priority: undefined,
+  sound: ''
+}
+
+const telegramTemplate = {
+  title: 'Tone Detected',
+  body: 'Tone detected for detector %d',
+  chatId: ''
 }
 
 const webhookTemplate = {
@@ -192,6 +254,10 @@ function getTemplate(type) {
       return emailTemplate
     case 'pushbullet':
       return pushbulletTemplate
+    case 'pushover':
+      return pushoverTemplate
+    case 'telegram':
+      return telegramTemplate
     case 'webhooks':
       return webhookTemplate
     case 'externalCommands':
@@ -212,12 +278,16 @@ watch(
     notifications.value = {
       preRecording: {
         pushbullet: [],
+        pushover: [],
+        telegram: [],
         webhooks: [],
         externalCommands: [],
         emails: []
       },
       postRecording: {
         pushbullet: [],
+        pushover: [],
+        telegram: [],
         webhooks: [],
         externalCommands: [],
         emails: []

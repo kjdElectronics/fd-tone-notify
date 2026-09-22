@@ -44,11 +44,13 @@
 </template>
 
 <script setup>
-import { 
-  EnvelopeIcon, 
+import {
+  EnvelopeIcon,
   DevicePhoneMobileIcon,
   CommandLineIcon,
-  GlobeAltIcon
+  GlobeAltIcon,
+  BellAlertIcon,
+  PaperAirplaneIcon
 } from '@heroicons/vue/24/outline'
 
 const props = defineProps({
@@ -79,6 +81,10 @@ function getTypeIcon(type) {
       return EnvelopeIcon
     case 'pushbullet':
       return DevicePhoneMobileIcon
+    case 'pushover':
+      return BellAlertIcon
+    case 'telegram':
+      return PaperAirplaneIcon
     case 'externalCommands':
       return CommandLineIcon
     case 'webhooks':
@@ -94,6 +100,10 @@ function getTypeColor(type) {
       return 'text-green-600'
     case 'pushbullet':
       return 'text-blue-600'
+    case 'pushover':
+      return 'text-indigo-600'
+    case 'telegram':
+      return 'text-sky-600'
     case 'externalCommands':
       return 'text-purple-600'
     case 'webhooks':
@@ -109,6 +119,10 @@ function getTypeName(type) {
       return 'Email'
     case 'pushbullet':
       return 'Pushbullet'
+    case 'pushover':
+      return 'Pushover'
+    case 'telegram':
+      return 'Telegram'
     case 'externalCommands':
       return 'External Commands'
     case 'webhooks':

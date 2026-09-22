@@ -104,6 +104,107 @@
           </div>
         </div>
 
+        <!-- Pushover Notification Fields -->
+        <div v-else-if="type === 'pushover'" class="space-y-3">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="form-label-sm">Title</label>
+              <input
+                v-model="notification.title"
+                type="text"
+                placeholder="Tone Detected"
+                class="form-input form-input-sm"
+                @input="emitUpdate"
+              />
+            </div>
+            <div>
+              <label class="form-label-sm">User/Group Key</label>
+              <input
+                v-model="notification.user"
+                type="text"
+                placeholder="Pushover User or Group Key"
+                class="form-input form-input-sm"
+                @input="emitUpdate"
+              />
+            </div>
+          </div>
+          <div>
+            <label class="form-label-sm">Message</label>
+            <textarea
+              v-model="notification.body"
+              rows="2"
+              placeholder="Tone detected for detector %d"
+              class="form-input form-input-sm"
+              @input="emitUpdate"
+            ></textarea>
+            <p class="form-help-sm">Use %d as placeholder for date</p>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="form-label-sm">Priority (optional)</label>
+              <select v-model.number="notification.priority" class="form-input form-input-sm" @change="emitUpdate">
+                <option :value="undefined">Default</option>
+                <option :value="-2">-2 (Lowest)</option>
+                <option :value="-1">-1 (Low)</option>
+                <option :value="0">0 (Normal)</option>
+                <option :value="1">1 (High)</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label-sm">Sound (optional)</label>
+              <input
+                v-model="notification.sound"
+                type="text"
+                placeholder="siren"
+                class="form-input form-input-sm"
+                @input="emitUpdate"
+              />
+            </div>
+          </div>
+          <p class="form-help-sm">
+            Requires the FD_PUSHOVER_APP_TOKEN secret (System Config). See
+            <a href="https://pushover.net/api#sounds" target="_blank" rel="noopener" class="underline">available sounds</a>.
+          </p>
+        </div>
+
+        <!-- Telegram Notification Fields -->
+        <div v-else-if="type === 'telegram'" class="space-y-3">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="form-label-sm">Title</label>
+              <input
+                v-model="notification.title"
+                type="text"
+                placeholder="Tone Detected"
+                class="form-input form-input-sm"
+                @input="emitUpdate"
+              />
+            </div>
+            <div>
+              <label class="form-label-sm">Chat ID</label>
+              <input
+                v-model="notification.chatId"
+                type="text"
+                placeholder="-1001234567890 or @channelusername"
+                class="form-input form-input-sm"
+                @input="emitUpdate"
+              />
+            </div>
+          </div>
+          <div>
+            <label class="form-label-sm">Message</label>
+            <textarea
+              v-model="notification.body"
+              rows="2"
+              placeholder="Tone detected for detector %d"
+              class="form-input form-input-sm"
+              @input="emitUpdate"
+            ></textarea>
+            <p class="form-help-sm">Use %d as placeholder for date</p>
+          </div>
+          <p class="form-help-sm">Requires the FD_TELEGRAM_BOT_TOKEN secret (System Config).</p>
+        </div>
+
         <!-- Webhook Notification Fields -->
         <div v-else-if="type === 'webhook'" class="space-y-3">
           <div>

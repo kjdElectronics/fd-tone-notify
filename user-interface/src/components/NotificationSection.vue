@@ -106,6 +106,80 @@
           </div>
         </div>
 
+        <!-- Pushover Notification Fields -->
+        <div v-else-if="type === 'pushover'" class="space-y-3">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="form-label-sm">Title</label>
+              <input
+                v-model="notification.title"
+                type="text"
+                placeholder="Tone Detected"
+                class="form-input form-input-sm"
+                @input="updateNotification(index)"
+              />
+            </div>
+            <div>
+              <label class="form-label-sm">User/Group Key</label>
+              <input
+                v-model="notification.user"
+                type="text"
+                placeholder="Pushover User or Group Key"
+                class="form-input form-input-sm"
+                @input="updateNotification(index)"
+              />
+            </div>
+          </div>
+          <div>
+            <label class="form-label-sm">Message</label>
+            <textarea
+              v-model="notification.body"
+              rows="2"
+              placeholder="Tone detected for detector %d"
+              class="form-input form-input-sm"
+              @input="updateNotification(index)"
+            ></textarea>
+            <p class="form-help-sm">Use %d as placeholder for date</p>
+          </div>
+        </div>
+
+        <!-- Telegram Notification Fields -->
+        <div v-else-if="type === 'telegram'" class="space-y-3">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="form-label-sm">Title</label>
+              <input
+                v-model="notification.title"
+                type="text"
+                placeholder="Tone Detected"
+                class="form-input form-input-sm"
+                @input="updateNotification(index)"
+              />
+            </div>
+            <div>
+              <label class="form-label-sm">Chat ID</label>
+              <input
+                v-model="notification.chatId"
+                type="text"
+                placeholder="-1001234567890 or @channelusername"
+                class="form-input form-input-sm"
+                @input="updateNotification(index)"
+              />
+            </div>
+          </div>
+          <div>
+            <label class="form-label-sm">Message</label>
+            <textarea
+              v-model="notification.body"
+              rows="2"
+              placeholder="Tone detected for detector %d"
+              class="form-input form-input-sm"
+              @input="updateNotification(index)"
+            ></textarea>
+            <p class="form-help-sm">Use %d as placeholder for date</p>
+          </div>
+        </div>
+
         <!-- Webhook Notification Fields -->
         <div v-else-if="type === 'webhook'" class="space-y-3">
           <div>
@@ -238,6 +312,10 @@ function getTypeLabel(type) {
       return 'Email'
     case 'pushbullet':
       return 'Pushbullet'
+    case 'pushover':
+      return 'Pushover'
+    case 'telegram':
+      return 'Telegram'
     case 'webhook':
       return 'Webhook'
     case 'externalCommand':

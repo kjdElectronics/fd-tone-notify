@@ -33,6 +33,19 @@
       <div class="card">
         <h4 class="text-md font-medium text-gray-900 mb-4">Basic Information</h4>
         
+        <!-- Detector ID (read-only, existing detectors only) -->
+        <div v-if="originalDetector?.id" class="mb-4">
+          <label class="form-label">Detector ID</label>
+          <input
+            :value="originalDetector.id"
+            type="text"
+            class="form-input bg-gray-50 font-mono text-xs"
+            readonly
+            @focus="$event.target.select()"
+          />
+          <p class="form-help">Stable id used by the detection webhook and the HTTP API (docs/api.md).</p>
+        </div>
+
         <!-- Detector Name -->
         <div class="mb-4">
           <label for="detector-name" class="form-label">
@@ -90,6 +103,44 @@
               </span>
             </span>
           </label>
+        </div>
+
+        <!-- Sources (per-source ingest keys) -->
+        <div class="mb-4">
+          <label class="form-label flex items-center">
+            Sources
+            <span class="relative group ml-1">
+              <InformationCircleIcon class="w-4 h-4 text-gray-400 cursor-help" />
+              <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none w-64 z-10">
+                Restricts this detector to Rdio Scanner calls authenticated with one of the selected ingest keys. Leave none selected to match every source (the default). Manage ingest keys on the Sources page.
+                <div class="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+              </div>
+            </span>
+          </label>
+          <div v-if="apiKeysStore.loading" class="text-sm text-gray-500">Loading sources...</div>
+          <div v-else-if="apiKeysStore.ingestKeys.length === 0" class="text-sm text-gray-500">
+            No ingest keys yet - this detector matches every source. Create one on the
+            <router-link to="/sources" class="text-fire-600 hover:underline">Sources</router-link> page to
+            restrict it.
+          </div>
+          <div v-else class="space-y-1">
+            <label
+              v-for="key in apiKeysStore.ingestKeys"
+              :key="key.id"
+              class="flex items-center space-x-2 cursor-pointer"
+            >
+              <input
+                type="checkbox"
+                :value="key.id"
+                v-model="form.sources"
+                class="form-checkbox"
+              />
+              <span class="text-sm">{{ key.name }}</span>
+            </label>
+            <p class="form-help">
+              {{ form.sources.length === 0 ? 'Matches every source (none selected).' : `Restricted to ${form.sources.length} source(s).` }}
+            </p>
+          </div>
         </div>
 
         <!-- Tone Frequencies -->
@@ -334,6 +385,32 @@
               }"
             />
 
+            <!-- Pushover Notifications -->
+            <NotificationTypeEditor
+              title="Pushover Notifications"
+              type="pushover"
+              v-model="form.notifications.preRecording.pushover"
+              :template="{
+                title: 'Tone Detected',
+                body: 'Tone detected for detector %d',
+                user: '',
+                priority: undefined,
+                sound: ''
+              }"
+            />
+
+            <!-- Telegram Notifications -->
+            <NotificationTypeEditor
+              title="Telegram Notifications"
+              type="telegram"
+              v-model="form.notifications.preRecording.telegram"
+              :template="{
+                title: 'Tone Detected',
+                body: 'Tone detected for detector %d',
+                chatId: ''
+              }"
+            />
+
             <!-- Webhook Notifications -->
             <NotificationTypeEditor
               title="Webhook Notifications"
@@ -397,6 +474,32 @@
               }"
             />
 
+            <!-- Pushover Notifications -->
+            <NotificationTypeEditor
+              title="Pushover Notifications"
+              type="pushover"
+              v-model="form.notifications.postRecording.pushover"
+              :template="{
+                title: 'Tone Detected',
+                body: 'Tone detected for detector %d',
+                user: '',
+                priority: undefined,
+                sound: ''
+              }"
+            />
+
+            <!-- Telegram Notifications -->
+            <NotificationTypeEditor
+              title="Telegram Notifications"
+              type="telegram"
+              v-model="form.notifications.postRecording.telegram"
+              :template="{
+                title: 'Tone Detected',
+                body: 'Tone detected for detector %d',
+                chatId: ''
+              }"
+            />
+
             <!-- Webhook Notifications -->
             <NotificationTypeEditor
               title="Webhook Notifications"
@@ -428,6 +531,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useDetectorsStore } from '../stores/detectors'
+import { useApiKeysStore } from '../stores/apiKeys'
 import NotificationTypeEditor from './NotificationTypeEditor.vue'
 import {
   PlusIcon,
@@ -455,12 +559,14 @@ const emit = defineEmits(['cancel', 'saved'])
 
 // Store
 const detectorsStore = useDetectorsStore()
+const apiKeysStore = useApiKeysStore()
 
 // Form state
 const form = ref({
   name: '',
   talkgroupFilter: '',
   talkgroupExclusive: false,
+  sources: [],
   tones: [0],
   matchThreshold: 6,
   tolerancePercent: 0.02,
@@ -472,12 +578,16 @@ const form = ref({
   notifications: {
     preRecording: {
       pushbullet: [],
+      pushover: [],
+      telegram: [],
       webhooks: [],
       externalCommands: [],
       emails: []
     },
     postRecording: {
       pushbullet: [],
+      pushover: [],
+      telegram: [],
       webhooks: [],
       externalCommands: [],
       emails: []
@@ -508,6 +618,7 @@ function initializeForm() {
       name: props.detector.name,
       talkgroupFilter: props.detector.talkgroupFilter || '',
       talkgroupExclusive: props.detector.talkgroupExclusive ?? false,
+      sources: [...(props.detector.sources || [])],
       tones: [...props.detector.tones],
       matchThreshold: props.detector.matchThreshold,
       tolerancePercent: props.detector.tolerancePercent,
@@ -626,6 +737,9 @@ watch(
 // Initialize form on mount
 onMounted(() => {
   initializeForm()
+  if (apiKeysStore.keys.length === 0) {
+    apiKeysStore.fetchKeys()
+  }
 })
 </script>
 
