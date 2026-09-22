@@ -396,6 +396,16 @@ function validateDetector(detectorData, isUpdate = false) {
         }
     }
 
+    // Validate sources (per-source ingest keys: restricts Rdio call-upload
+    // matching to specific ingest API key ids; empty/absent matches every source)
+    if (detectorData.sources !== undefined && detectorData.sources !== null) {
+        if (!Array.isArray(detectorData.sources)) {
+            errors.push('sources must be an array');
+        } else if (detectorData.sources.some(sourceId => typeof sourceId !== 'string' || !sourceId)) {
+            errors.push('sources must be an array of non-empty strings');
+        }
+    }
+
     // Validate notifications
     if (detectorData.notifications) {
         const notificationErrors = validateNotifications(detectorData.notifications);

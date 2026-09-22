@@ -28,7 +28,7 @@ async function handleCallUpload(req, res) {
     if (connectivityCheckResponse) return connectivityCheckResponse;
 
     const rdioMetadata = extractRdioMetadata(req, requestId);
-    const matchingDetectors = findMatchingDetectors(rdioMetadata.talkgroupLabel);
+    const matchingDetectors = findMatchingDetectors(rdioMetadata.talkgroupLabel, rdioMetadata.sourceId);
 
     if (matchingDetectors.length === 0) {
         return handleNonMatchingCall(req, res, rdioMetadata, requestId);

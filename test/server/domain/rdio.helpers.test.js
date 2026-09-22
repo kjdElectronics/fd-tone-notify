@@ -52,6 +52,25 @@ describe('Rdio Metadata Domain', function() {
             const metadata = extractRdioMetadata({ body: {} }, 'test-request-id');
             expect(metadata.talkgroupLabel).to.equal('');
         });
+
+        it('should carry req.ingestSource through as sourceId/sourceName (per-source ingest keys)', function() {
+            const req = {
+                body: { talkgroupLabel: 'Fire Dispatch' },
+                ingestSource: { id: 'a1b2c3d4e5f60718', name: 'Rdio Source A' }
+            };
+
+            const metadata = extractRdioMetadata(req, 'test-request-id');
+
+            expect(metadata.sourceId).to.equal('a1b2c3d4e5f60718');
+            expect(metadata.sourceName).to.equal('Rdio Source A');
+        });
+
+        it('should default sourceId/sourceName to null when authenticated via the legacy shared key', function() {
+            const metadata = extractRdioMetadata({ body: { talkgroupLabel: 'Fire Dispatch' } }, 'test-request-id');
+
+            expect(metadata.sourceId).to.be.null;
+            expect(metadata.sourceName).to.be.null;
+        });
     });
 
     describe('findMatchingDetectors', function() {
@@ -106,6 +125,46 @@ describe('Rdio Metadata Domain', function() {
 
         it('should trim whitespace from incoming label', function() {
             expect(findMatchingDetectors('  Fire Dispatch  ')).to.have.length(2);
+        });
+    });
+
+    describe('findMatchingDetectors - sources filter (per-source ingest keys)', function() {
+        beforeEach(function() {
+            sinon.stub(config, 'detection').value({
+                detectors: [
+                    { name: 'Any Source', talkgroupFilter: 'Fire Dispatch', tones: [911, 2938] },
+                    { name: 'Only Source A', talkgroupFilter: 'Fire Dispatch', tones: [440, 879], sources: ['source-a-id'] },
+                    { name: 'Only Source B', talkgroupFilter: 'Fire Dispatch', tones: [500, 700], sources: ['source-b-id'] },
+                    { name: 'Multiple Sources', talkgroupFilter: 'Fire Dispatch', tones: [600, 800], sources: ['source-a-id', 'source-b-id'] },
+                    { name: 'Empty Sources Array', talkgroupFilter: 'Fire Dispatch', tones: [700, 900], sources: [] }
+                ]
+            });
+        });
+
+        afterEach(function() { sinon.restore(); });
+
+        it('without a sourceId, only matches detectors with no source restriction (legacy shared-key auth has no source identity)', function() {
+            const names = findMatchingDetectors('Fire Dispatch').map(d => d.name);
+            expect(names).to.have.members(['Any Source', 'Empty Sources Array']);
+            expect(names).to.not.include.members(['Only Source A', 'Only Source B', 'Multiple Sources']);
+        });
+
+        it('only matches detectors with no sources filter, or whose sources include the given sourceId', function() {
+            const names = findMatchingDetectors('Fire Dispatch', 'source-a-id').map(d => d.name);
+            expect(names).to.have.members(['Any Source', 'Only Source A', 'Multiple Sources', 'Empty Sources Array']);
+            expect(names).to.not.include('Only Source B');
+        });
+
+        it('a detector scoped to a different source is excluded', function() {
+            const names = findMatchingDetectors('Fire Dispatch', 'source-b-id').map(d => d.name);
+            expect(names).to.not.include('Only Source A');
+            expect(names).to.include('Only Source B');
+        });
+
+        it('an empty sources array behaves the same as no sources filter (matches every source)', function() {
+            const names = findMatchingDetectors('Fire Dispatch', 'some-other-source').map(d => d.name);
+            expect(names).to.include('Empty Sources Array');
+            expect(names).to.include('Any Source');
         });
     });
 

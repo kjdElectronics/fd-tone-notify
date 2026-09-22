@@ -23,7 +23,13 @@ function extractRdioMetadata(req, requestId) {
         system: req.body.system,
         systemLabel: req.body.systemLabel,
         source: req.body.source,
-        frequency: req.body.frequency
+        frequency: req.body.frequency,
+        // Per-source ingest keys: set by rdio-auth.middleware.js when the
+        // call was authenticated with a scoped API key rather than the
+        // legacy shared secret (FD_RDIO_API_KEY_HASH, which has no
+        // per-source identity).
+        sourceId: req.ingestSource?.id || null,
+        sourceName: req.ingestSource?.name || null
     };
 
     log.info(`Rdio Scanner call: talkgroup=${metadata.talkgroup}, talkgroupLabel="${metadata.talkgroupLabel || 'N/A'}", system=${metadata.system || 'N/A'}, systemLabel="${metadata.systemLabel || 'N/A'}", source=${metadata.source || 'N/A'}, frequency=${metadata.frequency || 'N/A'}, dateTime=${metadata.dateTime || 'N/A'} (${requestId})`);
@@ -40,15 +46,27 @@ function extractRdioMetadata(req, requestId) {
  * Find configured detectors whose `talkgroupFilter` matches the incoming
  * talkgroup label (case-insensitive, trimmed). Detectors without a filter are
  * never matched on an Rdio call — they only run for live audio.
+ *
+ * If `sourceId` is given (the id of the ingest API key that authenticated
+ * this call - see rdio-auth.middleware.js), a detector with a non-empty
+ * `sources` array only matches when `sourceId` is in it. A detector with no
+ * `sources` (or an empty array) matches every source, same as before - this
+ * filter is opt-in per detector. Calls authenticated via the legacy shared
+ * secret have no sourceId, so they never match a source-restricted detector.
  */
-function findMatchingDetectors(talkgroupLabel) {
+function findMatchingDetectors(talkgroupLabel, sourceId) {
     const allDetectors = (config.detection && config.detection.detectors) || [];
     const incomingLabel = (talkgroupLabel || '').trim().toLowerCase();
 
     return allDetectors.filter(detector => {
         const filter = (detector.talkgroupFilter || '').trim();
         if (!filter) return false;
-        return filter.toLowerCase() === incomingLabel;
+        if (filter.toLowerCase() !== incomingLabel) return false;
+
+        if (Array.isArray(detector.sources) && detector.sources.length > 0) {
+            return !!sourceId && detector.sources.includes(sourceId);
+        }
+        return true;
     });
 }
 

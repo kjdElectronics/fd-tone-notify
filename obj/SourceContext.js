@@ -11,8 +11,10 @@ class SourceContext {
      * @param {string} params.source - Detection source: 'live', 'file-upload', or 'rdio'
      * @param {number} [params.epochBaseSeconds] - Unix epoch seconds of the source event (Rdio dateTime)
      * @param {Object} [params.talkgroup] - Rdio talkgroup metadata
+     * @param {string} [params.sourceId] - Id of the ingest API key that authenticated this call (per-source ingest keys)
+     * @param {string} [params.sourceName] - Name of the ingest API key that authenticated this call
      */
-    constructor({ source, epochBaseSeconds, talkgroup } = {}) {
+    constructor({ source, epochBaseSeconds, talkgroup, sourceId, sourceName } = {}) {
         if (!source || !VALID_SOURCES.includes(source)) {
             throw new Error(`SourceContext "source" must be one of: ${VALID_SOURCES.join(', ')}`);
         }
@@ -29,6 +31,8 @@ class SourceContext {
 
         this.source = source;
         this.talkgroup = talkgroup || null;
+        this.sourceId = sourceId || null;
+        this.sourceName = sourceName || null;
     }
 
     /**
@@ -62,6 +66,8 @@ class SourceContext {
         return new SourceContext({
             source: 'rdio',
             epochBaseSeconds: rdioMetadata.dateTime ? Number(rdioMetadata.dateTime) : (Date.now() / 1000),
+            sourceId: rdioMetadata.sourceId || null,
+            sourceName: rdioMetadata.sourceName || null,
             talkgroup: {
                 id: rdioMetadata.talkgroup || null,
                 label: rdioMetadata.talkgroupLabel || null,
@@ -79,6 +85,8 @@ class SourceContext {
         const result = { source: this.source };
         if (this.epochBaseSeconds) result.epochBaseSeconds = this.epochBaseSeconds;
         if (this.talkgroup) result.talkgroup = this.talkgroup;
+        if (this.sourceId) result.sourceId = this.sourceId;
+        if (this.sourceName) result.sourceName = this.sourceName;
         return result;
     }
 }

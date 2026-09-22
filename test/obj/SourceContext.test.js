@@ -120,6 +120,24 @@ describe('SourceContext', function() {
             expect(ctx.talkgroup.id).to.be.null;
             expect(ctx.talkgroup.label).to.be.null;
         });
+
+        it('fromRdioMetadata() should populate sourceId/sourceName when present (per-source ingest keys)', function() {
+            const ctx = SourceContext.fromRdioMetadata({
+                talkgroupLabel: 'Fire Dispatch',
+                sourceId: 'a1b2c3d4e5f60718',
+                sourceName: 'Rdio Source A'
+            });
+
+            expect(ctx.sourceId).to.equal('a1b2c3d4e5f60718');
+            expect(ctx.sourceName).to.equal('Rdio Source A');
+        });
+
+        it('fromRdioMetadata() should default sourceId/sourceName to null when absent (legacy shared-key auth)', function() {
+            const ctx = SourceContext.fromRdioMetadata({ talkgroupLabel: 'Fire Dispatch' });
+
+            expect(ctx.sourceId).to.be.null;
+            expect(ctx.sourceName).to.be.null;
+        });
     });
 
     describe('toJSON', function() {
@@ -138,6 +156,23 @@ describe('SourceContext', function() {
             expect(json.source).to.equal('rdio');
             expect(json.epochBaseSeconds).to.equal(1712754541);
             expect(json.talkgroup).to.deep.equal({ label: 'Fire' });
+        });
+
+        it('should include sourceId/sourceName when set (per-source ingest keys)', function() {
+            const ctx = new SourceContext({
+                source: 'rdio',
+                sourceId: 'a1b2c3d4e5f60718',
+                sourceName: 'Rdio Source A'
+            });
+            const json = ctx.toJSON();
+            expect(json.sourceId).to.equal('a1b2c3d4e5f60718');
+            expect(json.sourceName).to.equal('Rdio Source A');
+        });
+
+        it('should omit sourceId/sourceName when not set', function() {
+            const json = SourceContext.live().toJSON();
+            expect(json).to.not.have.property('sourceId');
+            expect(json).to.not.have.property('sourceName');
         });
     });
 });

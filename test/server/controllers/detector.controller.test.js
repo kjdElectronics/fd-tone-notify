@@ -267,6 +267,30 @@ describe('Detector Controller Integration Tests', function() {
             expect(updatedConfig.detection.detectors[1]).to.have.property('name', validDetectorData.name);
         });
 
+        it('should persist a sources filter (per-source ingest keys) when creating a detector', async function() {
+            const sourcedDetector = {
+                ...validDetectorData,
+                name: 'Sourced Detector',
+                sources: ['a1b2c3d4e5f60718']
+            };
+
+            const response = await request(app)
+                .post('/detectors')
+                .send(sourcedDetector)
+                .expect(200);
+
+            expect(response.body.detector).to.have.property('sources').that.deep.equals(['a1b2c3d4e5f60718']);
+        });
+
+        it('should default sources to an empty array when not provided when creating a detector', async function() {
+            const response = await request(app)
+                .post('/detectors')
+                .send(validDetectorData)
+                .expect(200);
+
+            expect(response.body.detector).to.have.property('sources').that.deep.equals([]);
+        });
+
         it('should reject duplicate detector names', async function() {
             const duplicateDetector = {
                 ...validDetectorData,

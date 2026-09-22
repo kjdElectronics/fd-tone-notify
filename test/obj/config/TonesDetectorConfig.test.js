@@ -183,6 +183,45 @@ describe('TonesDetectorConfig', function() {
             expect(config.talkgroupExclusive).to.equal(false);
         });
 
+        it('should default sources to an empty array when not provided (matches every ingest source)', function() {
+            const config = new TonesDetectorConfig({
+                name: 'Test Detector',
+                tones: [800, 1200]
+            });
+
+            expect(config.sources).to.deep.equal([]);
+        });
+
+        it('should accept a valid sources array of API key ids', function() {
+            const config = new TonesDetectorConfig({
+                name: 'Test Detector',
+                tones: [800, 1200],
+                sources: ['a1b2c3d4e5f60718', 'b2c3d4e5f6071829']
+            });
+
+            expect(config.sources).to.deep.equal(['a1b2c3d4e5f60718', 'b2c3d4e5f6071829']);
+        });
+
+        it('should throw error for a non-array sources value', function() {
+            expect(() => {
+                new TonesDetectorConfig({
+                    name: 'Test Detector',
+                    tones: [800, 1200],
+                    sources: 'a1b2c3d4e5f60718'
+                });
+            }).to.throw(ErrorWithStatusCode).with.property('statusCode', 400);
+        });
+
+        it('should throw error for a sources array containing a non-string entry', function() {
+            expect(() => {
+                new TonesDetectorConfig({
+                    name: 'Test Detector',
+                    tones: [800, 1200],
+                    sources: ['a1b2c3d4e5f60718', 12345]
+                });
+            }).to.throw(ErrorWithStatusCode).with.property('statusCode', 400);
+        });
+
         it('should accept a valid talkgroupExclusive boolean', function() {
             const config = new TonesDetectorConfig({
                 name: 'Test Detector',
@@ -240,6 +279,17 @@ describe('TonesDetectorConfig', function() {
 
             const obj = config.toJSON();
             expect(obj).to.have.property('talkgroupFilter', 'Fire Dispatch');
+        });
+
+        it('should include sources in toJSON output', function() {
+            const config = new TonesDetectorConfig({
+                name: 'Test Detector',
+                tones: [800, 1200],
+                sources: ['a1b2c3d4e5f60718']
+            });
+
+            const obj = config.toJSON();
+            expect(obj).to.have.property('sources').that.deep.equals(['a1b2c3d4e5f60718']);
         });
 
         it('should include talkgroupExclusive in toJSON output', function() {

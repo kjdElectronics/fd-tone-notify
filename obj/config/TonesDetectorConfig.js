@@ -22,13 +22,15 @@ class TonesDetectorConfig {
      * @param {Object} [config.notifications] - Notification configuration
      * @param {string} [config.talkgroupFilter] - Talkgroup name filter for Rdio Scanner integration
      * @param {boolean} [config.talkgroupExclusive=false] - When true, detector is excluded from live audio monitoring
+     * @param {string[]} [config.sources=[]] - Ingest API key ids (per-source ingest keys) this detector is
+     *   restricted to for Rdio call-upload matching. Empty (default) matches every source.
      */
     constructor({ id, name, tones = [], matchThreshold = 6, tolerancePercent = 0.02, resetTimeoutMs = 7000,
                   lockoutTimeoutMs = 5000, minRecordingLengthSec = 30, maxRecordingLengthSec,
-                  isRecordingEnabled, notifications, talkgroupFilter, talkgroupExclusive }) {
+                  isRecordingEnabled, notifications, talkgroupFilter, talkgroupExclusive, sources }) {
         this.validateAndSet({ id, name, tones, matchThreshold, tolerancePercent, resetTimeoutMs,
                              lockoutTimeoutMs, minRecordingLengthSec, maxRecordingLengthSec,
-                             isRecordingEnabled, notifications, talkgroupFilter, talkgroupExclusive });
+                             isRecordingEnabled, notifications, talkgroupFilter, talkgroupExclusive, sources });
     }
 
     /**
@@ -37,7 +39,7 @@ class TonesDetectorConfig {
      */
     validateAndSet({ id, name, tones, matchThreshold, tolerancePercent, resetTimeoutMs,
                      lockoutTimeoutMs, minRecordingLengthSec, maxRecordingLengthSec,
-                     isRecordingEnabled, notifications, talkgroupFilter, talkgroupExclusive }) {
+                     isRecordingEnabled, notifications, talkgroupFilter, talkgroupExclusive, sources }) {
         // Validate required fields
         if (!name || typeof name !== 'string') {
             throw ErrorWithStatusCode.validation('Detector "name" is required and must be a string');
@@ -101,6 +103,18 @@ class TonesDetectorConfig {
             }
         }
 
+        // Validate sources
+        if (sources !== undefined && sources !== null) {
+            if (!Array.isArray(sources)) {
+                throw ErrorWithStatusCode.validation('sources must be an array');
+            }
+            sources.forEach((sourceId, index) => {
+                if (typeof sourceId !== 'string' || !sourceId) {
+                    throw ErrorWithStatusCode.validation(`sources[${index}] must be a non-empty string`);
+                }
+            });
+        }
+
         // Validate notifications
         const notificationsConfig = notifications ? new NotificationsConfig(notifications) : null;
 
@@ -117,6 +131,7 @@ class TonesDetectorConfig {
         this.isRecordingEnabled = isRecordingEnabled;
         this.talkgroupFilter = talkgroupFilter || '';
         this.talkgroupExclusive = talkgroupExclusive ?? false;
+        this.sources = sources ? [...sources] : [];
         this.notifications = notificationsConfig;
     }
 

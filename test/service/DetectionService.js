@@ -339,6 +339,53 @@ describe("DetectionService", function() {
             expect(payload.source).to.have.nested.property('talkgroup.label', 'Fire Dispatch');
         });
 
+        it('should include sourceId/sourceName in the webhook payload for a per-source-ingest-key Rdio call', async function() {
+            const postStub = sinon.stub(axios, 'post').resolves({ status: 200, data: 'ok' });
+            const args = DYNAMIC_TEST_ARGS[0];
+            const filePath = path.resolve("./test/wav", args.filename);
+            const audioFileService = new AudioFileService({ chunkDurationSeconds: 1 });
+            const sourceContext = SourceContext.fromRdioMetadata({
+                dateTime: '1712754541',
+                talkgroupLabel: 'Fire Dispatch',
+                talkgroup: '1001',
+                sourceId: 'a1b2c3d4e5f60718',
+                sourceName: 'Rdio Source A'
+            });
+
+            const detection = new DetectionService({
+                audioInterface: null,
+                sampleRate: args.sampleRate,
+                frequencyScaleFactor: args.frequencyScaleFactor,
+                fileMode: true,
+                recording: false,
+                sourceContext
+            });
+
+            detection.addToneDetector(new TonesDetectorConfig({
+                name: 'Per-Source Webhook Test',
+                tones: args.tones,
+                matchThreshold: 6,
+                tolerancePercent: 0.05
+            }));
+
+            await new Promise((resolve, reject) => {
+                const failTimeout = setTimeout(() => reject(new Error('Timeout: toneDetected not fired')), 8000);
+
+                detection.on('toneDetected', () => {
+                    clearTimeout(failTimeout);
+                    resolve();
+                });
+
+                audioFileService.on('audioData', (audioData) => detection.processAudioData(audioData));
+                audioFileService.processFile(filePath).catch(reject);
+            });
+
+            expect(postStub.calledOnce).to.be.true;
+            const payload = JSON.parse(postStub.getCall(0).args[1]);
+            expect(payload.source).to.have.property('sourceId', 'a1b2c3d4e5f60718');
+            expect(payload.source).to.have.property('sourceName', 'Rdio Source A');
+        });
+
         it('should not send the webhook when FD_DETECTION_WEBHOOK_URL is unset', async function() {
             delete process.env.FD_DETECTION_WEBHOOK_URL;
             const postStub = sinon.stub(axios, 'post').resolves({ status: 200, data: 'ok' });
