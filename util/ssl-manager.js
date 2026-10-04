@@ -23,11 +23,16 @@ class SSLManager {
             await this.ensureSSLDirectory();
 
             // Check if certificates exist and are valid
-            const certsExist = await this.certificatesExist();
-            const certsValid = certsExist ? await this.certificatesValid() : false;
+            const problem = await this.certificatesExist()
+                ? await this.certificateProblem()
+                : 'SSL certificate files are missing';
 
-            if (!certsExist || !certsValid) {
-                log.info('SSL certificates missing or invalid, generating new ones...');
+            if (problem) {
+                log.warning(problem);
+                if (!await this.confirmRegenerate()) {
+                    throw new Error(`${problem}; regeneration declined by user`);
+                }
+                log.info('Generating new self-signed SSL certificate...');
                 await this.generateSelfSignedCertificate();
                 log.info('SSL certificates generated successfully');
             } else {
@@ -59,29 +64,47 @@ class SSLManager {
 
     /**
      * Validate existing certificates
+     * @returns {Promise<string|null>} description of the problem, or null if the certificate is usable
      */
-    async certificatesValid() {
+    async certificateProblem() {
         try {
-            // Check if certificate is not expired
             const certContent = await fs.readFile(this.certPath, 'utf8');
             const cert = crypto.X509Certificate ? new crypto.X509Certificate(certContent) : null;
-            
+
             if (cert) {
                 const now = new Date();
-                const notBefore = new Date(cert.validFrom);
-                const notAfter = new Date(cert.validTo);
-                
-                if (now < notBefore || now > notAfter) {
-                    log.warning('SSL certificate is expired or not yet valid');
-                    return false;
-                }
+                if (now > new Date(cert.validTo)) return `SSL certificate expired on ${cert.validTo}`;
+                if (now < new Date(cert.validFrom)) return `SSL certificate not valid until ${cert.validFrom}`;
             }
-            
-            return true;
+
+            return null;
         } catch (error) {
-            log.warning(`Certificate validation failed: ${error.message}`);
-            return false;
+            return `SSL certificate could not be read: ${error.message}`;
         }
+    }
+
+    /**
+     * Ask the user whether to regenerate the certificate.
+     * Without an interactive console (service / child process) this regenerates without asking.
+     * Defaults to yes after a timeout so an unattended reboot never hangs startup.
+     */
+    async confirmRegenerate(timeoutMs = 30000) {
+        if (!process.stdin.isTTY) return true;
+
+        const readline = require('readline');
+        const rl = readline.createInterface(process.stdin, process.stdout);
+        return new Promise(resolve => {
+            const timer = setTimeout(() => {
+                console.log(`\nNo answer after ${timeoutMs / 1000}s, regenerating.`);
+                rl.close();
+                resolve(true);
+            }, timeoutMs);
+            rl.question(`Regenerate self-signed SSL certificate now? [Y/n] (auto-yes in ${timeoutMs / 1000}s): `, answer => {
+                clearTimeout(timer);
+                rl.close();
+                resolve(!/^n/i.test(answer.trim()));
+            });
+        });
     }
 
     /**
@@ -127,9 +150,11 @@ class SSLManager {
             log.info(`Including IP addresses: ${allIPs.join(', ')}`);
 
             // Generate private key using cross-platform compatible syntax
+            // Filenames are relative to sslDir (the OpenSSL cwd) so install paths containing
+            // spaces are never split by the Windows shell
             await this.runOpenSSLCommand([
                 'genrsa',
-                '-out', this.keyPath,
+                '-out', path.basename(this.keyPath),
                 '2048'
             ]);
 
@@ -175,10 +200,10 @@ ${altNamesSection}`;
                 'req',
                 '-new',
                 '-x509',
-                '-key', this.keyPath,
-                '-out', this.certPath,
+                '-key', path.basename(this.keyPath),
+                '-out', path.basename(this.certPath),
                 '-days', '365',
-                '-config', configPath,
+                '-config', path.basename(configPath),
                 '-extensions', 'v3_req'
             ];
             
