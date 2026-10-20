@@ -416,6 +416,15 @@ describe('Detector Controller Integration Tests', function() {
 
             expect(response.body.detector).to.have.property('id').that.matches(UUID_V4_REGEX);
         });
+
+        it('should return 404 for a non-numeric detector index (duplicate saved as /detectors/null)', async function() {
+            const response = await request(app)
+                .put('/detectors/null')
+                .send({ name: 'Test' })
+                .expect(404);
+
+            expect(response.body).to.have.property('error', 'Detector not found');
+        });
     });
 
     describe('DELETE /detectors/:id', function() {

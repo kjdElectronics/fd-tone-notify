@@ -512,6 +512,8 @@ as a starting point. There can be as many detectors in a single configuration fi
   - `isRecordingEnabled` (Optional): Overrides the global `isRecordingEnabled` option. If specified the value ALWAYS overrides the
   global value.
   - `lockoutTimeoutMs` (Optional): Sets lockout timeout on a per detector basis. See `defaultLockoutTimeoutMs` above.
+  - `talkgroupFilter` (Optional): Array of Rdio Scanner talkgroup labels (case-insensitive) this detector processes, e.g. `["Fire Dispatch", "Derry Primary"]`. Empty array skips Rdio Scanner processing. A single string from older configs is still accepted and is saved as an array on the next UI save.
+  - `talkgroupExclusive` (Optional): When `true`, the detector only runs on Rdio Scanner calls and is skipped for live audio.
   - `minRecordingLengthSec` (Optional): Sets min recording length on a per detector basis. See `minRecordingLengthSec` above.
   - `maxRecordingLengthSec` (Optional): Sets max recording length on a per detector basis. See `maxRecordingLengthSec` above.
 ###### Notifications
@@ -527,7 +529,7 @@ delivered within seconds making Pushbullet ideal for `preRecording` notification
   - `title`: Any string that serves as the title for the push notification. Typically a department/station name
   - `channelTag`: The channel tag to send the push notification to. **IMPORTANT Must provide a Pushbullet API key
   that owns the specified channel.** 
-  - `body`: Body to include in the push notification. Can use `%d` to dynamically insert the date & time.
+  - `body`: Body to include in the push notification. Can use `%d` to dynamically insert the date & time and `%tg` to insert the Rdio Scanner talkgroup the call arrived on (empty for live audio). `%tg` also works in `title`.
   
   When Pushbullet notifications are specified in `postRecording` the push notification will include the recorded
   dispatch audio. 
@@ -537,7 +539,7 @@ Application at [pushover.net/apps/build](https://pushover.net/apps/build) to get
 [Environment Variables and Secrets](#Environment-Variables-and-Secrets)), then find your User Key (or a Group Key to
 notify multiple people) on your [Pushover dashboard](https://pushover.net/).
   - `title`: Any string that serves as the title for the notification. Typically a department/station name
-  - `body`: Message text for the notification. Can use `%d` to dynamically insert the date & time.
+  - `body`: Message text for the notification. Can use `%d` to dynamically insert the date & time and `%tg` for the Rdio Scanner talkgroup (also in `title`).
   - `user`: The Pushover User Key (or Group Key) to deliver to. **IMPORTANT Must be paired with the
   `FD_PUSHOVER_APP_TOKEN` secret for the Application that will send the notification.**
   - `priority` (Optional): Integer from `-2` (lowest) to `1` (high). Pushover's emergency priority (`2`, which requires
@@ -554,7 +556,7 @@ direct message to yourself or a private group, add the bot to the chat and use a
 [@userinfobot](https://t.me/userinfobot) or the Bot API's `getUpdates` to find the numeric chat id; for a public
 channel, the `@channelusername` itself can be used.
   - `title`: Any string that serves as the title for the message. Typically a department/station name
-  - `body`: Message text. Can use `%d` to dynamically insert the date & time.
+  - `body`: Message text. Can use `%d` to dynamically insert the date & time and `%tg` for the Rdio Scanner talkgroup (also in `title`).
   - `chatId`: The Telegram chat id (numeric, or an `@channelusername` string) to deliver to.
 
   When Telegram notifications are specified in `postRecording` the message will include the recorded dispatch audio
@@ -606,7 +608,7 @@ in the config file must also be complete. See [Email](#Email - Required for Emai
   - 'to': A comma separated list of emails. Example: `5555555555@mms.att.net,test@example.com,person@example.com`
   - `bcc`:  A comma separated list of emails to bcc. See example above
   - `subject`: The subject line of the email notification
-  - `text`: The text body of the email. HTML not supported. Can use `%d` to insert date
+  - `text`: The text body of the email. HTML not supported. Can use `%d` to insert date and `%tg` to insert the Rdio Scanner talkgroup (also in `subject`)
   
 :information_source: Multiple emails notification objects can be listed. Use this to send notifications with different 
 subjects. Otherwise list recipients in the `to` or `bcc` fields.

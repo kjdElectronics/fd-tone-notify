@@ -135,23 +135,44 @@ describe('TonesDetectorConfig', function() {
             }).to.throw(ErrorWithStatusCode).with.property('statusCode', 400);
         });
 
-        it('should default talkgroupFilter to empty string when not provided', function() {
+        it('should default talkgroupFilter to empty array when not provided', function() {
             const config = new TonesDetectorConfig({
                 name: 'Test Detector',
                 tones: [800, 1200]
             });
 
-            expect(config.talkgroupFilter).to.equal('');
+            expect(config.talkgroupFilter).to.deep.equal([]);
         });
 
-        it('should accept a valid talkgroupFilter string', function() {
+        it('should convert a legacy talkgroupFilter string to an array', function() {
             const config = new TonesDetectorConfig({
                 name: 'Test Detector',
                 tones: [800, 1200],
                 talkgroupFilter: 'Fire Dispatch'
             });
 
-            expect(config.talkgroupFilter).to.equal('Fire Dispatch');
+            expect(config.talkgroupFilter).to.deep.equal(['Fire Dispatch']);
+        });
+
+        it('should convert an empty legacy talkgroupFilter string to an empty array', function() {
+            const config = new TonesDetectorConfig({ name: 'Test Detector', tones: [800, 1200], talkgroupFilter: '  ' });
+            expect(config.talkgroupFilter).to.deep.equal([]);
+        });
+
+        it('should accept a talkgroupFilter array, trimming and dropping blanks', function() {
+            const config = new TonesDetectorConfig({
+                name: 'Test Detector',
+                tones: [800, 1200],
+                talkgroupFilter: [' Fire Dispatch ', '', 'Derry Primary']
+            });
+
+            expect(config.talkgroupFilter).to.deep.equal(['Fire Dispatch', 'Derry Primary']);
+        });
+
+        it('should throw error for a non-string talkgroupFilter array entry', function() {
+            expect(() => {
+                new TonesDetectorConfig({ name: 'Test Detector', tones: [800, 1200], talkgroupFilter: ['ok', 5] });
+            }).to.throw(ErrorWithStatusCode).with.property('statusCode', 400);
         });
 
         it('should throw error for non-string talkgroupFilter', function() {
@@ -278,7 +299,7 @@ describe('TonesDetectorConfig', function() {
             });
 
             const obj = config.toJSON();
-            expect(obj).to.have.property('talkgroupFilter', 'Fire Dispatch');
+            expect(obj.talkgroupFilter).to.deep.equal(['Fire Dispatch']);
         });
 
         it('should include sources in toJSON output', function() {

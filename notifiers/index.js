@@ -63,7 +63,7 @@ async function _pushbulletNotifications(params, prePostType) {
     log.info(`Sending ${pushbullets.length}x ${prePostType} Recording Pushbullet notifications`);
     return pushbullets.map(push => {
         if (prePostType === PRE) {
-            const options = new PushMessageOptions({...push, timestamp: params.timestamp, isTest: params.isTest})
+            const options = new PushMessageOptions({...push, timestamp: params.timestamp, isTest: params.isTest, talkgroup: params.talkgroup})
             return PushBulletService.push(options)
                 .then(r => log.info(chalk.bold.green("Initial Push Sent")))
                 .catch(err => {
@@ -97,7 +97,7 @@ async function _pushoverNotifications(params, prePostType) {
 
     log.info(`Sending ${pushovers.length}x ${prePostType} Recording Pushover notifications`);
     return pushovers.map(po => {
-        const options = new PushMessageOptions({...po, timestamp: params.timestamp, isTest: params.isTest});
+        const options = new PushMessageOptions({...po, timestamp: params.timestamp, isTest: params.isTest, talkgroup: params.talkgroup});
         if (prePostType === PRE) {
             return PushoverService.push({title: options.title, message: options.body, user: po.user, priority: po.priority, sound: po.sound})
                 .then(r => log.info(chalk.bold.green("Initial Pushover Push Sent")))
@@ -132,7 +132,7 @@ async function _telegramNotifications(params, prePostType) {
 
     log.info(`Sending ${telegrams.length}x ${prePostType} Recording Telegram notifications`);
     return telegrams.map(tg => {
-        const options = new PushMessageOptions({...tg, timestamp: params.timestamp, isTest: params.isTest});
+        const options = new PushMessageOptions({...tg, timestamp: params.timestamp, isTest: params.isTest, talkgroup: params.talkgroup});
         if (prePostType === PRE) {
             return TelegramService.push({title: options.title, message: options.body, chatId: tg.chatId})
                 .then(r => log.info(chalk.bold.green("Initial Telegram Message Sent")))

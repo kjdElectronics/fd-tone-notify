@@ -63,7 +63,7 @@
               class="form-input form-input-sm"
               @input="emitUpdate"
             ></textarea>
-            <p class="form-help-sm">Use %d as placeholder for date</p>
+            <p class="form-help-sm">Use %d for date, %tg for Rdio talkgroup</p>
           </div>
         </div>
 
@@ -100,7 +100,7 @@
               class="form-input form-input-sm"
               @input="emitUpdate"
             ></textarea>
-            <p class="form-help-sm">Use %d as placeholder for date</p>
+            <p class="form-help-sm">Use %d for date, %tg for Rdio talkgroup</p>
           </div>
         </div>
 
@@ -137,7 +137,7 @@
               class="form-input form-input-sm"
               @input="emitUpdate"
             ></textarea>
-            <p class="form-help-sm">Use %d as placeholder for date</p>
+            <p class="form-help-sm">Use %d for date, %tg for Rdio talkgroup</p>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
@@ -200,7 +200,7 @@
               class="form-input form-input-sm"
               @input="emitUpdate"
             ></textarea>
-            <p class="form-help-sm">Use %d as placeholder for date</p>
+            <p class="form-help-sm">Use %d for date, %tg for Rdio talkgroup</p>
           </div>
           <p class="form-help-sm">Requires the FD_TELEGRAM_BOT_TOKEN secret (System Config).</p>
         </div>

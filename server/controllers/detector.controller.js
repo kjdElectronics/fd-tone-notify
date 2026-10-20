@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const log = require('../../util/logger');
 const {readConfigFile, createBackup, writeConfigFile, markConfigChanged} = require("../util/config.file.util");
 const { validateDetector } = require('../domain/detector.validation');
+const { TonesDetectorConfig } = require('../../obj/config/TonesDetectorConfig');
 
 /**
  * Resolve a detector's array index from a route param that may be either its
@@ -316,7 +317,7 @@ function applyDefaults(detectorData, configData) {
     return {
         id: detectorData.id,
         name: detectorData.name || `New Tone ${new Date().toLocaleString()}`,
-        talkgroupFilter: detectorData.talkgroupFilter ?? '',
+        talkgroupFilter: TonesDetectorConfig.normalizeTalkgroupFilters(detectorData.talkgroupFilter),
         talkgroupExclusive: detectorData.talkgroupExclusive ?? false,
         sources: detectorData.sources ?? [],
         tones: detectorData.tones || [],

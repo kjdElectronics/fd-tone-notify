@@ -59,9 +59,8 @@ function findMatchingDetectors(talkgroupLabel, sourceId) {
     const incomingLabel = (talkgroupLabel || '').trim().toLowerCase();
 
     return allDetectors.filter(detector => {
-        const filter = (detector.talkgroupFilter || '').trim();
-        if (!filter) return false;
-        if (filter.toLowerCase() !== incomingLabel) return false;
+        const filters = TonesDetectorConfig.normalizeTalkgroupFilters(detector.talkgroupFilter);
+        if (!filters.some(filter => filter.toLowerCase() === incomingLabel)) return false;
 
         if (Array.isArray(detector.sources) && detector.sources.length > 0) {
             return !!sourceId && detector.sources.includes(sourceId);

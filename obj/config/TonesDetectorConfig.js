@@ -20,7 +20,7 @@ class TonesDetectorConfig {
      * @param {number} [config.maxRecordingLengthSec] - Maximum recording length in seconds
      * @param {boolean} [config.isRecordingEnabled] - Whether recording is enabled
      * @param {Object} [config.notifications] - Notification configuration
-     * @param {string} [config.talkgroupFilter] - Talkgroup name filter for Rdio Scanner integration
+     * @param {string|string[]} [config.talkgroupFilter] - Talkgroup label(s) to match for Rdio Scanner integration (legacy string accepted)
      * @param {boolean} [config.talkgroupExclusive=false] - When true, detector is excluded from live audio monitoring
      * @param {string[]} [config.sources=[]] - Ingest API key ids (per-source ingest keys) this detector is
      *   restricted to for Rdio call-upload matching. Empty (default) matches every source.
@@ -94,13 +94,9 @@ class TonesDetectorConfig {
         }
 
         // Validate talkgroupFilter
-        if (talkgroupFilter !== undefined && talkgroupFilter !== null && talkgroupFilter !== '') {
-            if (typeof talkgroupFilter !== 'string') {
-                throw ErrorWithStatusCode.validation('talkgroupFilter must be a string');
-            }
-            if (talkgroupFilter.length > 255) {
-                throw ErrorWithStatusCode.validation('talkgroupFilter must be 255 characters or less');
-            }
+        const talkgroupFilterError = TonesDetectorConfig.validateTalkgroupFilter(talkgroupFilter);
+        if (talkgroupFilterError) {
+            throw ErrorWithStatusCode.validation(talkgroupFilterError);
         }
 
         // Validate sources
@@ -129,10 +125,39 @@ class TonesDetectorConfig {
         this.minRecordingLengthSec = minRecordingLengthSec;
         this.maxRecordingLengthSec = maxRecordingLengthSec || minRecordingLengthSec * 1.5;
         this.isRecordingEnabled = isRecordingEnabled;
-        this.talkgroupFilter = talkgroupFilter || '';
+        this.talkgroupFilter = TonesDetectorConfig.normalizeTalkgroupFilters(talkgroupFilter);
         this.talkgroupExclusive = talkgroupExclusive ?? false;
         this.sources = sources ? [...sources] : [];
         this.notifications = notificationsConfig;
+    }
+
+    /**
+     * Normalize a talkgroupFilter value to an array of trimmed, non-empty labels.
+     * Accepts the legacy single-string form ("Fire Dispatch") as well as arrays.
+     * @param {string|string[]|null|undefined} value
+     * @returns {string[]}
+     */
+    static normalizeTalkgroupFilters(value) {
+        const list = Array.isArray(value) ? value : [value];
+        return list
+            .filter(v => typeof v === 'string')
+            .map(v => v.trim())
+            .filter(v => v.length > 0);
+    }
+
+    /**
+     * Validate a talkgroupFilter value (string, array of strings, or empty)
+     * @param {*} value
+     * @returns {string|null} Error message, or null when valid
+     */
+    static validateTalkgroupFilter(value) {
+        if (value === undefined || value === null) return null;
+        const list = Array.isArray(value) ? value : [value];
+        for (const v of list) {
+            if (typeof v !== 'string') return 'talkgroupFilter must be a string or an array of strings';
+            if (v.length > 255) return 'Each talkgroupFilter entry must be 255 characters or less';
+        }
+        return null;
     }
 
     /**

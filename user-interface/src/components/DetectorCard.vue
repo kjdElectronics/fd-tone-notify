@@ -10,8 +10,8 @@
         <div class="bg-fire-100 text-fire-700 px-2 py-1 rounded text-xs font-medium">
           {{ detector.tones?.length || 0 }} tones
         </div>
-        <div v-if="detector.talkgroupFilter" class="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-medium" title="Rdio Scanner talkgroup filter">
-          TG: {{ detector.talkgroupFilter }}
+        <div v-if="talkgroupLabels(detector)" class="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-medium" title="Rdio Scanner talkgroup filter">
+          TG: {{ talkgroupLabels(detector) }}
         </div>
         <div v-if="!notificationsExpanded" class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-medium">
           {{ totalNotifications }} notifications
@@ -224,6 +224,11 @@ const totalNotifications = computed(() => {
 })
 
 // Helper functions
+// talkgroupFilter may be a legacy string or an array of labels
+function talkgroupLabels(detector) {
+  return [].concat(detector.talkgroupFilter || []).filter(Boolean).join(', ')
+}
+
 function formatTimeout(ms) {
   if (!ms) return 'N/A'
   if (ms < 1000) return `${ms}ms`

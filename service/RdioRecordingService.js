@@ -273,6 +273,7 @@ class RdioRecordingService {
             filename: finalMp3Path,
             message: detectionData && detectionData.message,
             attachFile: true,
+            talkgroup: detectionData && detectionData.talkgroup,
         });
         return { notificationParams, detectorName };
     }

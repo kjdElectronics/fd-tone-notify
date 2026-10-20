@@ -166,15 +166,10 @@ function handleDetectorSaved() {
 }
 
 function duplicateDetector(originalDetector) {
-  // Create a copy of the detector with a new name
-  const duplicatedDetector = {
-    ...originalDetector,
-    name: `${originalDetector.name} (Copy)`,
-    notifications: originalDetector.notifications ? {
-      preRecording: { ...originalDetector.notifications.preRecording },
-      postRecording: { ...originalDetector.notifications.postRecording }
-    } : undefined
-  }
+  // Deep copy so editing the duplicate never mutates the original's notification arrays
+  const duplicatedDetector = JSON.parse(JSON.stringify(originalDetector))
+  duplicatedDetector.name = `${originalDetector.name} (Copy)`
+  delete duplicatedDetector.id
   
   showInlineEditor(null, duplicatedDetector)
 }

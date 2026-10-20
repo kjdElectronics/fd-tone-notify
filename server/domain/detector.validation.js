@@ -5,6 +5,8 @@
  * separated from the controller for better organization and testability.
  */
 
+const { TonesDetectorConfig } = require('../../obj/config/TonesDetectorConfig');
+
 /**
  * Validate email addresses (supports comma-separated strings)
  * @param {string} emailString - Comma or semicolon separated email addresses
@@ -459,12 +461,9 @@ function validateDetector(detectorData, isUpdate = false) {
     errors.push(...recordingErrors);
     
     // Validate talkgroupFilter
-    if (detectorData.talkgroupFilter !== undefined && detectorData.talkgroupFilter !== null && detectorData.talkgroupFilter !== '') {
-        if (typeof detectorData.talkgroupFilter !== 'string') {
-            errors.push('Talkgroup filter must be a string');
-        } else if (detectorData.talkgroupFilter.length > 255) {
-            errors.push('Talkgroup filter must be 255 characters or less');
-        }
+    const talkgroupFilterError = TonesDetectorConfig.validateTalkgroupFilter(detectorData.talkgroupFilter);
+    if (talkgroupFilterError) {
+        errors.push(talkgroupFilterError);
     }
 
     // Validate talkgroupExclusive
