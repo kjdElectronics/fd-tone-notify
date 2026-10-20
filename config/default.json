@@ -21,7 +21,7 @@
       "detectors": [
         {
           "name": "Test Fire Department",
-          "talkgroupFilter": "",
+          "talkgroupFilter": [],
           "talkgroupExclusive": false,
           "tones": [911, 2938],
           "matchThreshold": 6,

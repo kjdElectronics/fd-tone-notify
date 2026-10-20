@@ -46,9 +46,8 @@ function findMatchingDetectors(talkgroupLabel) {
     const incomingLabel = (talkgroupLabel || '').trim().toLowerCase();
 
     return allDetectors.filter(detector => {
-        const filter = (detector.talkgroupFilter || '').trim();
-        if (!filter) return false;
-        return filter.toLowerCase() === incomingLabel;
+        return TonesDetectorConfig.normalizeTalkgroupFilters(detector.talkgroupFilter)
+            .some(filter => filter.toLowerCase() === incomingLabel);
     });
 }
 

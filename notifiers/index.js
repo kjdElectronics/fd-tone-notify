@@ -57,7 +57,7 @@ async function _pushbulletNotifications(params, prePostType) {
     log.info(`Sending ${pushbullets.length}x ${prePostType} Recording Pushbullet notifications`);
     return pushbullets.map(push => {
         if (prePostType === PRE) {
-            const options = new PushMessageOptions({...push, timestamp: params.timestamp, isTest: params.isTest})
+            const options = new PushMessageOptions({...push, timestamp: params.timestamp, isTest: params.isTest, talkgroup: params.talkgroup})
             return PushBulletService.push(options)
                 .then(r => log.info(chalk.bold.green("Initial Push Sent")))
                 .catch(err => {

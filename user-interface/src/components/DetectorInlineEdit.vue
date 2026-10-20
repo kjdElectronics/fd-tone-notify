@@ -57,16 +57,17 @@
             <span class="relative group ml-1">
               <InformationCircleIcon class="w-4 h-4 text-gray-400 cursor-help" />
               <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none w-64 z-10">
-                Matches against the talkgroupLabel field from the Rdio Scanner API. Case-insensitive. Leave empty to skip Rdio Scanner processing for this detector.
+                Matches against the talkgroupLabel field from the Rdio Scanner API. Case-insensitive. Add one or more talkgroup labels, separated by Enter or commas. Leave empty to skip Rdio Scanner processing for this detector.
                 <div class="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
               </div>
             </span>
           </label>
-          <input
+          <!-- ponytail: reuses the email tag input, so labels containing "," or ";" get split -->
+          <EmailTagInput
             id="talkgroup-filter"
-            v-model="form.talkgroupFilter"
-            type="text"
-            class="form-input"
+            v-model="talkgroupFilterInput"
+            :validate-emails="false"
+            aria-label="Rdio Scanner talkgroup labels"
             placeholder="e.g., Fire Dispatch"
           />
         </div>
@@ -429,6 +430,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useDetectorsStore } from '../stores/detectors'
 import NotificationTypeEditor from './NotificationTypeEditor.vue'
+import EmailTagInput from './EmailTagInput.vue'
 import {
   PlusIcon,
   TrashIcon,
@@ -459,7 +461,7 @@ const detectorsStore = useDetectorsStore()
 // Form state
 const form = ref({
   name: '',
-  talkgroupFilter: '',
+  talkgroupFilter: [],
   talkgroupExclusive: false,
   tones: [0],
   matchThreshold: 6,
@@ -490,7 +492,27 @@ const isSubmitting = ref(false)
 const validationErrors = ref({})
 
 // Computed
-const isNewDetector = computed(() => props.detector === null)
+// A duplicated detector arrives with data but no index, so the index decides create vs update
+const isNewDetector = computed(() => props.detectorIndex === null || props.detectorIndex === undefined)
+
+// Normalize talkgroupFilter (legacy string, comma-separated string, or array) to an array of labels
+function toTalkgroupList(value) {
+  const list = Array.isArray(value) ? value : String(value || '').split(/[,;]/)
+  return list.filter(v => typeof v === 'string').map(v => v.trim()).filter(v => v.length > 0)
+}
+
+// EmailTagInput emits a comma-separated string; the form keeps an array
+const talkgroupFilterInput = computed({
+  get: () => form.value.talkgroupFilter,
+  set: value => {
+    const next = toTalkgroupList(value)
+    // Auto-enable exclusive only when the user adds the first talkgroup (not when the form loads)
+    if (next.length > 0 && form.value.talkgroupFilter.length === 0) {
+      form.value.talkgroupExclusive = true
+    }
+    form.value.talkgroupFilter = next
+  }
+})
 
 const isFormValid = computed(() => {
   return form.value.name.trim() !== '' && 
@@ -506,7 +528,7 @@ function initializeForm() {
     originalDetector.value = props.detector
     form.value = {
       name: props.detector.name,
-      talkgroupFilter: props.detector.talkgroupFilter || '',
+      talkgroupFilter: toTalkgroupList(props.detector.talkgroupFilter),
       talkgroupExclusive: props.detector.talkgroupExclusive ?? false,
       tones: [...props.detector.tones],
       matchThreshold: props.detector.matchThreshold,
@@ -604,17 +626,6 @@ async function handleSave() {
 function handleCancel() {
   emit('cancel')
 }
-
-// Auto-set talkgroupExclusive when talkgroupFilter changes
-watch(
-  () => form.value.talkgroupFilter,
-  (newFilter, oldFilter) => {
-    // Only auto-set to true when going from blank to non-blank
-    if (newFilter && newFilter.trim() !== '' && (!oldFilter || oldFilter.trim() === '')) {
-      form.value.talkgroupExclusive = true
-    }
-  }
-)
 
 // Watch for form changes to validate
 watch(

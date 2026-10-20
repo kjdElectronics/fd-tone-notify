@@ -62,7 +62,9 @@ describe('Rdio Metadata Domain', function() {
                     { name: 'Fire Station 2', talkgroupFilter: 'fire dispatch', tones: [440, 879] },
                     { name: 'EMS Unit', talkgroupFilter: 'EMS Dispatch', tones: [1202, 1843] },
                     { name: 'No Filter Detector', tones: [600, 800] },
-                    { name: 'Empty Filter', talkgroupFilter: '', tones: [500, 700] }
+                    { name: 'Empty Filter', talkgroupFilter: '', tones: [500, 700] },
+                    { name: 'Multi Filter', talkgroupFilter: ['Derry Primary', 'Auburn Fire'], tones: [566, 1130] },
+                    { name: 'Empty Array Filter', talkgroupFilter: [], tones: [300, 400] }
                 ],
                 defaultMatchThreshold: 6,
                 defaultTolerancePercent: 0.02,
@@ -94,6 +96,11 @@ describe('Rdio Metadata Domain', function() {
             const names = findMatchingDetectors('Fire Dispatch').map(d => d.name);
             expect(names).to.not.include('No Filter Detector');
             expect(names).to.not.include('Empty Filter');
+        });
+
+        it('should match any talkgroup in a talkgroupFilter array', function() {
+            expect(findMatchingDetectors('auburn fire').map(d => d.name)).to.deep.equal(['Multi Filter']);
+            expect(findMatchingDetectors('Derry Primary').map(d => d.name)).to.deep.equal(['Multi Filter']);
         });
 
         it('should skip detectors with empty talkgroupFilter', function() {
@@ -140,7 +147,7 @@ describe('Rdio Metadata Domain', function() {
 
             expect(configs).to.have.length(1);
             expect(configs[0]).to.have.property('name', 'Fire Station 1');
-            expect(configs[0]).to.have.property('talkgroupFilter', 'Fire Dispatch');
+            expect(configs[0].talkgroupFilter).to.deep.equal(['Fire Dispatch']);
             expect(configs[0].tones).to.deep.equal([911, 2938]);
             expect(configs[0]).to.have.property('isRecordingEnabled', true);
         });

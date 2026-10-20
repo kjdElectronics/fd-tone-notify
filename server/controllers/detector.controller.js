@@ -2,6 +2,7 @@
 const log = require('../../util/logger');
 const {readConfigFile, createBackup, writeConfigFile, markConfigChanged} = require("../util/config.file.util");
 const { validateDetector } = require('../domain/detector.validation');
+const { TonesDetectorConfig } = require('../../obj/config/TonesDetectorConfig');
 
 /**
  * Get all detectors from configuration
@@ -129,11 +130,11 @@ async function updateDetector(req, res) {
         }
         
         // Find detector by index
-        if (detectorId < 0 || detectorId >= configData.detection.detectors.length) {
+        if (!Number.isInteger(detectorId) || detectorId < 0 || detectorId >= configData.detection.detectors.length) {
             return res.status(404).json({
                 success: false,
                 error: 'Detector not found',
-                details: `Detector index ${detectorId} does not exist`
+                details: `Detector index ${req.params.id} does not exist`
             });
         }
         
@@ -208,11 +209,11 @@ async function deleteDetector(req, res) {
         }
         
         // Find detector by index
-        if (detectorId < 0 || detectorId >= configData.detection.detectors.length) {
+        if (!Number.isInteger(detectorId) || detectorId < 0 || detectorId >= configData.detection.detectors.length) {
             return res.status(404).json({
                 success: false,
                 error: 'Detector not found',
-                details: `Detector index ${detectorId} does not exist`
+                details: `Detector index ${req.params.id} does not exist`
             });
         }
         
@@ -254,7 +255,7 @@ function applyDefaults(detectorData, configData) {
     
     return {
         name: detectorData.name || `New Tone ${new Date().toLocaleString()}`,
-        talkgroupFilter: detectorData.talkgroupFilter ?? '',
+        talkgroupFilter: TonesDetectorConfig.normalizeTalkgroupFilters(detectorData.talkgroupFilter),
         talkgroupExclusive: detectorData.talkgroupExclusive ?? false,
         tones: detectorData.tones || [],
         matchThreshold: detectorData.matchThreshold ?? defaults.defaultMatchThreshold ?? 6,

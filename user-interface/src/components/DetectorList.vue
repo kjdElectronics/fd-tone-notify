@@ -77,10 +77,10 @@
               <span class="text-sm text-gray-600">
                 {{ detector.isRecordingEnabled ? 'Recording enabled' : 'Recording disabled' }}
               </span>
-              <template v-if="detector.talkgroupFilter">
+              <template v-if="talkgroupLabels(detector)">
                 <span class="mx-2 text-gray-400">&bull;</span>
                 <span class="text-sm text-purple-600 font-medium">
-                  TG: {{ detector.talkgroupFilter }}
+                  TG: {{ talkgroupLabels(detector) }}
                 </span>
                 <span v-if="detector.talkgroupExclusive" class="ml-1 text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">
                   Rdio Only
@@ -334,6 +334,11 @@ const filteredDetectors = computed(() => {
 })
 
 // Methods
+// talkgroupFilter may be a legacy string or an array of labels
+function talkgroupLabels(detector) {
+  return [].concat(detector.talkgroupFilter || []).filter(Boolean).join(', ')
+}
+
 function toggleExpanded(index) {
   if (expandedDetectors.value.has(index)) {
     expandedDetectors.value.delete(index)

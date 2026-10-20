@@ -52,7 +52,7 @@
         data-form-type="other"
         data-credential-type="none"
         role="textbox"
-        aria-label="Email addresses for notifications"
+        :aria-label="ariaLabel"
         :placeholder="emailList.length === 0 ? placeholder : ''"
         class="flex-1 min-w-[120px] border-0 outline-none bg-transparent text-sm"
         @input="handleInput"
@@ -123,6 +123,10 @@ const props = defineProps({
   validateEmails: {
     type: Boolean,
     default: true
+  },
+  ariaLabel: {
+    type: String,
+    default: 'Email addresses for notifications'
   }
 })
 

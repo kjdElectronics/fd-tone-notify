@@ -5,7 +5,8 @@ const { v4: uuidv4 } = require('uuid');
 
 class NotificationParams{
     constructor({uuid , detector, timestamp=new Date().getTime(),
-                    matchAverages=[], notifications={}, filename, attachFile=false, message, isTest=false}) {
+                    matchAverages=[], notifications={}, filename, attachFile=false, message, isTest=false,
+                    talkgroup=''}) {
         this.uuid  = uuid  ? uuid  : uuidv4();
         this.detector = detector;
         this.timestamp = timestamp ? timestamp : new Date().getTime();
@@ -15,6 +16,7 @@ class NotificationParams{
         this.attachFile = attachFile;
         this.message = message;
         this.isTest = isTest;
+        this.talkgroup = talkgroup || ''; // Rdio talkgroup label the call arrived on; empty for live/file audio
     }
 
     toObj(){
@@ -26,12 +28,21 @@ class NotificationParams{
             notifications: this.notifications,
             filename: this.filename,
             dateString: this.dateString,
-            message: this.message
+            message: this.message,
+            talkgroup: this.talkgroup
         }
     }
 
     get dateString(){
         return moment(this.timestamp).format('MMMM Do YYYY, H:mm:ss');
+    }
+
+    /**
+     * Replace notification template variables: %d (date/time) and %tg (talkgroup)
+     */
+    applyTemplate(str){
+        if (typeof str !== 'string') return str;
+        return str.replaceAll('%tg', this.talkgroup).replaceAll('%d', this.dateString);
     }
 
     getPushbullets(prePostType){
@@ -43,8 +54,8 @@ class NotificationParams{
         const updatedEmails = emails.map(email => {
                 // Make a shallow copy of the email objects so we do not modify them
                 let emailCopy = Object.assign({}, email);
-                emailCopy.text = email.text.replace('%d', this.dateString);
-                emailCopy.subject = email.subject.replace('%d', this.dateString);
+                emailCopy.text = this.applyTemplate(email.text);
+                emailCopy.subject = this.applyTemplate(email.subject);
                 return emailCopy;
             });
         return updatedEmails;

@@ -65,7 +65,7 @@
               class="form-input form-input-sm"
               @input="updateNotification(index)"
             ></textarea>
-            <p class="form-help-sm">Use %d as placeholder for date</p>
+            <p class="form-help-sm">Use %d for date, %tg for Rdio talkgroup</p>
           </div>
         </div>
 
@@ -102,7 +102,7 @@
               class="form-input form-input-sm"
               @input="updateNotification(index)"
             ></textarea>
-            <p class="form-help-sm">Use %d as placeholder for date</p>
+            <p class="form-help-sm">Use %d for date, %tg for Rdio talkgroup</p>
           </div>
         </div>
 

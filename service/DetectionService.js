@@ -193,7 +193,8 @@ class DetectionService extends EventEmitter{
                 matchAverages,
                 notifications: tonesDetectorConfig.notifications,
                 filename: fullPath,
-                message
+                message,
+                talkgroup: this._sourceContext?.talkgroup?.label || ''
             });
 
             let notificationPromise = null;

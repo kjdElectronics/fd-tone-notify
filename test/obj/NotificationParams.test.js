@@ -101,6 +101,22 @@ describe("NotificationParams", function() {
             expect(emails[0].subject).to.have.string("August 1st 2022,");
         });
 
+        it("should insert talkgroup and repeated timestamps", function() {
+            newParams = deep_copy(DEFAULT_PARAMS);
+            newParams.talkgroup = 'Derry Primary';
+            newParams.notifications.preRecording.emails.push({text: "%tg at %d / %d", subject: "Tone on %tg"});
+
+            const emails = new NotificationParams(newParams).getEmails('PRE');
+            expect(emails[0].subject).to.equal("Tone on Derry Primary");
+            expect(emails[0].text).to.match(/^Derry Primary at August 1st 2022,.* \/ August 1st 2022,/);
+        });
+
+        it("should replace %tg with empty string when there is no talkgroup", function() {
+            newParams = deep_copy(DEFAULT_PARAMS);
+            newParams.notifications.preRecording.emails.push({text: "TG[%tg]", subject: "s"});
+            expect(new NotificationParams(newParams).getEmails('PRE')[0].text).to.equal("TG[]");
+        });
+
         it("should not modify the original email objects", function() {
             const preEmail = {
                 text: "PRE Text %d",
